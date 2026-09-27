@@ -121,6 +121,12 @@ public sealed class InstallContext
     /// <summary>Set when a step (e.g. a prerequisite returning 3010) needs a reboot; the finish page shows it.</summary>
     public bool RebootRequired { get; set; }
 
+    /// <summary>Install migrations: the seams they reach the machine through, and what they did in this run.</summary>
+    internal Migrations.MigrationRuntime Migrations { get; set; } = new();
+
+    /// <summary>Best-effort clean-ups the executor runs once every step has succeeded (migration undo backups).</summary>
+    internal List<Func<System.Threading.Tasks.Task>> CompletionActions { get; } = new();
+
     /// <summary>Ledger for tracked mutations. Covers files, directories, registry values/keys, and PATH entries.</summary>
     internal TrackingLedger Ledger { get; } = new();
 

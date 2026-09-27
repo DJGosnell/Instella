@@ -1,1 +1,78 @@
 #nullable enable
+Instella.Installer.Runtime.Builders.InstallerBuilder.AddMigration(Instella.Installer.Runtime.Migrations.InstallMigration! migration) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.AddMigration<T>() -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithAppManagedAutoStart(string! runValueName) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Migrations.Condition
+Instella.Installer.Runtime.Migrations.InstallMigration
+Instella.Installer.Runtime.Migrations.InstallMigration.AdoptRunValueAsync(string! name, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<bool>!
+Instella.Installer.Runtime.Migrations.InstallMigration.Context.get -> Instella.Installer.Runtime.Migrations.MigrationContext!
+Instella.Installer.Runtime.Migrations.InstallMigration.DeleteFilesAsync(Instella.Installer.Runtime.Migrations.MigrationFolder! folder, System.Collections.Generic.IReadOnlyList<string!>! fileNames, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<int>!
+Instella.Installer.Runtime.Migrations.InstallMigration.DeleteFolderIfEmptyAsync(Instella.Installer.Runtime.Migrations.MigrationFolder! folder, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<bool>!
+Instella.Installer.Runtime.Migrations.InstallMigration.DeleteRunValueAsync(string! name, Instella.Installer.Runtime.Migrations.MigrationFolder! pointingInto, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<bool>!
+Instella.Installer.Runtime.Migrations.InstallMigration.FileExists(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.Folder(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Runtime.Migrations.MigrationFolder!
+Instella.Installer.Runtime.Migrations.InstallMigration.FolderExists(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.InstallMigration() -> void
+Instella.Installer.Runtime.Migrations.InstallMigration.InstellaInstallationAt(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsFirstInstall() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsFirstInstallOrUpgrade() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsMachineInstall() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsPerUserInstall() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsRepair() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsUninstall() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsUpgrade() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.IsWindows() -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.Log.get -> Instella.Core.Logging.IInstellaLogger!
+Instella.Installer.Runtime.Migrations.InstallMigration.ProcessRunningIn(Instella.Installer.Runtime.Migrations.MigrationFolder! folder) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.RegistryValueExists(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.RepointRunValueAsync(string! name, Instella.Installer.Runtime.Migrations.MigrationFolder! from, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<bool>!
+Instella.Installer.Runtime.Migrations.InstallMigration.RunProgramAsync(string! exePath, System.Collections.Generic.IReadOnlyList<string!>! arguments, System.Collections.Generic.IReadOnlyList<int>! successExitCodes, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<int>!
+Instella.Installer.Runtime.Migrations.InstallMigration.RunValueExists(string! name) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.RunValuePointsInto(string! name, Instella.Installer.Runtime.Migrations.MigrationFolder! folder) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.InstallMigration.StopProcessesInAsync(Instella.Installer.Runtime.Migrations.MigrationFolder! folder, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task!
+Instella.Installer.Runtime.Migrations.InstallMigration.UpgradingFrom(string! range) -> Instella.Installer.Runtime.Migrations.Condition!
+Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.InstallFolder = 6 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.LocalAppData = 0 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.ProgramData = 5 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.ProgramFiles = 3 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.ProgramFilesX86 = 4 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.RoamingAppData = 1 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.KnownFolder.StartMenuPrograms = 2 -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.MigrationActionException
+Instella.Installer.Runtime.Migrations.MigrationActionException.Action.get -> string!
+Instella.Installer.Runtime.Migrations.MigrationActionException.MigrationActionException(string! action, string! message) -> void
+Instella.Installer.Runtime.Migrations.MigrationContext
+Instella.Installer.Runtime.Migrations.MigrationContext.AppId.get -> string!
+Instella.Installer.Runtime.Migrations.MigrationContext.AppName.get -> string!
+Instella.Installer.Runtime.Migrations.MigrationContext.AppVersion.get -> System.Version!
+Instella.Installer.Runtime.Migrations.MigrationContext.FileSystem.get -> Instella.Core.FileSystem.IFileSystem!
+Instella.Installer.Runtime.Migrations.MigrationContext.GetFolderPath(Instella.Installer.Runtime.Migrations.KnownFolder folder) -> string?
+Instella.Installer.Runtime.Migrations.MigrationContext.InstallPath.get -> string!
+Instella.Installer.Runtime.Migrations.MigrationContext.IsPreview.get -> bool
+Instella.Installer.Runtime.Migrations.MigrationContext.Mode.get -> Instella.Core.Installation.InstallerMode
+Instella.Installer.Runtime.Migrations.MigrationContext.Platform.get -> Instella.Core.Platform.TargetPlatform
+Instella.Installer.Runtime.Migrations.MigrationContext.PlatformServices.get -> Instella.Core.Platform.IPlatformServices!
+Instella.Installer.Runtime.Migrations.MigrationContext.PreviousVersion.get -> System.Version?
+Instella.Installer.Runtime.Migrations.MigrationContext.Scope.get -> Instella.Core.Installation.InstallationScope
+Instella.Installer.Runtime.Migrations.MigrationFolder
+Instella.Installer.Runtime.Migrations.MigrationFolder.RelativePath.get -> string!
+Instella.Installer.Runtime.Migrations.MigrationFolder.Root.get -> Instella.Installer.Runtime.Migrations.KnownFolder
+Instella.Installer.Runtime.Migrations.MigrationTiming
+Instella.Installer.Runtime.Migrations.MigrationTiming.AfterCommit = 1 -> Instella.Installer.Runtime.Migrations.MigrationTiming
+Instella.Installer.Runtime.Migrations.MigrationTiming.BeforeCommit = 0 -> Instella.Installer.Runtime.Migrations.MigrationTiming
+Instella.Installer.Runtime.Migrations.MigrationTiming.Uninstall = 2 -> Instella.Installer.Runtime.Migrations.MigrationTiming
+abstract Instella.Installer.Runtime.Migrations.InstallMigration.ExecuteAsync(System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task!
+abstract Instella.Installer.Runtime.Migrations.InstallMigration.Id.get -> string!
+abstract Instella.Installer.Runtime.Migrations.InstallMigration.When() -> Instella.Installer.Runtime.Migrations.Condition!
+override Instella.Installer.Runtime.Migrations.MigrationFolder.ToString() -> string!
+static Instella.Installer.Runtime.Migrations.Condition.Always.get -> Instella.Installer.Runtime.Migrations.Condition!
+static Instella.Installer.Runtime.Migrations.Condition.From(System.Func<Instella.Installer.Runtime.Migrations.MigrationContext!, bool>! predicate, string? description = null) -> Instella.Installer.Runtime.Migrations.Condition!
+static Instella.Installer.Runtime.Migrations.Condition.operator !(Instella.Installer.Runtime.Migrations.Condition! operand) -> Instella.Installer.Runtime.Migrations.Condition!
+static Instella.Installer.Runtime.Migrations.Condition.operator &(Instella.Installer.Runtime.Migrations.Condition! left, Instella.Installer.Runtime.Migrations.Condition! right) -> Instella.Installer.Runtime.Migrations.Condition!
+static Instella.Installer.Runtime.Migrations.Condition.operator |(Instella.Installer.Runtime.Migrations.Condition! left, Instella.Installer.Runtime.Migrations.Condition! right) -> Instella.Installer.Runtime.Migrations.Condition!
+virtual Instella.Installer.Runtime.Migrations.InstallMigration.DisplayName.get -> string!
+virtual Instella.Installer.Runtime.Migrations.InstallMigration.Order.get -> int
+virtual Instella.Installer.Runtime.Migrations.InstallMigration.RollbackAsync(System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task!
+virtual Instella.Installer.Runtime.Migrations.InstallMigration.RunOnce.get -> bool
+virtual Instella.Installer.Runtime.Migrations.InstallMigration.Timing.get -> Instella.Installer.Runtime.Migrations.MigrationTiming

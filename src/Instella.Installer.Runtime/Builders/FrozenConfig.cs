@@ -51,7 +51,16 @@ internal sealed record FrozenConfig(
     bool OfferNewerVersion = false,
     bool AllowVersionSelection = false,
     ImageSource? BrandImage = null,
-    string? DownloadToken = null);
+    string? DownloadToken = null,
+    IReadOnlyList<Migrations.InstallMigration>? Migrations = null,
+    IReadOnlyList<string>? AppManagedRunValues = null)
+{
+    /// <summary>The registered migrations, sorted (timing, order, id); empty when none.</summary>
+    public IReadOnlyList<Migrations.InstallMigration> MigrationsOrEmpty => Migrations ?? [];
+
+    /// <summary>The <c>WithAppManagedAutoStart</c> value names; empty when none.</summary>
+    public IReadOnlyList<string> AppManagedRunValuesOrEmpty => AppManagedRunValues ?? [];
+}
 
 internal static class FrozenConfigExtensions
 {

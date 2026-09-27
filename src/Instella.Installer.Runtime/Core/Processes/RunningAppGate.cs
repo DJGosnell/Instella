@@ -35,6 +35,13 @@ internal sealed class DefaultLockingProcessFinder : ILockingProcessFinder
         OperatingSystem.IsWindows() ? RestartManager.FindLockingProcesses(files) : [];
 }
 
+/// <summary>Closes one program: asks it to close, then ends it after the timeout. The seam tests fake.</summary>
+internal interface IProcessCloser
+{
+    /// <summary>True when <paramref name="process"/> is no longer running.</summary>
+    Task<bool> CloseAsync(LockingProcess process, TimeSpan timeout, CancellationToken ct);
+}
+
 /// <summary>What the user chose when programs are using the installation's files.</summary>
 internal enum AppRunningChoice
 {
@@ -64,20 +71,31 @@ internal sealed class RunningAppGate
     /// <param name="log">Installer log.</param>
     /// <param name="finder">Finds programs using files; null uses Restart Manager.</param>
     /// <param name="fs">Lists the installation's files; null uses the real disk (the harness passes its own).</param>
+    /// <param name="closer">Closes a program; null asks it to close through <paramref name="platform"/>, then ends it.</param>
     public RunningAppGate(IPlatformServices platform, IInstellaLogger log, ILockingProcessFinder? finder = null,
-        Instella.Core.FileSystem.IFileSystem? fs = null)
+        Instella.Core.FileSystem.IFileSystem? fs = null, IProcessCloser? closer = null)
     {
         _platform = platform;
         _log = log;
         _finder = finder ?? DefaultLockingProcessFinder.Instance;
         _fs = fs ?? Instella.Core.FileSystem.RealFileSystem.Instance;
+        _closer = closer;
     }
+
+    private readonly IProcessCloser? _closer;
+    private readonly List<LockingProcess> _closed = [];
 
     /// <summary>How long a program gets to close after being asked, before it is ended.</summary>
     public TimeSpan CloseTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>The processes using files under <paramref name="installPath"/>.</summary>
-    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string executableName)
+    /// <summary>The programs this gate has closed.</summary>
+    public IReadOnlyList<LockingProcess> Closed { get { lock (_closed) return [.. _closed]; } }
+
+    /// <summary>
+    /// The processes using files under <paramref name="installPath"/>, plus copies of
+    /// <paramref name="executableName"/> running from there; null skips that name-based lookup.
+    /// </summary>
+    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string? executableName)
     {
         var self = Environment.ProcessId;
         var selfPath = Environment.ProcessPath;
@@ -98,10 +116,13 @@ internal sealed class RunningAppGate
             }
         }
 
-        foreach (var p in _platform.GetRunningProcesses(Path.GetFileNameWithoutExtension(executableName), installPath))
+        if (!string.IsNullOrEmpty(executableName))
         {
-            using (p)
-                if (p.Id != self) found.TryAdd(p.Id, new LockingProcess(p.Id, p.ProcessName, CanClose: true));
+            foreach (var p in _platform.GetRunningProcesses(Path.GetFileNameWithoutExtension(executableName), installPath))
+            {
+                using (p)
+                    if (p.Id != self) found.TryAdd(p.Id, new LockingProcess(p.Id, p.ProcessName, CanClose: true));
+            }
         }
         return found.Values.ToList();
     }
@@ -112,7 +133,7 @@ internal sealed class RunningAppGate
     /// prompt (silent) the answer is no.
     /// </summary>
     public async Task<bool> EnsureClosedAsync(
-        string appName, string installPath, string executableName, bool forceClose, AppRunningPrompt? prompt,
+        string appName, string installPath, string? executableName, bool forceClose, AppRunningPrompt? prompt,
         CancellationToken ct)
     {
         while (true)
@@ -141,12 +162,22 @@ internal sealed class RunningAppGate
     public Task CloseAsync(IEnumerable<LockingProcess> blockers, CancellationToken ct) =>
         Task.WhenAll(blockers.Where(b => b.CanClose).Select(async b =>
         {
-            using var process = Open(b);
-            if (process is null) return;
             _log.Info($"closing {b}");
-            var result = await _platform.TerminateProcessAsync(process, CloseTimeout, ct);
-            if (!result.Success) _log.Warn($"could not close {b}: {result.Error}");
+            var closed = _closer is not null
+                ? await _closer.CloseAsync(b, CloseTimeout, ct)
+                : await CloseThroughPlatformAsync(b, ct);
+            if (closed)
+                lock (_closed) _closed.Add(b);
         }));
+
+    private async Task<bool> CloseThroughPlatformAsync(LockingProcess b, CancellationToken ct)
+    {
+        using var process = Open(b);
+        if (process is null) return false;
+        var result = await _platform.TerminateProcessAsync(process, CloseTimeout, ct);
+        if (!result.Success) _log.Warn($"could not close {b}: {result.Error}");
+        return result.Success;
+    }
 
     /// <summary>
     /// The Windows prompt: Continue closes the programs, Try Again checks again after the user

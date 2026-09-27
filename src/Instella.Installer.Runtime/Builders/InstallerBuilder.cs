@@ -52,6 +52,8 @@ public sealed class InstallerBuilder
     private readonly List<CliFlagSpec> _declaredCliFlags = new();
     private readonly Dictionary<string, string> _cliFlagMappings = new(StringComparer.OrdinalIgnoreCase);
     private LoggingBuilder? _loggingBuilder;
+    private readonly List<Migrations.InstallMigration> _migrations = new();
+    private readonly List<string> _appManagedRunValues = new();
     private bool _previewEnabled;
     private PayloadFilterBuilder? _payloadFilter;
     private readonly List<PublisherKey> _publisherKeys = new();
@@ -309,6 +311,36 @@ public sealed class InstallerBuilder
     }
 
     /// <summary>
+    /// Register an install migration: code that runs under a condition during an install, upgrade,
+    /// repair or uninstall, for example to replace a copy of the app installed without Instella.
+    /// The class is created here, once. Ids must be unique; <see cref="Build"/> validates them.
+    /// </summary>
+    public InstallerBuilder AddMigration<T>() where T : Migrations.InstallMigration, new() => AddMigration(new T());
+
+    /// <summary>Register an install migration instance (for migrations that take constructor arguments).</summary>
+    public InstallerBuilder AddMigration(Migrations.InstallMigration migration)
+    {
+        ArgumentNullException.ThrowIfNull(migration);
+        _migrations.Add(migration);
+        return this;
+    }
+
+    /// <summary>
+    /// The app writes its own "start with Windows" Run value named <paramref name="runValueName"/>
+    /// (HKCU for per-user installs, HKLM for machine-wide ones). Uninstall deletes it, but only
+    /// while it points into the installation being removed. May be called more than once.
+    /// </summary>
+    public InstallerBuilder WithAppManagedAutoStart(string runValueName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runValueName);
+        if (runValueName.Contains('\\'))
+            throw new ArgumentException($"'{runValueName}' is not a registry value name", nameof(runValueName));
+        if (!_appManagedRunValues.Contains(runValueName, StringComparer.OrdinalIgnoreCase))
+            _appManagedRunValues.Add(runValueName);
+        return this;
+    }
+
+    /// <summary>
     /// Define a custom wizard page. <paramref name="id"/> must be unique
     /// within the installer. <paramref name="configure"/> receives a
     /// <see cref="PageBuilder"/> that the user populates with widgets and
@@ -521,8 +553,16 @@ public sealed class InstallerBuilder
             var spec = sb.Build();
             if (!seen.Add(spec.Name))
                 throw new InvalidOperationException($"InstallerBuilder.Build(): duplicate step name '{spec.Name}'.");
+            if (spec.Name.StartsWith(Migrations.MigrationValidation.StepPrefix, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"InstallerBuilder.Build(): step name '{spec.Name}' starts with '{Migrations.MigrationValidation.StepPrefix}', which is reserved for migrations.");
             specs.Add(spec);
         }
+
+        var migrations = Migrations.MigrationValidation.ValidateAndSort(_migrations);
+        if (_autoStart && _appManagedRunValues.Contains(_appId!, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"InstallerBuilder.Build(): WithAppManagedAutoStart(\"{_appId}\") names the Run value WithAutoStart() writes; use one or the other.");
 
         var pageSpecs = new List<PageSpec>(_userPages.Count);
         var pageIds = new HashSet<string>(StringComparer.Ordinal);
@@ -587,7 +627,9 @@ public sealed class InstallerBuilder
             OfferNewerVersion: _offerNewerVersion,
             AllowVersionSelection: _allowVersionSelection,
             BrandImage: _brandImage,
-            DownloadToken: _downloadToken);
+            DownloadToken: _downloadToken,
+            Migrations: migrations,
+            AppManagedRunValues: _appManagedRunValues.ToArray());
 
         return new InstellaInstallerImpl(config);
     }
