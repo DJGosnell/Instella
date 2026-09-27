@@ -37,6 +37,9 @@ internal sealed class MigrationRuntime
     public string UndoDirectory { get; init; } =
         Path.Combine(Path.GetTempPath(), "Instella", "migration-undo", Guid.NewGuid().ToString("N"));
 
+    /// <summary>Whether the install's completion already deletes <see cref="UndoDirectory"/>.</summary>
+    public bool UndoCleanupRegistered { get; set; }
+
     /// <summary>Ids of the run-once migrations that succeeded in this run.</summary>
     public List<string> Completed { get; } = [];
 

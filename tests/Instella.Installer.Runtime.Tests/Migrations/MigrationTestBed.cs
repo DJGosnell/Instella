@@ -44,6 +44,8 @@ internal sealed class MigrationTestBed
     public string CommonStartMenu { get; }
     public string InstallPath { get; set; }
     public InMemoryFileSystem FileSystem { get; } = new();
+    /// <summary>Replaces <see cref="FileSystem"/> in the context (fault injection); seed through <see cref="FileSystem"/>.</summary>
+    public Instella.Core.FileSystem.IFileSystem? FileSystemOverride { get; set; }
     public FakePlatformServices Platform { get; set; } = new();
     public RecordingLog Log { get; } = new();
     public FakeProcesses Processes { get; } = new();
@@ -107,7 +109,7 @@ internal sealed class MigrationTestBed
             Manifest = manifest,
             Options = new InstallOptions { InstallPath = InstallPath },
             Platform = Platform,
-            FileSystem = FileSystem,
+            FileSystem = FileSystemOverride ?? FileSystem,
             Log = Log,
             ExistingInstallation = PreviousVersion is null ? null : new InstalledManifest
             {
