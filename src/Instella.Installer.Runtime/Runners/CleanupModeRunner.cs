@@ -135,17 +135,8 @@ internal sealed class CleanupModeRunner
             return "the path is not valid";
         }
 
-        var volumeRoot = Path.GetPathRoot(full)?.TrimEnd('\\', '/') ?? "";
-        if (full.Length == 0 || volumeRoot.Equals(full, StringComparison.OrdinalIgnoreCase))
-            return "refusing to clean a volume root";
-
-        foreach (var special in ProtectedFolders())
-        {
-            var s = special.TrimEnd('\\', '/');
-            if (s.Length > 0 && (s.Equals(full, StringComparison.OrdinalIgnoreCase)
-                                 || s.StartsWith(full + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
-                return $"refusing to clean protected folder or its ancestor '{s}'";
-        }
+        if (Core.PathGuards.RefusalFor(full, []) is { } refusal)
+            return $"refusing to clean: {refusal}";
 
         var tombstone = ReadTombstone(full);
         if (tombstone is null) return "no uninstall tombstone";
@@ -169,20 +160,6 @@ internal sealed class CleanupModeRunner
         {
             return null;
         }
-    }
-
-    private static IEnumerable<string> ProtectedFolders()
-    {
-        Environment.SpecialFolder[] folders =
-        [
-            Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.Desktop, Environment.SpecialFolder.MyDocuments,
-            Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.Windows,
-            Environment.SpecialFolder.System, Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.LocalApplicationData,
-            Environment.SpecialFolder.CommonApplicationData, Environment.SpecialFolder.Programs, Environment.SpecialFolder.CommonPrograms,
-        ];
-        foreach (var f in folders)
-            yield return Environment.GetFolderPath(f);
-        yield return Path.GetTempPath();
     }
 
     private async Task<bool> DeleteWithRetryAsync(string path, CancellationToken ct)
