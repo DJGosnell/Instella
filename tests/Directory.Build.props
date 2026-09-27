@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    MSBuild stops at the nearest Directory.Build.props, so the root one has to
+    be imported explicitly or every test project silently loses the repo-wide
+    settings (TargetFramework, TreatWarningsAsErrors, packaging metadata, ...).
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Nothing under tests/ is ever published as a package. Centralised here so
+         a new test project is non-packable by default rather than by remembering. -->
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+</Project>

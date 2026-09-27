@@ -1,0 +1,101 @@
+#nullable enable
+Instella.Sdk.InstallationHealth
+Instella.Sdk.InstallationHealth.Healthy = 0 -> Instella.Sdk.InstallationHealth
+Instella.Sdk.InstallationHealth.InterruptedUpdate = 1 -> Instella.Sdk.InstallationHealth
+Instella.Sdk.InstellaClient
+Instella.Sdk.InstellaInfo
+Instella.Sdk.InstellaInfo.<Clone>$() -> Instella.Sdk.InstellaInfo!
+Instella.Sdk.InstellaInfo.AppId.get -> string!
+Instella.Sdk.InstellaInfo.AppId.init -> void
+Instella.Sdk.InstellaInfo.AppName.get -> string!
+Instella.Sdk.InstellaInfo.AppName.init -> void
+Instella.Sdk.InstellaInfo.Architecture.get -> Instella.Core.Platform.Architecture?
+Instella.Sdk.InstellaInfo.Architecture.init -> void
+Instella.Sdk.InstellaInfo.Channel.get -> string!
+Instella.Sdk.InstellaInfo.Channel.init -> void
+Instella.Sdk.InstellaInfo.Equals(Instella.Sdk.InstellaInfo? other) -> bool
+Instella.Sdk.InstellaInfo.InstallRoot.get -> string!
+Instella.Sdk.InstellaInfo.InstallRoot.init -> void
+Instella.Sdk.InstellaInfo.InstellaInfo() -> void
+Instella.Sdk.InstellaInfo.IsPerUser.get -> bool
+Instella.Sdk.InstellaInfo.IsPerUser.init -> void
+Instella.Sdk.InstellaInfo.ServerUrl.get -> string?
+Instella.Sdk.InstellaInfo.ServerUrl.init -> void
+Instella.Sdk.InstellaInfo.Version.get -> System.Version!
+Instella.Sdk.InstellaInfo.Version.init -> void
+Instella.Sdk.InstellaNotInstalledException
+Instella.Sdk.InstellaNotInstalledException.InstellaNotInstalledException(string! message) -> void
+Instella.Sdk.PostUpdateInfo
+Instella.Sdk.PostUpdateInfo.<Clone>$() -> Instella.Sdk.PostUpdateInfo!
+Instella.Sdk.PostUpdateInfo.Arguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Sdk.PostUpdateInfo.Arguments.init -> void
+Instella.Sdk.PostUpdateInfo.Channel.get -> string!
+Instella.Sdk.PostUpdateInfo.Channel.init -> void
+Instella.Sdk.PostUpdateInfo.CompletedAt.get -> System.DateTimeOffset
+Instella.Sdk.PostUpdateInfo.CompletedAt.init -> void
+Instella.Sdk.PostUpdateInfo.Deconstruct(out System.Version! FromVersion, out System.Version! ToVersion, out string! Channel, out System.DateTimeOffset CompletedAt, out System.Collections.Generic.IReadOnlyList<string!>! Arguments) -> void
+Instella.Sdk.PostUpdateInfo.Equals(Instella.Sdk.PostUpdateInfo? other) -> bool
+Instella.Sdk.PostUpdateInfo.FromVersion.get -> System.Version!
+Instella.Sdk.PostUpdateInfo.FromVersion.init -> void
+Instella.Sdk.PostUpdateInfo.PostUpdateInfo(System.Version! FromVersion, System.Version! ToVersion, string! Channel, System.DateTimeOffset CompletedAt, System.Collections.Generic.IReadOnlyList<string!>! Arguments) -> void
+Instella.Sdk.PostUpdateInfo.ToVersion.get -> System.Version!
+Instella.Sdk.PostUpdateInfo.ToVersion.init -> void
+Instella.Sdk.UpdateOptions
+Instella.Sdk.UpdateOptions.<Clone>$() -> Instella.Sdk.UpdateOptions!
+Instella.Sdk.UpdateOptions.AdditionalArgs.get -> string![]?
+Instella.Sdk.UpdateOptions.AdditionalArgs.init -> void
+Instella.Sdk.UpdateOptions.AllowForceClose.get -> bool
+Instella.Sdk.UpdateOptions.AllowForceClose.init -> void
+Instella.Sdk.UpdateOptions.Equals(Instella.Sdk.UpdateOptions? other) -> bool
+Instella.Sdk.UpdateOptions.GracefulCloseTimeout.get -> System.TimeSpan
+Instella.Sdk.UpdateOptions.GracefulCloseTimeout.init -> void
+Instella.Sdk.UpdateOptions.PreferPatch.get -> bool
+Instella.Sdk.UpdateOptions.PreferPatch.init -> void
+Instella.Sdk.UpdateOptions.RestartAfterUpdate.get -> bool
+Instella.Sdk.UpdateOptions.RestartAfterUpdate.init -> void
+Instella.Sdk.UpdateOptions.RestartCountdown.get -> System.TimeSpan
+Instella.Sdk.UpdateOptions.RestartCountdown.init -> void
+Instella.Sdk.UpdateOptions.Silent.get -> bool
+Instella.Sdk.UpdateOptions.Silent.init -> void
+Instella.Sdk.UpdateOptions.UpdateOptions() -> void
+Instella.Sdk.UpdaterStartResult
+Instella.Sdk.UpdaterStartResult.<Clone>$() -> Instella.Sdk.UpdaterStartResult!
+Instella.Sdk.UpdaterStartResult.Deconstruct(out int ProcessId) -> void
+Instella.Sdk.UpdaterStartResult.Equals(Instella.Sdk.UpdaterStartResult? other) -> bool
+Instella.Sdk.UpdaterStartResult.ProcessId.get -> int
+Instella.Sdk.UpdaterStartResult.ProcessId.init -> void
+Instella.Sdk.UpdaterStartResult.UpdaterStartResult(int ProcessId) -> void
+override Instella.Sdk.InstellaInfo.Equals(object? obj) -> bool
+override Instella.Sdk.InstellaInfo.GetHashCode() -> int
+override Instella.Sdk.InstellaInfo.ToString() -> string!
+override Instella.Sdk.PostUpdateInfo.Equals(object? obj) -> bool
+override Instella.Sdk.PostUpdateInfo.GetHashCode() -> int
+override Instella.Sdk.PostUpdateInfo.ToString() -> string!
+override Instella.Sdk.UpdateOptions.Equals(object? obj) -> bool
+override Instella.Sdk.UpdateOptions.GetHashCode() -> int
+override Instella.Sdk.UpdateOptions.ToString() -> string!
+override Instella.Sdk.UpdaterStartResult.Equals(object? obj) -> bool
+override Instella.Sdk.UpdaterStartResult.GetHashCode() -> int
+override Instella.Sdk.UpdaterStartResult.ToString() -> string!
+static Instella.Sdk.InstellaClient.CheckForUpdateAsync(string? channel = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Instella.Core.Update.UpdateCheckResult!>!
+static Instella.Sdk.InstellaClient.CheckForUpdateAsync(System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Update.UpdateCheckResult!>!
+static Instella.Sdk.InstellaClient.DownloadTokenOverride.get -> string?
+static Instella.Sdk.InstellaClient.DownloadTokenOverride.set -> void
+static Instella.Sdk.InstellaClient.GetCurrentInfo() -> Instella.Sdk.InstellaInfo!
+static Instella.Sdk.InstellaClient.GetInstallationHealth() -> Instella.Sdk.InstallationHealth
+static Instella.Sdk.InstellaClient.IsPostUpdate.get -> bool
+static Instella.Sdk.InstellaClient.LaunchUpdaterAndExitAsync(Instella.Core.Update.UpdateInfo! update, Instella.Sdk.UpdateOptions? options = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+static Instella.Sdk.InstellaClient.PostUpdate.get -> Instella.Sdk.PostUpdateInfo?
+static Instella.Sdk.InstellaClient.PostUpdateArguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Instella.Sdk.InstellaClient.PreviousVersion.get -> System.Version?
+static Instella.Sdk.InstellaClient.StartRecoveryAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+static Instella.Sdk.InstellaClient.StartUpdaterAsync(Instella.Core.Update.UpdateInfo! update, Instella.Sdk.UpdateOptions? options = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Instella.Sdk.UpdaterStartResult!>!
+static Instella.Sdk.InstellaClient.TryGetCurrentInfo(out Instella.Sdk.InstellaInfo? info) -> bool
+static Instella.Sdk.InstellaInfo.operator !=(Instella.Sdk.InstellaInfo? left, Instella.Sdk.InstellaInfo? right) -> bool
+static Instella.Sdk.InstellaInfo.operator ==(Instella.Sdk.InstellaInfo? left, Instella.Sdk.InstellaInfo? right) -> bool
+static Instella.Sdk.PostUpdateInfo.operator !=(Instella.Sdk.PostUpdateInfo? left, Instella.Sdk.PostUpdateInfo? right) -> bool
+static Instella.Sdk.PostUpdateInfo.operator ==(Instella.Sdk.PostUpdateInfo? left, Instella.Sdk.PostUpdateInfo? right) -> bool
+static Instella.Sdk.UpdateOptions.operator !=(Instella.Sdk.UpdateOptions? left, Instella.Sdk.UpdateOptions? right) -> bool
+static Instella.Sdk.UpdateOptions.operator ==(Instella.Sdk.UpdateOptions? left, Instella.Sdk.UpdateOptions? right) -> bool
+static Instella.Sdk.UpdaterStartResult.operator !=(Instella.Sdk.UpdaterStartResult? left, Instella.Sdk.UpdaterStartResult? right) -> bool
+static Instella.Sdk.UpdaterStartResult.operator ==(Instella.Sdk.UpdaterStartResult? left, Instella.Sdk.UpdaterStartResult? right) -> bool

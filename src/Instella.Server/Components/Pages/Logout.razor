@@ -1,0 +1,13 @@
+@page "/logout"
+@attribute [AllowAnonymous]
+
+<PageTitle>Sign out - Instella Server</PageTitle>
+
+@* Signing out is a POST with an antiforgery token; a GET cannot sign anyone out. *@
+<div class="login-container">
+    <h1>Sign out</h1>
+    <form method="post" action="/api/auth/logout">
+        <AntiforgeryToken />
+        <button type="submit" class="btn-primary">Sign out</button>
+    </form>
+</div>

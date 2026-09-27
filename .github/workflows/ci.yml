@@ -1,0 +1,34 @@
+# Instella CI. Every step is a scripts/verify.ps1 stage, so CI and the local gate cannot diverge:
+# reproduce a run locally with the same command (docs/verification.md).
+# windows-latest has PowerShell 7; setup-dotnet adds the .NET 10 SDK from global.json.
+#
+# verify.ps1 runs as ./scripts/verify.ps1 under `shell: pwsh`: `pwsh scripts/verify.ps1 -Stage A,B`
+# would run it as -File and pass "A,B" as one string. -NoSkip turns a SKIP into a failure.
+# Actions are pinned to commit SHAs: a tag can be moved, a SHA cannot.
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: verify.ps1 -Stage Build,Test,Migrations,Audit,Pack
+        shell: pwsh
+        run: ./scripts/verify.ps1 -Stage Build,Test,Migrations,Audit,Pack -NoSkip

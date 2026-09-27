@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    =====================================================================
+    Instella.Installer.Build.targets
+
+    Hooks into 'dotnet publish' on the user's *.Installer project to:
+
+      1. Publish each <ProjectReference InstellaPayload="true" /> into a directory
+         Instella owns ($(IntermediateOutputPath)instella-payload\<project>\), deleted
+         first, so stale files from earlier publishes never reach the payload.
+      2. Collect those files, plus any <InstellaPayload Include="..\dir" /> directory,
+         into @(InstellaCollectedPayloadFile).
+      3. Build the installer project a second time for the build host (no RID, no AOT) and
+         run that build with the emit-manifest CLI flag, so the manifest is produced on any
+         host for any target RID.
+      4. Append the payload to the installer exe with AppendPayloadToSelf: strip an old
+         payload, stamp the icon, embed a (signed) stub copy, zip deterministically, append,
+         and sign the installer.
+
+    Everything Instella writes lives under $(IntermediateOutputPath)instella-*, removed
+    by Clean.
+    =====================================================================
+  -->
+
+  <UsingTask TaskName="Instella.Installer.Build.Tasks.AppendPayloadToSelf"
+             AssemblyFile="$(InstellaBuildTasksAssembly)" />
+
+  <!--
+    CopyNativeBinary (from Microsoft.NETCore.Native.Publish.targets) exists
+    only when PublishAot=true — it's the target that replaces
+    $(PublishDir)<exe> with the freshly-linked native binary. Our post-Publish
+    targets must DependOn it when present so we modify the final exe, not the
+    transient AOT apphost that CopyNativeBinary would later overwrite. When
+    PublishAot is false, CopyNativeBinary is not defined and referencing it in
+    DependsOnTargets would produce MSB4057; the property lets us emit the dep
+    only in the configurations that need it.
+  -->
+  <PropertyGroup>
+    <!-- The installer's file name follows the target RID, not the build host (props sets the host default). -->
+    <_InstellaExeExtension Condition="$(RuntimeIdentifier.StartsWith('win'))">.exe</_InstellaExeExtension>
+    <_InstellaExeExtension Condition="'$(RuntimeIdentifier)' != '' AND !$(RuntimeIdentifier.StartsWith('win'))"></_InstellaExeExtension>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <_InstellaCopyNativeBinaryDep Condition="'$(PublishAot)' == 'true'">CopyNativeBinary</_InstellaCopyNativeBinaryDep>
+    <_InstellaCopyNativeBinaryDep Condition="'$(_InstellaCopyNativeBinaryDep)' == ''"></_InstellaCopyNativeBinaryDep>
+  </PropertyGroup>
+
+  <!--
+    ===================================================================
+    Target: _InstellaResolvePaths
+    Absolute paths, resolved at execution time ($(PublishDir) and
+    $(IntermediateOutputPath) are not final at evaluation time). The
+    payload root must be absolute: it is handed to other projects.
+    ===================================================================
+  -->
+  <Target Name="_InstellaResolvePaths"
+          Condition="'$(InstellaEnabled)' == 'true'">
+    <PropertyGroup>
+      <_InstellaObjRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)'))</_InstellaObjRoot>
+      <_InstellaPayloadRoot>$(_InstellaObjRoot)instella-payload\</_InstellaPayloadRoot>
+      <_InstellaHostOutput>$(_InstellaObjRoot)instella-host\</_InstellaHostOutput>
+      <_InstellaStubPath>$(_InstellaObjRoot)instella-stub\$(AssemblyName)$(_InstellaExeExtension)</_InstellaStubPath>
+      <_InstellaStampPath>$(_InstellaObjRoot)instella-append.stamp</_InstellaStampPath>
+      <InstellaGeneratedManifestPath Condition="'$(InstellaGeneratedManifestPath)' == ''">$(_InstellaObjRoot)instella-manifest\instella.json</InstellaGeneratedManifestPath>
+      <_InstellaAbsoluteManifestPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(InstellaGeneratedManifestPath)'))</_InstellaAbsoluteManifestPath>
+      <_InstellaBuiltInstallerPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PublishDir)', '$(AssemblyName)$(_InstellaExeExtension)'))</_InstellaBuiltInstallerPath>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    ===================================================================
+    Target: InstellaPublishPayload
+    Publishes each payload project into its own subdirectory of
+    $(_InstellaPayloadRoot). The whole root is deleted first. Payload
+    projects keep their own publish settings (PublishAot, SelfContained,
+    trimming); only Configuration and RuntimeIdentifier are propagated.
+    Global properties from the installer's command line (for example
+    -p:PublishAot=false -p:PublishSingleFile=true to build the installer
+    without the MSVC toolchain) would otherwise flow into the payload
+    publish too, so the publish-shape ones are removed: the payload must be
+    published exactly as the same project is for an upload.
+    ===================================================================
+  -->
+  <PropertyGroup>
+    <_InstellaPayloadShapeProperties>PublishAot;PublishSingleFile;PublishTrimmed;TrimMode;SelfContained;PublishReadyToRun;IncludeNativeLibrariesForSelfExtract;IncludeAllContentForSelfExtract;EnableCompressionInSingleFile</_InstellaPayloadShapeProperties>
+  </PropertyGroup>
+
+  <Target Name="InstellaPublishPayload"
+          AfterTargets="Publish"
+          BeforeTargets="InstellaAppendPayload"
+          DependsOnTargets="_InstellaResolvePaths"
+          Condition="'$(InstellaEnabled)' == 'true' AND '@(InstellaPayloadProject)' != ''">
+
+    <Message Importance="normal"
+             Text="Instella: publishing @(InstellaPayloadProject->Count()) payload project(s) into $(_InstellaPayloadRoot)" />
+
+    <RemoveDir Directories="$(_InstellaPayloadRoot)" />
+
+    <MSBuild Projects="@(InstellaPayloadProject)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(_InstellaPayloadRoot)%(InstellaPayloadProject.Filename)\"
+             BuildInParallel="false"
+             RemoveProperties="TargetFramework;$(_InstellaPayloadShapeProperties)" />
+
+    <ItemGroup>
+      <!-- Batched per project, so %(RecursiveDir) is relative to that project's directory. -->
+      <_InstellaPayloadPublishedFile Include="$(_InstellaPayloadRoot)%(InstellaPayloadProject.Filename)\**\*" />
+      <InstellaCollectedPayloadFile Include="@(_InstellaPayloadPublishedFile)">
+        <TargetPath>%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+      </InstellaCollectedPayloadFile>
+    </ItemGroup>
+
+    <Message Importance="normal"
+             Text="Instella: collected @(_InstellaPayloadPublishedFile->Count()) payload file(s) from ProjectReference payload(s)" />
+
+    <!--
+      Each payload project's executable name (AssemblyName + the RID's executable
+      extension), so AppendPayloadToSelf can fill the manifest's executableName when the
+      builder did not call WithExecutableName.
+    -->
+    <MSBuild Projects="@(InstellaPayloadProject)"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier)"
+             RemoveProperties="TargetFramework;$(_InstellaPayloadShapeProperties)">
+      <Output TaskParameter="TargetOutputs" ItemName="_InstellaPayloadTargetPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <_InstellaPayloadExeExtension Condition="$(RuntimeIdentifier.StartsWith('win'))">.exe</_InstellaPayloadExeExtension>
+      <_InstellaPayloadExeExtension Condition="'$(RuntimeIdentifier)' == ''">$(_InstellaExeExtension)</_InstellaPayloadExeExtension>
+    </PropertyGroup>
+    <ItemGroup>
+      <InstellaPayloadExecutableName Include="@(_InstellaPayloadTargetPath->'%(Filename)$(_InstellaPayloadExeExtension)')" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    ===================================================================
+    Target: InstellaCollectPayloadPaths
+    Iterates <InstellaPayload Include="..\path\to\publish\dir" /> items
+    and adds each directory's files to @(InstellaCollectedPayloadFile)
+    WITHOUT copying. Complements InstellaPublishPayload for payloads
+    produced by a separate build pipeline (another solution, a Node/Rust
+    tool, a CI artifact) that the installer should bundle as-is.
+
+    Items may optionally carry metadata:
+      <Subdirectory>rel/path</Subdirectory>
+          Prefix each zip entry with this subdir so multiple source
+          directories coexist without filename collisions.
+
+    Missing source directories produce a build-time error.
+    ===================================================================
+  -->
+  <Target Name="InstellaCollectPayloadPaths"
+          AfterTargets="Publish"
+          BeforeTargets="InstellaAppendPayload"
+          DependsOnTargets="_InstellaResolvePaths"
+          Condition="'$(InstellaEnabled)' == 'true' AND '@(InstellaPayload)' != ''">
+
+    <Error Condition="!Exists('%(InstellaPayload.FullPath)')"
+           Text="Instella: InstellaPayload source directory '%(InstellaPayload.FullPath)' does not exist. Ensure the upstream build has produced it before publishing the installer." />
+
+    <ItemGroup>
+      <!-- Batched on the item, not an item transform: MSBuild does not expand wildcards in
+           transform output, so @(InstellaPayload->'%(FullPath)\**\*') collected nothing. -->
+      <_InstellaRawPayloadFile Include="%(InstellaPayload.FullPath)\**\*">
+        <Subdirectory>%(InstellaPayload.Subdirectory)</Subdirectory>
+      </_InstellaRawPayloadFile>
+
+      <InstellaCollectedPayloadFile Include="@(_InstellaRawPayloadFile)"
+                                    Condition="'%(_InstellaRawPayloadFile.Subdirectory)' == ''">
+        <TargetPath>%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+      </InstellaCollectedPayloadFile>
+      <InstellaCollectedPayloadFile Include="@(_InstellaRawPayloadFile)"
+                                    Condition="'%(_InstellaRawPayloadFile.Subdirectory)' != ''">
+        <TargetPath>%(_InstellaRawPayloadFile.Subdirectory)/%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+      </InstellaCollectedPayloadFile>
+    </ItemGroup>
+
+    <Message Importance="normal"
+             Text="Instella: collected @(_InstellaRawPayloadFile->Count()) payload file(s) from @(InstellaPayload->Count()) InstellaPayload path(s)" />
+  </Target>
+
+  <!--
+    ===================================================================
+    Target: InstellaGenerateManifestFromBuilder
+    The configuration in Program.cs is plain C#, so the manifest comes
+    from a host-runnable build of the same project (no RID, no AOT,
+    framework-dependent) run with the emit-manifest CLI flag. The
+    published exe may target another OS or architecture than the build
+    machine, so it is never executed. One code path for every build
+    Configuration code must therefore be free of side
+    effects and must not branch on the build machine's OS.
+    ===================================================================
+  -->
+  <Target Name="InstellaGenerateManifestFromBuilder"
+          AfterTargets="Publish"
+          BeforeTargets="InstellaAppendPayload"
+          DependsOnTargets="_InstellaResolvePaths"
+          Condition="'$(InstellaEnabled)' == 'true'">
+
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=;PublishAot=false;SelfContained=false;PublishTrimmed=false;PublishSingleFile=false;PublishReadyToRun=false;InstellaEnabled=false;OutputPath=$(_InstellaHostOutput);IntermediateOutputPath=$(_InstellaObjRoot)instella-host-obj\">
+      <Output TaskParameter="TargetOutputs" ItemName="_InstellaHostAssembly" />
+    </MSBuild>
+
+    <PropertyGroup>
+      <_InstellaDotnet>$(DOTNET_HOST_PATH)</_InstellaDotnet>
+      <_InstellaDotnet Condition="'$(_InstellaDotnet)' == ''">dotnet</_InstellaDotnet>
+    </PropertyGroup>
+
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_InstellaAbsoluteManifestPath)'))" />
+    <Delete Files="$(_InstellaAbsoluteManifestPath)" />
+
+    <Exec Command="&quot;$(_InstellaDotnet)&quot; exec &quot;@(_InstellaHostAssembly)&quot; --emit-manifest &quot;$(_InstellaAbsoluteManifestPath)&quot;"
+          IgnoreExitCode="true"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_InstellaEmitExitCode" />
+      <Output TaskParameter="ConsoleOutput" ItemName="_InstellaEmitOutput" />
+    </Exec>
+
+    <Error Code="INSTELLA0203"
+           Condition="'$(_InstellaEmitExitCode)' != '0' OR !Exists('$(_InstellaAbsoluteManifestPath)')"
+           Text="manifest emission failed (exit $(_InstellaEmitExitCode)): @(_InstellaEmitOutput, ' ')" />
+  </Target>
+
+  <!--
+    ===================================================================
+    Target: InstellaAppendPayload
+    Runs after the shipping exe is final (CopyNativeBinary for AOT).
+    InstellaSignCommand (a command with {0} for the file path) signs the
+    stub copy before it is zipped and the finished installer after the
+    payload is appended; unset, the same flow runs unsigned.
+    ===================================================================
+  -->
+  <Target Name="InstellaAppendPayload"
+          AfterTargets="Publish"
+          DependsOnTargets="InstellaPublishPayload;InstellaCollectPayloadPaths;InstellaGenerateManifestFromBuilder;$(_InstellaCopyNativeBinaryDep)"
+          Condition="'$(InstellaEnabled)' == 'true'">
+
+    <Error Condition="!Exists('$(_InstellaBuiltInstallerPath)')"
+           Text="Instella: the published installer was not found at '$(_InstellaBuiltInstallerPath)'." />
+
+    <!-- Only Windows is fully supported; other targets are experimental. NoWarn=INSTELLA0001 makes the choice deliberate. -->
+    <Warning Code="INSTELLA0001"
+             Condition="(('$(RuntimeIdentifier)' != '' AND !$(RuntimeIdentifier.StartsWith('win'))) OR ('$(RuntimeIdentifier)' == '' AND '$(OS)' != 'Windows_NT')) AND !$(NoWarn.Contains('INSTELLA0001'))"
+             Text="Linux/macOS support in Instella is experimental and not covered by compatibility guarantees (target '$(RuntimeIdentifier)'). Add INSTELLA0001 to NoWarn to acknowledge." />
+
+    <Warning Condition="'@(InstellaPayloadProject)' == '' AND '@(InstellaPayload)' == ''"
+             Text="Instella: no payload content authored. Add &lt;ProjectReference InstellaPayload=&quot;true&quot;&gt; for an auto-published project, or &lt;InstellaPayload Include=&quot;..\path\to\publish\dir&quot; /&gt; for a pre-built directory. The installer will be built with an empty payload." />
+
+    <AppendPayloadToSelf
+        InstallerExePath="$(_InstellaBuiltInstallerPath)"
+        ManifestPath="$(_InstellaAbsoluteManifestPath)"
+        PayloadFiles="@(InstellaCollectedPayloadFile)"
+        PayloadExecutableNames="@(InstellaPayloadExecutableName)"
+        StubOutputPath="$(_InstellaStubPath)"
+        SignCommand="$(InstellaSignCommand)"
+        ApplicationIcon="$(ApplicationIcon)"
+        StampPath="$(_InstellaStampPath)" />
+
+    <Message Importance="high"
+             Text="Instella: installer ready at $(_InstellaBuiltInstallerPath)" />
+  </Target>
+
+  <!--
+    ===================================================================
+    Target: InstellaClean
+    Removes everything Instella wrote under the intermediate directory.
+    ===================================================================
+  -->
+  <Target Name="InstellaClean" AfterTargets="Clean">
+    <PropertyGroup>
+      <_InstellaCleanRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)'))</_InstellaCleanRoot>
+    </PropertyGroup>
+    <RemoveDir Directories="$(_InstellaCleanRoot)instella-payload;$(_InstellaCleanRoot)instella-host;$(_InstellaCleanRoot)instella-host-obj;$(_InstellaCleanRoot)instella-stub;$(_InstellaCleanRoot)instella-manifest" />
+    <Delete Files="$(_InstellaCleanRoot)instella-append.stamp" />
+  </Target>
+
+</Project>

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Instella.Server</RootNamespace>
+    <AssemblyName>Instella.Server</AssemblyName>
+    <Description>Package distribution server with Blazor admin UI and REST API</Description>
+    <!-- A deployed application, not a library: it ships as a container image.
+         Microsoft.NET.Sdk.Web disables packing implicitly, but only an explicit
+         setting silences the pack warning. Version comes from the central
+         VersionPrefix in Directory.Build.props. -->
+    <IsPackable>false</IsPackable>
+    <!-- Microsoft.NET.Sdk.Web opts into a warning whenever a non-packable web
+         project is packed. Packing the whole solution is exactly what verify.ps1
+         does, and skipping this project is the intent, so the warning is noise. -->
+    <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Otp.NET" />
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="QRCoder" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Instella.Core\Instella.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Instella.Server.Tests" />
+  </ItemGroup>
+
+</Project>

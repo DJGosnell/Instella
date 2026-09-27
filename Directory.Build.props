@@ -1,0 +1,88 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>9999</WarningLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Single source of version truth for every project, packed or not.
+       scripts/build.ps1 reads VersionPrefix from this file to tag the
+       Server's container image. Release candidates add the suffix on the
+       command line: dotnet pack -p:VersionSuffix=rc.1 -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+  </PropertyGroup>
+
+  <!-- The libraries that ship a C# API. Directory.Build.targets turns on the
+       PublicAPI analyzers for them; the documentation switch must be set here, before the SDK
+       computes DocumentationFile. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Instella.Core' or '$(MSBuildProjectName)' == 'Instella.Sdk' or '$(MSBuildProjectName)' == 'Instella.Installer.Runtime' or '$(MSBuildProjectName)' == 'Instella.Installer.Testing'">
+    <InstellaPublicApi>true</InstellaPublicApi>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Instella</Authors>
+    <Company>Instella</Company>
+    <Copyright>Copyright © 2026 Instella</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- Where the source, docs and issues live. Changing these lines is the whole repository move:
+       package READMEs ({{DocsUrl}}, {{RepositoryUrl}}), the CLI's links and the package metadata
+       all derive from them. -->
+  <PropertyGroup>
+    <InstellaRepositoryUrl Condition="'$(InstellaRepositoryUrl)' == ''">https://github.com/DJGosnell/Instella</InstellaRepositoryUrl>
+    <InstellaDocsUrl Condition="'$(InstellaDocsUrl)' == ''">$(InstellaRepositoryUrl)/blob/master/docs</InstellaDocsUrl>
+    <!-- Gitea or GitHub. GitHub's SourceLink is part of the SDK; Gitea's needs a package. -->
+    <InstellaRepositoryHost Condition="'$(InstellaRepositoryHost)' == ''">GitHub</InstellaRepositoryHost>
+  </PropertyGroup>
+
+  <!-- Repository links. Packages carry the repository and project URL and SourceLink. A fork
+       hosted where anonymous visitors cannot read it builds with -p:InstellaPublicRepository=false,
+       so nuget.org users do not get "source" links that 404. -->
+  <PropertyGroup>
+    <InstellaPublicRepository Condition="'$(InstellaPublicRepository)' == ''">true</InstellaPublicRepository>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(InstellaPublicRepository)' != 'true'">
+    <!-- The .NET SDK's built-in SourceLink would still write a source map for an unreadable host. -->
+    <EnableSourceLink>false</EnableSourceLink>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(InstellaPublicRepository)' == 'true'">
+    <PackageProjectUrl>$(InstellaRepositoryUrl)</PackageProjectUrl>
+    <RepositoryUrl>$(InstellaRepositoryUrl)</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <!-- Symbols and source-linked debugging: Release keeps portable PDBs so a shipped installer
+       produces stack traces with line numbers, and packages get a symbol package (.snupkg). -->
+  <PropertyGroup>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CI)' == 'true' or '$(ContinuousIntegrationBuild)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(InstellaPublicRepository)' == 'true' and '$(InstellaRepositoryHost)' == 'Gitea'">
+    <PackageReference Include="Microsoft.SourceLink.Gitea" PrivateAssets="all" />
+    <!-- Gitea has no well-known host, so SourceLink cannot infer ours. Without
+         this the repository URL is left untranslated and source stepping fails. -->
+    <SourceLinkGiteaHost Include="$([System.Text.RegularExpressions.Regex]::Replace('$(InstellaRepositoryUrl)', '^https?://([^/]+).*$', '$1'))" />
+  </ItemGroup>
+</Project>

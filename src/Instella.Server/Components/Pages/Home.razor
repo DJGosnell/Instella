@@ -1,0 +1,199 @@
+@page "/"
+@using Instella.Server.Services
+@using Microsoft.EntityFrameworkCore
+@inject Instella.Server.Data.AppDbContext Db
+
+<PageTitle>Dashboard - Instella Server</PageTitle>
+
+<h1>Dashboard</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">@_totalPackages</div>
+        <div class="stat-label">Packages</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@_totalVersions</div>
+        <div class="stat-label">Versions</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@_totalBuilds</div>
+        <div class="stat-label">Builds</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@FormatNumber(_totalDownloads)</div>
+        <div class="stat-label">Total Downloads</div>
+    </div>
+</div>
+
+@if (_topPackages.Count > 0)
+{
+    <h2>Top Packages</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Package</th>
+                <th>Latest Version</th>
+                <th>Downloads</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pkg in _topPackages)
+            {
+                <tr>
+                    <td>@pkg.DisplayName</td>
+                    <td>@pkg.LatestVersion</td>
+                    <td>@FormatNumber(pkg.Downloads)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_recentDownloads.Count > 0)
+{
+    <h2>Recent Downloads</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Package</th>
+                <th>Version</th>
+                <th>OS/Arch</th>
+                <th>Type</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var dl in _recentDownloads)
+            {
+                <tr>
+                    <td>@dl.PackageName</td>
+                    <td>@dl.Version</td>
+                    <td>@dl.Platform</td>
+                    <td>@(dl.IsPatch ? "Patch" : "Full")</td>
+                    <td>@dl.Time.ToString("g")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .stat-card {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 36px;
+        font-weight: bold;
+        color: #0078d4;
+    }
+    .stat-label {
+        font-size: 14px;
+        color: #666;
+        margin-top: 5px;
+    }
+    .data-table {
+        width: 100%;
+        background: #fff;
+        border-collapse: collapse;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    .data-table th, .data-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    .data-table th {
+        background: #f8f8f8;
+        font-weight: 600;
+    }
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+    h2 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+    }
+</style>
+
+@code {
+    private int _totalPackages;
+    private int _totalVersions;
+    private int _totalBuilds;
+    private long _totalDownloads;
+    private List<TopPackageInfo> _topPackages = [];
+    private List<RecentDownloadInfo> _recentDownloads = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _totalPackages = await Db.Packages.CountAsync();
+        _totalVersions = await Db.PackageVersions.CountAsync();
+        _totalBuilds = await Db.VersionBuilds.CountAsync();
+        _totalDownloads = await Db.VersionBuilds.SumAsync(b => b.DownloadCount);
+
+        _topPackages = await Db.Packages
+            .Include(p => p.Versions)
+            .ThenInclude(v => v.Builds)
+            .OrderByDescending(p => p.Versions.SelectMany(v => v.Builds).Sum(b => b.DownloadCount))
+            .Take(5)
+            .Select(p => new TopPackageInfo
+            {
+                DisplayName = p.DisplayName,
+                LatestVersion = p.Versions.OrderByDescending(v => v.VersionKey).Select(v => v.VersionString).FirstOrDefault() ?? "-",
+                Downloads = p.Versions.SelectMany(v => v.Builds).Sum(b => b.DownloadCount)
+            })
+            .ToListAsync();
+
+        _recentDownloads = await Db.DownloadLogs
+            .Include(d => d.Build)
+            .ThenInclude(b => b.Version)
+            .ThenInclude(v => v.Package)
+            .OrderByDescending(d => d.Timestamp)
+            .Take(10)
+            .Select(d => new RecentDownloadInfo
+            {
+                PackageName = d.Build.Version.Package.DisplayName,
+                Version = d.Build.Version.VersionString,
+                Platform = d.Build.OS + "/" + d.Build.Architecture,
+                IsPatch = d.IsPatch,
+                Time = d.Timestamp
+            })
+            .ToListAsync();
+    }
+
+    private static string FormatNumber(long n)
+    {
+        if (n >= 1_000_000) return $"{n / 1_000_000.0:F1}M";
+        if (n >= 1_000) return $"{n / 1_000.0:F1}K";
+        return n.ToString();
+    }
+
+    private class TopPackageInfo
+    {
+        public string DisplayName { get; set; } = "";
+        public string LatestVersion { get; set; } = "";
+        public long Downloads { get; set; }
+    }
+
+    private class RecentDownloadInfo
+    {
+        public string PackageName { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string Platform { get; set; } = "";
+        public bool IsPatch { get; set; }
+        public DateTime Time { get; set; }
+    }
+}

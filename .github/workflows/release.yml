@@ -1,0 +1,114 @@
+# Instella release, on a tag: v<major>.<minor>.<patch> for a release, with a -rc.<n>, -beta.<n> or
+# -preview.<n> suffix for a pre-release.
+# The logic lives in scripts/release.ps1 and scripts/verify.ps1; docs/verification.md describes the flow.
+#
+#   check           the tagged commit is on master; the tag matches VersionPrefix and CHANGELOG.md
+#   verify-windows  every Windows stage of verify.ps1, then the packages
+#   verify-docker   the Docker stage (Linux containers need a Linux runner)
+#   publish         after approval in the `release` environment: nuget.org (trusted publishing, a
+#                   one-hour key from GitHub's OIDC token), the image on ghcr.io, the GitHub release
+#
+# Actions are pinned to commit SHAs: a tag can be moved, a SHA cannot.
+name: release
+
+on:
+  push:
+    tags: ['v[0-9]*']
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/djgosnell/instella-server
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      suffix: ${{ steps.check.outputs.suffix }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: check
+        shell: pwsh
+        run: ./scripts/release.ps1 -Tag $env:GITHUB_REF_NAME -CheckOnly -RequireBranch master
+
+  verify-windows:
+    needs: check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - shell: pwsh
+        run: ./scripts/release.ps1 -Tag $env:GITHUB_REF_NAME -GateStages Build,Test,Migrations,Audit,Pack,Signing,Aot,E2E -SkipImage
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: packages
+          path: artifacts/${{ github.ref_name }}/*nupkg
+          if-no-files-found: error
+
+  verify-docker:
+    needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - shell: pwsh
+        run: ./scripts/verify.ps1 -Stage Docker -NoSkip
+
+  publish:
+    needs: [check, verify-windows, verify-docker]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write   # the GitHub release
+      packages: write   # the image on ghcr.io
+      id-token: write   # the OIDC token nuget.org exchanges for a one-hour API key
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0     # release.ps1 resolves the tag
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+
+      # nuget.org. The .snupkg files next to the packages go to the symbol server with them.
+      - id: nuget
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      - run: dotnet nuget push "${{ runner.temp }}/packages/*.nupkg" --api-key ${{ steps.nuget.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      # The server image.
+      - run: dotnet publish src/Instella.Server -c Release -o src/Instella.Server/publish -p:VersionSuffix=${{ needs.check.outputs.suffix }}
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker build -t $IMAGE:$VERSION src/Instella.Server
+      - run: docker push $IMAGE:$VERSION
+      - if: needs.check.outputs.prerelease == 'false'
+        run: docker tag $IMAGE:$VERSION $IMAGE:latest && docker push $IMAGE:latest
+
+      # The GitHub release, with the CHANGELOG section as its notes.
+      - shell: pwsh
+        run: ./scripts/release.ps1 -Tag $env:GITHUB_REF_NAME -CheckOnly -NotesFile $env:RUNNER_TEMP/notes.md
+      - run: gh release create $GITHUB_REF_NAME ${{ runner.temp }}/packages/*.nupkg --title "Instella $GITHUB_REF_NAME" --notes-file ${{ runner.temp }}/notes.md --prerelease=${{ needs.check.outputs.prerelease }} --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}

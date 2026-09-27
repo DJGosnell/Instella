@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="QuickNotes.MainWindow"
+        Title="QuickNotes"
+        Width="800"
+        Height="600"
+        MinWidth="400"
+        MinHeight="300"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Toolbar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Name="NewButton" Content="New" ToolTip.Tip="Create new note (Ctrl+N)" />
+                <Button Name="OpenButton" Content="Open" ToolTip.Tip="Open note (Ctrl+O)" />
+                <Button Name="SaveButton" Content="Save" ToolTip.Tip="Save note (Ctrl+S)" />
+                <Button Name="SaveAsButton" Content="Save As" ToolTip.Tip="Save as new file (Ctrl+Shift+S)" />
+                <Button Name="CheckUpdatesButton" Content="Check for updates" ToolTip.Tip="Look for a newer version of QuickNotes" />
+                <Separator Width="1" Background="Gray" Margin="8,0" />
+                <TextBlock Name="AppTitleText"
+                           Text="QuickNotes"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Editor -->
+        <TextBox Grid.Row="1"
+                 Name="Editor"
+                 AcceptsReturn="True"
+                 AcceptsTab="True"
+                 TextWrapping="Wrap"
+                 FontFamily="Consolas, Courier New, monospace"
+                 FontSize="14"
+                 Padding="16"
+                 Watermark="Start typing your note here..."
+                 BorderThickness="0" />
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="8,4">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                <TextBlock Name="FilePathText"
+                           Text="New Note"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <TextBlock Grid.Column="1"
+                           Name="CharCountText"
+                           Text="0 characters"
+                           Margin="16,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <TextBlock Grid.Column="2"
+                           Name="WordCountText"
+                           Text="0 words"
+                           Margin="16,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <TextBlock Grid.Column="3"
+                           Name="UpdateStatusText"
+                           Text=""
+                           Margin="16,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <TextBlock Grid.Column="4"
+                           Name="ModifiedText"
+                           Text=""
+                           VerticalAlignment="Center"
+                           Foreground="Orange" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

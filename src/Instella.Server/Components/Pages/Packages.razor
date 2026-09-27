@@ -1,0 +1,380 @@
+@page "/packages"
+@using Instella.Server.Models
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+@using Instella.Server.Components.PackagesGrid
+@inject PackageService PackageService
+@inject NavigationManager Navigation
+
+<PageTitle>Packages - Instella Server</PageTitle>
+
+<div class="packages-page">
+    <div class="packages-layout @(_propertyPaneVisible ? "pane-open" : "")">
+        <!-- Main Tree-Grid Area -->
+        <div class="tree-grid-container">
+            <TreeGridToolbar
+                SearchTerm="@_searchTerm"
+                OnSearchChanged="HandleSearchChanged"
+                OnAddPackage="ShowNewPackage" />
+
+            <PackageTreeGrid
+                Packages="@_pagedPackages"
+                ExpandedPackages="@_expandedPackages"
+                ExpandedVersions="@_expandedVersions"
+                SelectedPackageId="@_selectedPackage?.Id"
+                SelectedVersionId="@_selectedVersion?.Id"
+                SelectedBuildId="@_selectedBuild?.Id"
+                SortColumn="@_sortColumn"
+                SortAscending="@_sortAscending"
+                OnPackageToggle="TogglePackageExpand"
+                OnVersionToggle="ToggleVersionExpand"
+                OnPackageSelect="SelectPackage"
+                OnVersionSelect="SelectVersion"
+                OnBuildSelect="SelectBuild"
+                OnSortChanged="HandleSortChanged"
+                OnDownload="DownloadBuild" />
+
+            <TreeGridPagination
+                CurrentPage="@_currentPage"
+                TotalPages="@TotalPages"
+                PageSize="@_pageSize"
+                TotalItems="@_totalCount"
+                OnPageChanged="HandlePageChanged"
+                OnPageSizeChanged="HandlePageSizeChanged" />
+        </div>
+
+        <!-- Collapsible Property Pane -->
+        <CollapsiblePropertyPane
+            Visible="@_propertyPaneVisible"
+            OnClose="ClosePropertyPane">
+            @if (_showNewPackage)
+            {
+                <PackageProperties IsNew="true" OnSave="HandlePackageSaved" OnCancel="ClosePropertyPane" />
+            }
+            else if (_showNewVersion && _selectedPackage != null)
+            {
+                <NewVersionProperties Package="_selectedPackage" OnSave="HandleVersionSaved" OnCancel="CancelNewVersion" />
+            }
+            else if (_selectedBuild != null && _selectedVersion != null && _selectedPackage != null)
+            {
+                <BuildProperties Build="_selectedBuild" Version="_selectedVersion" Package="_selectedPackage" OnDelete="HandleBuildDeleted" />
+            }
+            else if (_selectedVersion != null && _selectedPackage != null)
+            {
+                <VersionProperties Version="_selectedVersion" Package="_selectedPackage" OnSave="HandleVersionUpdated" OnDelete="HandleVersionDeleted" />
+            }
+            else if (_selectedPackage != null)
+            {
+                <PackageProperties Package="_selectedPackage" OnSave="HandlePackageUpdated" OnDelete="HandlePackageDeleted" OnNewVersion="ShowNewVersion" />
+            }
+        </CollapsiblePropertyPane>
+    </div>
+</div>
+
+<style>
+    .packages-page {
+        height: calc(100vh - 100px);
+        padding: 20px;
+    }
+
+    .packages-layout {
+        display: flex;
+        gap: 20px;
+        height: 100%;
+    }
+
+    .tree-grid-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .packages-page {
+            padding: 10px;
+        }
+
+        .packages-layout {
+            flex-direction: column;
+        }
+    }
+</style>
+
+@code {
+    // === Injected via property for clarity ===
+
+    // === Grid Data State ===
+    private List<PackageGridItem>? _pagedPackages;
+    private int _totalCount;
+
+    // === Pagination State ===
+    private int _currentPage = 1;
+    private int _pageSize = 40;
+    private int TotalPages => _pageSize > 0 ? (int)Math.Ceiling(_totalCount / (double)_pageSize) : 0;
+
+    // === Filter & Sort State ===
+    private string _searchTerm = "";
+    private string _sortColumn = "Name";
+    private bool _sortAscending = true;
+
+    // === Expansion State ===
+    private HashSet<long> _expandedPackages = [];
+    private HashSet<long> _expandedVersions = [];
+
+    // === Selection State (full entities for property pane) ===
+    private Package? _selectedPackage;
+    private PackageVersion? _selectedVersion;
+    private VersionBuild? _selectedBuild;
+
+    // === Property Pane State ===
+    private bool _propertyPaneVisible;
+    private bool _showNewPackage;
+    private bool _showNewVersion;
+
+    // === Lifecycle ===
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPackagesAsync();
+    }
+
+    // === Data Loading ===
+
+    private async Task LoadPackagesAsync()
+    {
+        var query = new PackageQueryParams
+        {
+            Page = _currentPage,
+            PageSize = _pageSize,
+            SearchTerm = _searchTerm,
+            SortColumn = _sortColumn,
+            SortAscending = _sortAscending
+        };
+
+        var result = await PackageService.GetPackagesPagedAsync(query);
+        _pagedPackages = result.Items;
+        _totalCount = result.TotalCount;
+    }
+
+    private async Task RefreshCurrentPageAsync()
+    {
+        // Remember current selection IDs
+        var selectedPkgId = _selectedPackage?.Id;
+        var selectedVerId = _selectedVersion?.Id;
+        var selectedBuildId = _selectedBuild?.Id;
+
+        await LoadPackagesAsync();
+
+        // Try to restore selection
+        if (selectedPkgId.HasValue)
+        {
+            _selectedPackage = await PackageService.GetPackageByIdAsync(selectedPkgId.Value);
+            if (_selectedPackage != null && selectedVerId.HasValue)
+            {
+                _selectedVersion = await PackageService.GetVersionByIdAsync(selectedVerId.Value);
+                if (_selectedVersion != null && selectedBuildId.HasValue)
+                {
+                    _selectedBuild = await PackageService.GetBuildByIdAsync(selectedBuildId.Value);
+                }
+            }
+        }
+    }
+
+    // === Pagination Handlers ===
+
+    private async Task HandlePageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadPackagesAsync();
+    }
+
+    private async Task HandlePageSizeChanged(int pageSize)
+    {
+        _pageSize = pageSize;
+        _currentPage = 1;
+        await LoadPackagesAsync();
+    }
+
+    // === Sort Handlers ===
+
+    private async Task HandleSortChanged(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+        _currentPage = 1;
+        await LoadPackagesAsync();
+    }
+
+    // === Filter Handlers ===
+
+    private async Task HandleSearchChanged(string term)
+    {
+        _searchTerm = term;
+        _currentPage = 1;
+        await LoadPackagesAsync();
+    }
+
+    // === Expansion Handlers ===
+
+    private void TogglePackageExpand(long packageId)
+    {
+        if (_expandedPackages.Contains(packageId))
+            _expandedPackages.Remove(packageId);
+        else
+            _expandedPackages.Add(packageId);
+    }
+
+    private void ToggleVersionExpand(long versionId)
+    {
+        if (_expandedVersions.Contains(versionId))
+            _expandedVersions.Remove(versionId);
+        else
+            _expandedVersions.Add(versionId);
+    }
+
+    // === Selection Handlers ===
+
+    private async Task SelectPackage(PackageGridItem item)
+    {
+        _selectedPackage = await PackageService.GetPackageByIdAsync(item.Id);
+        _selectedVersion = null;
+        _selectedBuild = null;
+        _propertyPaneVisible = true;
+        _showNewPackage = false;
+        _showNewVersion = false;
+    }
+
+    private async Task SelectVersion((PackageGridItem Pkg, VersionGridItem Ver) selection)
+    {
+        _selectedPackage = await PackageService.GetPackageByIdAsync(selection.Pkg.Id);
+        _selectedVersion = await PackageService.GetVersionByIdAsync(selection.Ver.Id);
+        _selectedBuild = null;
+        _propertyPaneVisible = true;
+        _showNewPackage = false;
+        _showNewVersion = false;
+    }
+
+    private async Task SelectBuild((PackageGridItem Pkg, VersionGridItem Ver, BuildGridItem Build) selection)
+    {
+        _selectedPackage = await PackageService.GetPackageByIdAsync(selection.Pkg.Id);
+        _selectedVersion = await PackageService.GetVersionByIdAsync(selection.Ver.Id);
+        _selectedBuild = await PackageService.GetBuildByIdAsync(selection.Build.Id);
+        _propertyPaneVisible = true;
+        _showNewPackage = false;
+        _showNewVersion = false;
+    }
+
+    private void ClearSelection()
+    {
+        _selectedPackage = null;
+        _selectedVersion = null;
+        _selectedBuild = null;
+        _propertyPaneVisible = false;
+    }
+
+    // === Property Pane State ===
+
+    private void ShowNewPackage()
+    {
+        _selectedPackage = null;
+        _selectedVersion = null;
+        _selectedBuild = null;
+        _propertyPaneVisible = true;
+        _showNewPackage = true;
+        _showNewVersion = false;
+    }
+
+    private void ShowNewVersion()
+    {
+        _showNewVersion = true;
+        _selectedVersion = null;
+        _selectedBuild = null;
+    }
+
+    private void CancelNewVersion()
+    {
+        _showNewVersion = false;
+    }
+
+    private void ClosePropertyPane()
+    {
+        _propertyPaneVisible = false;
+        _showNewPackage = false;
+        _showNewVersion = false;
+        _selectedPackage = null;
+        _selectedVersion = null;
+        _selectedBuild = null;
+    }
+
+    // === CRUD Handlers ===
+
+    private async Task HandlePackageSaved(Package pkg)
+    {
+        _showNewPackage = false;
+        await RefreshCurrentPageAsync();
+        _selectedPackage = await PackageService.GetPackageByIdAsync(pkg.Id);
+        _propertyPaneVisible = _selectedPackage != null;
+    }
+
+    private async Task HandlePackageUpdated()
+    {
+        await RefreshCurrentPageAsync();
+    }
+
+    private async Task HandlePackageDeleted()
+    {
+        await LoadPackagesAsync();
+        ClearSelection();
+    }
+
+    private async Task HandleVersionSaved(PackageVersion ver)
+    {
+        _showNewVersion = false;
+        await RefreshCurrentPageAsync();
+
+        // Expand the package to show new version
+        if (_selectedPackage != null)
+        {
+            _expandedPackages.Add(_selectedPackage.Id);
+            _selectedVersion = await PackageService.GetVersionByIdAsync(ver.Id);
+        }
+    }
+
+    private async Task HandleVersionUpdated()
+    {
+        await RefreshCurrentPageAsync();
+    }
+
+    private async Task HandleVersionDeleted()
+    {
+        _selectedVersion = null;
+        _selectedBuild = null;
+        await RefreshCurrentPageAsync();
+    }
+
+    private async Task HandleBuildDeleted()
+    {
+        _selectedBuild = null;
+        await RefreshCurrentPageAsync();
+    }
+
+    // === Download Handler ===
+
+    private void DownloadBuild(BuildGridItem build)
+    {
+        // Navigate to the download endpoint
+        Navigation.NavigateTo(build.DownloadPath, forceLoad: true);
+    }
+}

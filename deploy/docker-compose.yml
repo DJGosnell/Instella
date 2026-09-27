@@ -1,0 +1,26 @@
+# Instella Server Docker Compose Configuration
+# Copy this file (and config/ next to it) to your deployment directory.
+# INSTELLA_IMAGE names a registry image instead of the locally built one.
+
+services:
+  instella-server:
+    image: ${INSTELLA_IMAGE:-instella-server}:${VERSION:-latest}
+    container_name: instella-server
+    restart: unless-stopped
+    ports:
+      - "${INSTELLA_PORT:-8580}:8080"
+    volumes:
+      # Bind mounts shown; named volumes (instella-config:/config) work the same way.
+      - ./config:/config        # database, Data Protection keys, first-run setup-token
+      - ./packages:/packages    # package blobs
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Production
+      # The reverse proxy in front of this container (TLS terminates there):
+      # - ReverseProxy__KnownProxies__0=172.18.0.1
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

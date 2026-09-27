@@ -1,0 +1,151 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@using Instella.Server.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Login - Instella Server</PageTitle>
+
+<div class="login-container">
+    <img class="login-logo" src="logo-large.svg" alt="" width="96" height="96" />
+    <h1>Instella Server</h1>
+
+    @if (_showSetupComplete)
+    {
+        <div class="success">Admin account created successfully. Please log in.</div>
+    }
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="error">@_errorMessage</div>
+    }
+
+    @if (!_totpStep)
+    {
+        <form method="post" action="/api/auth/login">
+            <AntiforgeryToken />
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input id="username" name="Username" type="text" class="form-control" required autofocus />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password" name="Password" type="password" class="form-control" required />
+            </div>
+
+            <button type="submit" class="btn-primary">Login</button>
+        </form>
+    }
+    else
+    {
+        <p>Enter your two-factor authentication code:</p>
+        <form method="post" action="/api/auth/totp">
+            <AntiforgeryToken />
+            <div class="form-group">
+                <label for="code">Authentication Code</label>
+                <input id="code" name="Code" type="text" class="form-control" maxlength="6" required autofocus />
+            </div>
+
+            <button type="submit" class="btn-primary">Verify</button>
+            <a href="/login" class="back-link">Back to login</a>
+        </form>
+    }
+</div>
+
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 50px auto;
+        padding: 20px;
+    }
+    .login-logo {
+        display: block;
+        margin-bottom: 8px;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .btn-primary {
+        background: #0078d4;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 100%;
+    }
+    .btn-primary:hover {
+        background: #006cbd;
+    }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .success {
+        background: #efe;
+        color: #060;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .back-link {
+        display: block;
+        text-align: center;
+        margin-top: 15px;
+        color: #666;
+    }
+</style>
+
+@code {
+    private string? _errorMessage;
+    private bool _totpStep;
+    private bool _showSetupComplete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if setup is needed
+        if (!await AuthService.IsSetupCompleteAsync())
+        {
+            Navigation.NavigateTo("/setup");
+            return;
+        }
+
+        // Parse query string for messages
+        var uri = new Uri(Navigation.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        _showSetupComplete = query["setup"] == "complete";
+
+        // The TOTP step is bound to a server-issued cookie from the password step; the page
+        // only needs to know which form to show.
+        _totpStep = query["step"] == "totp";
+
+        // Check for error messages
+        var error = query["error"];
+        _errorMessage = error switch
+        {
+            "denied" => "Access denied.",
+            "ratelimit" => $"Too many attempts. Please try again in {query["delay"]} seconds.",
+            "invalid" => "Invalid username or password.",
+            "totp" => "Invalid authentication code.",
+            "expired" => "Your sign-in expired. Please sign in again.",
+            _ => null
+        };
+    }
+}

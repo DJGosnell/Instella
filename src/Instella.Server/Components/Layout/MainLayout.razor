@@ -1,0 +1,298 @@
+@inherits LayoutComponentBase
+
+<div class="layout @(_menuOpen ? "menu-open" : "")">
+    <AuthorizeView Policy="Admin">
+        <Authorized>
+        <header class="top-bar">
+            <button class="menu-toggle" @onclick="ToggleMenu" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="top-logo"><img src="logo.svg" alt="" width="24" height="24" />Instella Server</div>
+            <div class="top-user">
+                <span>@context.User.Identity?.Name</span>
+                <form method="post" action="/api/auth/logout" class="logout-form">
+                    <AntiforgeryToken />
+                    <button type="submit" class="logout-link">Logout</button>
+                </form>
+            </div>
+        </header>
+
+        <nav class="sidebar" @onclick="CloseMenuOnMobile">
+            <div class="logo"><img src="logo.svg" alt="" width="28" height="28" />Instella Server</div>
+            <ul class="nav-menu">
+                <li><NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">Dashboard</NavLink></li>
+                <li><NavLink href="/packages" @onclick="CloseMenu">Packages</NavLink></li>
+                <li><NavLink href="/api-keys" @onclick="CloseMenu">API Keys</NavLink></li>
+                <li><NavLink href="/settings" @onclick="CloseMenu">Settings</NavLink></li>
+                <li><NavLink href="/docs" @onclick="CloseMenu">Docs</NavLink></li>
+            </ul>
+            <div class="nav-footer">
+                <span>@context.User.Identity?.Name</span>
+                <form method="post" action="/api/auth/logout" class="logout-form">
+                    <AntiforgeryToken />
+                    <button type="submit" class="logout-link">Logout</button>
+                </form>
+            </div>
+        </nav>
+
+        <div class="overlay" @onclick="CloseMenu"></div>
+
+        <main class="content">
+            @Body
+        </main>
+        </Authorized>
+        <NotAuthorized>
+            @* Only anonymous pages (login, setup) render here; the router protects the rest. *@
+            <main class="content-full">
+                @Body
+            </main>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+<style>
+    .logout-form {
+        display: inline;
+        margin: 0;
+    }
+    .logout-form button.logout-link {
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
+        cursor: pointer;
+    }
+    :root {
+        --sidebar-width: 220px;
+        --topbar-height: 56px;
+        --sidebar-bg: #1a1a2e;
+        --sidebar-hover: #2a2a4e;
+    }
+
+    .layout {
+        display: flex;
+        min-height: 100vh;
+    }
+
+    /* Top bar - hidden on desktop, shown on mobile */
+    .top-bar {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: var(--topbar-height);
+        background: var(--sidebar-bg);
+        color: #fff;
+        align-items: center;
+        padding: 0 15px;
+        z-index: 1000;
+        gap: 15px;
+    }
+
+    .menu-toggle {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .menu-toggle span {
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: #fff;
+        transition: transform 0.3s, opacity 0.3s;
+    }
+
+    .menu-open .menu-toggle span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .menu-open .menu-toggle span:nth-child(2) {
+        opacity: 0;
+    }
+
+    .menu-open .menu-toggle span:nth-child(3) {
+        transform: rotate(-45deg) translate(5px, -5px);
+    }
+
+    .top-logo {
+        font-weight: bold;
+        font-size: 18px;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .top-user {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-size: 14px;
+    }
+
+    .top-user span {
+        display: none;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        width: var(--sidebar-width);
+        background: var(--sidebar-bg);
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+    }
+
+    .logo {
+        padding: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .nav-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        flex: 1;
+    }
+
+    .nav-menu li a {
+        display: block;
+        padding: 12px 20px;
+        color: #ccc;
+        text-decoration: none;
+        transition: background 0.2s;
+    }
+
+    .nav-menu li a:hover, .nav-menu li a.active {
+        background: var(--sidebar-hover);
+        color: #fff;
+    }
+
+    .nav-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #333;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .logout-link {
+        color: #888;
+        text-decoration: none;
+    }
+
+    .logout-link:hover {
+        color: #fff;
+    }
+
+    /* Overlay for mobile menu */
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 998;
+    }
+
+    /* Content */
+    .content {
+        flex: 1;
+        padding: 20px;
+        background: #f5f5f5;
+        min-width: 0;
+    }
+
+    .content-full {
+        flex: 1;
+        background: #f5f5f5;
+    }
+
+    /* Mobile styles */
+    @@media (max-width: 768px) {
+        .top-bar {
+            display: flex;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 999;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .menu-open .sidebar {
+            transform: translateX(0);
+        }
+
+        .menu-open .overlay {
+            display: block;
+        }
+
+        .content {
+            margin-top: var(--topbar-height);
+            padding: 15px;
+        }
+
+        .content-full {
+            margin-top: 0;
+        }
+    }
+
+    /* Tablet - show username in top bar */
+    @@media (min-width: 480px) and (max-width: 768px) {
+        .top-user span {
+            display: inline;
+        }
+    }
+
+    /* Desktop styles */
+    @@media (min-width: 769px) {
+        .top-bar {
+            display: none;
+        }
+
+        .overlay {
+            display: none !important;
+        }
+    }
+</style>
+
+@code {
+    private bool _menuOpen;
+
+    private void ToggleMenu()
+    {
+        _menuOpen = !_menuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        _menuOpen = false;
+    }
+
+    private void CloseMenuOnMobile()
+    {
+        // Only close on mobile when clicking nav items
+    }
+}

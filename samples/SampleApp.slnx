@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="../src/Instella.Installer.Build/Instella.Installer.Build.csproj" />
+  <Project Path="../src/Instella.Core/Instella.Core.csproj" />
+  <Project Path="SampleApp.Installer/SampleApp.Installer.csproj" />
+  <Project Path="SampleApp/SampleApp.csproj" />
+</Solution>

@@ -1,0 +1,573 @@
+@using Instella.Server.Models
+@inject IJSRuntime JS
+
+<div class="tree-grid" tabindex="0" @onkeydown="HandleKeyDown" @ref="_gridElement">
+    <table>
+        <thead class="tree-grid-header">
+            <tr>
+                <th class="col-name sortable @GetSortClass("Name")" @onclick='() => OnSortChanged.InvokeAsync("Name")'>
+                    Name @GetSortIndicator("Name")
+                </th>
+                <th class="col-versions hide-mobile">Versions</th>
+                <th class="col-builds hide-mobile">Builds</th>
+                <th class="col-downloads">Downloads</th>
+                <th class="col-size hide-mobile">Size</th>
+                <th class="col-released sortable hide-mobile @GetSortClass("Released")" @onclick='() => OnSortChanged.InvokeAsync("Released")'>
+                    Released @GetSortIndicator("Released")
+                </th>
+            </tr>
+        </thead>
+        <tbody class="tree-grid-body">
+            @if (Packages == null)
+            {
+                <tr><td colspan="6" class="loading-cell">Loading...</td></tr>
+            }
+            else if (Packages.Count == 0)
+            {
+                <tr><td colspan="6" class="empty-cell">No packages found.</td></tr>
+            }
+            else
+            {
+                var rowIndex = 0;
+                @foreach (var pkg in Packages)
+                {
+                    var isPackageExpanded = IsPackageExpanded(pkg.Id);
+                    var isPackageSelected = SelectedPackageId == pkg.Id && SelectedVersionId == null && SelectedBuildId == null;
+                    var pkgRowIndex = rowIndex++;
+
+                    <!-- Package Row (Level 0) -->
+                    <tr class="tree-grid-row level-0 @(isPackageSelected ? "selected" : "") @(IsFocused(pkgRowIndex) ? "focused" : "")"
+                        @onclick="() => OnPackageSelect.InvokeAsync(pkg)">
+                        <td class="col-name">
+                            <span class="expand-toggle" @onclick="() => HandlePackageToggle(pkg.Id)" @onclick:stopPropagation="true">
+                                @(pkg.Versions.Count > 0 ? (isPackageExpanded ? "▼" : "▶") : " ")
+                            </span>
+                            <span class="item-icon">📦</span>
+                            <span class="item-name">@pkg.DisplayName</span>
+                        </td>
+                        <td class="col-versions hide-mobile">@pkg.VersionCount</td>
+                        <td class="col-builds hide-mobile">@pkg.BuildCount</td>
+                        <td class="col-downloads">@FormatDownloads(pkg.TotalDownloads)</td>
+                        <td class="col-size hide-mobile">@FormatSize(pkg.TotalSize)</td>
+                        <td class="col-released hide-mobile">@FormatDate(pkg.LatestReleaseDate)</td>
+                    </tr>
+
+                    @if (isPackageExpanded)
+                    {
+                        @foreach (var ver in pkg.Versions)
+                        {
+                            var isVersionExpanded = IsVersionExpanded(ver.Id);
+                            var isVersionSelected = SelectedVersionId == ver.Id && SelectedBuildId == null;
+                            var verRowIndex = rowIndex++;
+
+                            <!-- Version Row (Level 1) -->
+                            <tr class="tree-grid-row level-1 @(isVersionSelected ? "selected" : "") @(ver.IsDeprecated ? "deprecated" : "") @(IsFocused(verRowIndex) ? "focused" : "")"
+                                @onclick="() => OnVersionSelect.InvokeAsync((pkg, ver))">
+                                <td class="col-name">
+                                    <span class="expand-toggle" @onclick="() => HandleVersionToggle(ver.Id)" @onclick:stopPropagation="true">
+                                        @(ver.Builds.Count > 0 ? (isVersionExpanded ? "▼" : "▶") : " ")
+                                    </span>
+                                    <span class="item-icon">📋</span>
+                                    <span class="item-name">@ver.VersionString</span>
+                                    <span class="channel-badge channel-@ver.Channel">@ver.Channel</span>
+                                    @if (ver.IsDeprecated)
+                                    {
+                                        <span class="deprecated-badge">Deprecated</span>
+                                    }
+                                </td>
+                                <td class="col-versions hide-mobile"></td>
+                                <td class="col-builds hide-mobile">@ver.Builds.Count</td>
+                                <td class="col-downloads">@FormatDownloads(ver.Downloads)</td>
+                                <td class="col-size hide-mobile">@FormatSize(ver.TotalSize)</td>
+                                <td class="col-released hide-mobile">@FormatDate(ver.ReleasedAt)</td>
+                            </tr>
+
+                            @if (isVersionExpanded)
+                            {
+                                @foreach (var build in ver.Builds)
+                                {
+                                    var isBuildSelected = SelectedBuildId == build.Id;
+                                    var buildRowIndex = rowIndex++;
+
+                                    <!-- Build Row (Level 2) -->
+                                    <tr class="tree-grid-row level-2 @(isBuildSelected ? "selected" : "") @(IsFocused(buildRowIndex) ? "focused" : "")"
+                                        @onclick="() => OnBuildSelect.InvokeAsync((pkg, ver, build))">
+                                        <td class="col-name">
+                                            <span class="expand-toggle"></span>
+                                            <span class="item-icon">💾</span>
+                                            <span class="item-name">@build.Platform</span>
+                                        </td>
+                                        <td class="col-versions hide-mobile"></td>
+                                        <td class="col-builds hide-mobile"></td>
+                                        <td class="col-downloads">
+                                            <span class="download-count">@FormatDownloads(build.Downloads)</span>
+                                            <button class="download-btn" @onclick="() => OnDownload.InvokeAsync(build)" @onclick:stopPropagation="true" title="Download">
+                                                ⬇
+                                            </button>
+                                        </td>
+                                        <td class="col-size hide-mobile">@FormatSize(build.FileSize)</td>
+                                        <td class="col-released hide-mobile"></td>
+                                    </tr>
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .tree-grid {
+        flex: 1;
+        overflow: auto;
+        outline: none;
+    }
+
+    .tree-grid table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    /* Header */
+    .tree-grid-header th {
+        position: sticky;
+        top: 0;
+        background: #f5f5f5;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #e0e0e0;
+        font-size: 13px;
+        color: #555;
+        white-space: nowrap;
+    }
+
+    .tree-grid-header th.sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .tree-grid-header th.sortable:hover {
+        background: #eee;
+    }
+
+    .tree-grid-header th.sorted {
+        color: #0078d4;
+    }
+
+    /* Body Rows */
+    .tree-grid-body tr {
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+    }
+
+    .tree-grid-body tr:hover {
+        background: #f9f9f9;
+    }
+
+    .tree-grid-body tr.selected {
+        background: #e3f2fd;
+    }
+
+    .tree-grid-body tr.selected:hover {
+        background: #d0e8fc;
+    }
+
+    /* Deprecated versions: grayed out, so they stand apart from the ones clients are offered. */
+    .tree-grid-body tr.deprecated td {
+        color: #9e9e9e;
+    }
+
+    .tree-grid-body tr.deprecated .item-icon,
+    .tree-grid-body tr.deprecated .channel-badge {
+        filter: grayscale(1);
+        opacity: 0.6;
+    }
+
+    .tree-grid-body td {
+        padding: 10px 12px;
+        vertical-align: middle;
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .loading-cell,
+    .empty-cell {
+        text-align: center;
+        color: #666;
+        padding: 40px !important;
+    }
+
+    /* Row Levels (Indentation) */
+    .tree-grid-row.level-0 .col-name { padding-left: 12px; }
+    .tree-grid-row.level-1 .col-name { padding-left: 36px; }
+    .tree-grid-row.level-2 .col-name { padding-left: 60px; }
+
+    /* Expand Toggle */
+    .expand-toggle {
+        display: inline-block;
+        width: 20px;
+        text-align: center;
+        cursor: pointer;
+        user-select: none;
+        color: #666;
+    }
+
+    .expand-toggle:hover {
+        color: #333;
+    }
+
+    /* Item Icon & Name */
+    .item-icon {
+        margin-right: 8px;
+    }
+
+    .item-name {
+        font-weight: 500;
+    }
+
+    /* Channel Badges */
+    .channel-badge {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    /* Channels are free names: the common ones have a colour, any other is neutral. */
+    .channel-badge { background: #607d8b; color: #fff; }
+    .channel-badge.channel-stable { background: #4caf50; color: #fff; }
+    .channel-badge.channel-beta { background: #ff9800; color: #fff; }
+    .channel-badge.channel-nightly { background: #9c27b0; color: #fff; }
+
+    .deprecated-badge {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        border: 1px solid #9e9e9e;
+        background: #f5f5f5;
+        color: #757575;
+    }
+
+    /* Download Button */
+    .download-btn {
+        background: none;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        margin-left: 8px;
+        transition: all 0.2s;
+    }
+
+    .download-btn:hover {
+        background: #0078d4;
+        border-color: #0078d4;
+        color: white;
+    }
+
+    .download-count {
+        display: inline-block;
+        min-width: 40px;
+    }
+
+    /* Column Widths */
+    .col-name { width: 35%; }
+    .col-versions { width: 8%; text-align: center; }
+    .col-builds { width: 8%; text-align: center; }
+    .col-downloads { width: 14%; text-align: right; }
+    .col-size { width: 12%; text-align: right; }
+    .col-released { width: 15%; }
+
+    /* Focus styling for keyboard navigation */
+    .tree-grid-row.focused {
+        outline: 2px solid #0078d4;
+        outline-offset: -2px;
+    }
+
+    @@media (max-width: 768px) {
+        .hide-mobile {
+            display: none !important;
+        }
+
+        .col-name { width: 60%; }
+        .col-downloads { width: 40%; }
+    }
+</style>
+
+@code {
+    /// <summary>List of packages to display (current page).</summary>
+    [Parameter] public List<PackageGridItem>? Packages { get; set; }
+
+    /// <summary>Set of expanded package IDs.</summary>
+    [Parameter] public HashSet<long> ExpandedPackages { get; set; } = [];
+
+    /// <summary>Set of expanded version IDs.</summary>
+    [Parameter] public HashSet<long> ExpandedVersions { get; set; } = [];
+
+    /// <summary>Currently selected package ID (for highlighting).</summary>
+    [Parameter] public long? SelectedPackageId { get; set; }
+
+    /// <summary>Currently selected version ID (for highlighting).</summary>
+    [Parameter] public long? SelectedVersionId { get; set; }
+
+    /// <summary>Currently selected build ID (for highlighting).</summary>
+    [Parameter] public long? SelectedBuildId { get; set; }
+
+    /// <summary>Current sort column name.</summary>
+    [Parameter] public string SortColumn { get; set; } = "Name";
+
+    /// <summary>Current sort direction (true = ascending).</summary>
+    [Parameter] public bool SortAscending { get; set; } = true;
+
+    // Event Callbacks
+    [Parameter] public EventCallback<long> OnPackageToggle { get; set; }
+    [Parameter] public EventCallback<long> OnVersionToggle { get; set; }
+    [Parameter] public EventCallback<PackageGridItem> OnPackageSelect { get; set; }
+    [Parameter] public EventCallback<(PackageGridItem, VersionGridItem)> OnVersionSelect { get; set; }
+    [Parameter] public EventCallback<(PackageGridItem, VersionGridItem, BuildGridItem)> OnBuildSelect { get; set; }
+    [Parameter] public EventCallback<string> OnSortChanged { get; set; }
+    [Parameter] public EventCallback<BuildGridItem> OnDownload { get; set; }
+
+    /// <summary>Checks if a package is in the expanded set.</summary>
+    private bool IsPackageExpanded(long id) => ExpandedPackages.Contains(id);
+
+    /// <summary>Checks if a version is in the expanded set.</summary>
+    private bool IsVersionExpanded(long id) => ExpandedVersions.Contains(id);
+
+    private async Task HandlePackageToggle(long packageId)
+    {
+        await OnPackageToggle.InvokeAsync(packageId);
+    }
+
+    private async Task HandleVersionToggle(long versionId)
+    {
+        await OnVersionToggle.InvokeAsync(versionId);
+    }
+
+    /// <summary>Returns CSS class for sort indicator.</summary>
+    private string GetSortClass(string column)
+    {
+        return SortColumn == column ? "sorted" : "";
+    }
+
+    /// <summary>Returns sort indicator character or empty.</summary>
+    private string GetSortIndicator(string column)
+    {
+        if (SortColumn != column) return "";
+        return SortAscending ? "▲" : "▼";
+    }
+
+    /// <summary>Formats byte size to human-readable string (KB, MB, GB).</summary>
+    private static string FormatSize(long bytes)
+    {
+        string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
+        int i = 0;
+        double size = bytes;
+        while (size >= 1024 && i < suffixes.Length - 1)
+        {
+            size /= 1024;
+            i++;
+        }
+        return $"{size:0.##} {suffixes[i]}";
+    }
+
+    /// <summary>Formats download count with K/M suffix for large numbers.</summary>
+    private static string FormatDownloads(long count)
+    {
+        return count switch
+        {
+            >= 1_000_000 => $"{count / 1_000_000.0:0.#}M",
+            >= 1_000 => $"{count / 1_000.0:0.#}K",
+            _ => count.ToString()
+        };
+    }
+
+    /// <summary>Formats date as relative or absolute depending on recency.</summary>
+    private static string FormatDate(DateTime? date)
+    {
+        if (date == null) return "—";
+        var days = (DateTime.UtcNow - date.Value).TotalDays;
+        if (days < 1) return "Today";
+        if (days < 2) return "Yesterday";
+        if (days < 7) return $"{(int)days} days ago";
+        if (days < 30) return $"{(int)(days / 7)} weeks ago";
+        return date.Value.ToString("MMM d, yyyy");
+    }
+
+    // === Keyboard Navigation State ===
+    private ElementReference _gridElement;
+    private int _focusedIndex = -1;
+
+    /// <summary>Gets a flattened list of visible rows for keyboard navigation.</summary>
+    private List<RowInfo> GetVisibleRows()
+    {
+        var rows = new List<RowInfo>();
+        if (Packages == null) return rows;
+
+        foreach (var pkg in Packages)
+        {
+            rows.Add(new RowInfo { Type = RowType.Package, Package = pkg });
+
+            if (IsPackageExpanded(pkg.Id))
+            {
+                foreach (var ver in pkg.Versions)
+                {
+                    rows.Add(new RowInfo { Type = RowType.Version, Package = pkg, Version = ver });
+
+                    if (IsVersionExpanded(ver.Id))
+                    {
+                        foreach (var build in ver.Builds)
+                        {
+                            rows.Add(new RowInfo { Type = RowType.Build, Package = pkg, Version = ver, Build = build });
+                        }
+                    }
+                }
+            }
+        }
+        return rows;
+    }
+
+    /// <summary>Handles keyboard navigation within the grid.</summary>
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        var rows = GetVisibleRows();
+        if (rows.Count == 0) return;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _focusedIndex = Math.Min(_focusedIndex + 1, rows.Count - 1);
+                if (_focusedIndex < 0) _focusedIndex = 0;
+                await ScrollToFocusedRow();
+                break;
+
+            case "ArrowUp":
+                _focusedIndex = Math.Max(_focusedIndex - 1, 0);
+                await ScrollToFocusedRow();
+                break;
+
+            case "Home":
+                _focusedIndex = 0;
+                await ScrollToFocusedRow();
+                break;
+
+            case "End":
+                _focusedIndex = rows.Count - 1;
+                await ScrollToFocusedRow();
+                break;
+
+            case "Enter":
+                if (_focusedIndex >= 0 && _focusedIndex < rows.Count)
+                {
+                    var row = rows[_focusedIndex];
+                    await SelectRow(row);
+                }
+                break;
+
+            case " ": // Space
+                if (_focusedIndex >= 0 && _focusedIndex < rows.Count)
+                {
+                    var row = rows[_focusedIndex];
+                    await ToggleRow(row);
+                }
+                break;
+
+            case "ArrowRight":
+                if (_focusedIndex >= 0 && _focusedIndex < rows.Count)
+                {
+                    var row = rows[_focusedIndex];
+                    if (row.Type == RowType.Package && !IsPackageExpanded(row.Package!.Id))
+                    {
+                        await OnPackageToggle.InvokeAsync(row.Package.Id);
+                    }
+                    else if (row.Type == RowType.Version && !IsVersionExpanded(row.Version!.Id))
+                    {
+                        await OnVersionToggle.InvokeAsync(row.Version.Id);
+                    }
+                }
+                break;
+
+            case "ArrowLeft":
+                if (_focusedIndex >= 0 && _focusedIndex < rows.Count)
+                {
+                    var row = rows[_focusedIndex];
+                    if (row.Type == RowType.Package && IsPackageExpanded(row.Package!.Id))
+                    {
+                        await OnPackageToggle.InvokeAsync(row.Package.Id);
+                    }
+                    else if (row.Type == RowType.Version && IsVersionExpanded(row.Version!.Id))
+                    {
+                        await OnVersionToggle.InvokeAsync(row.Version.Id);
+                    }
+                }
+                break;
+        }
+    }
+
+    private async Task SelectRow(RowInfo row)
+    {
+        switch (row.Type)
+        {
+            case RowType.Package:
+                await OnPackageSelect.InvokeAsync(row.Package!);
+                break;
+            case RowType.Version:
+                await OnVersionSelect.InvokeAsync((row.Package!, row.Version!));
+                break;
+            case RowType.Build:
+                await OnBuildSelect.InvokeAsync((row.Package!, row.Version!, row.Build!));
+                break;
+        }
+    }
+
+    private async Task ToggleRow(RowInfo row)
+    {
+        switch (row.Type)
+        {
+            case RowType.Package:
+                await OnPackageToggle.InvokeAsync(row.Package!.Id);
+                break;
+            case RowType.Version:
+                await OnVersionToggle.InvokeAsync(row.Version!.Id);
+                break;
+        }
+    }
+
+    private async Task ScrollToFocusedRow()
+    {
+        // Simple scroll using JS interop
+        try
+        {
+            await JS.InvokeVoidAsync("scrollToRow", _gridElement, _focusedIndex);
+        }
+        catch
+        {
+            // Ignore JS interop errors
+        }
+    }
+
+    /// <summary>Checks if a row is focused.</summary>
+    private bool IsFocused(int index) => _focusedIndex == index;
+
+    private enum RowType { Package, Version, Build }
+
+    private class RowInfo
+    {
+        public RowType Type { get; set; }
+        public PackageGridItem? Package { get; set; }
+        public VersionGridItem? Version { get; set; }
+        public BuildGridItem? Build { get; set; }
+    }
+}

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>QuickNotes</RootNamespace>
+    <AssemblyName>QuickNotes</AssemblyName>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <!-- AssemblyVersion/FileVersion default from Version, so -p:Version=X sets all three. -->
+    <Version>1.2.0</Version>
+    <Company>Instella Samples</Company>
+    <Product>QuickNotes</Product>
+    <Description>A simple note-taking application demonstrating Instella installer library</Description>
+
+    <!--
+      Payload publish settings. The Instella build publishes the payload with
+      exactly these settings: the installer's own publish shape
+      (PublishAot, SelfContained, ...) never flows into the payload.
+
+      Self-contained (JIT) deployment: payload ships its own .NET runtime
+      so the installed app runs without a system-wide .NET install, but
+      stays JIT-compiled (faster build than AOT, larger payload than
+      framework-dependent). To switch shapes:
+        framework-dependent: drop SelfContained, drop PublishAot
+        self-contained AOT:  add <PublishAot ...>true</PublishAot>
+    -->
+    <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <!-- The app-side SDK: update checks, post-update detection, installation health.
+       A real app references the Instella.Sdk package instead. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Instella.Sdk\Instella.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,178 @@
+#nullable enable
+Instella.Installer.Testing.FakeElevationService
+Instella.Installer.Testing.FakeElevationService.FakeElevationService(bool isElevated = false, int? relaunchExitCode = 0) -> void
+Instella.Installer.Testing.FakeElevationService.IsElevated.get -> bool
+Instella.Installer.Testing.FakeElevationService.RelaunchElevatedAsync(System.Collections.Generic.IReadOnlyList<string!>! args, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<int?>!
+Instella.Installer.Testing.FakeElevationService.RelaunchExitCode.get -> int?
+Instella.Installer.Testing.FakeElevationService.RelaunchRequests.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<string!>!>!
+Instella.Installer.Testing.FakePlatformServices
+Instella.Installer.Testing.FakePlatformServices.AddToPathAsync(string! directory, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.AutoStarts.get -> System.Collections.Generic.List<Instella.Core.Platform.AutoStartInfo!>!
+Instella.Installer.Testing.FakePlatformServices.AutoStartsRemoved.get -> System.Collections.Generic.List<string!>!
+Instella.Installer.Testing.FakePlatformServices.ConfigureAutoStartAsync(Instella.Core.Platform.AutoStartInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.CreateShortcutAsync(Instella.Core.Platform.ShortcutInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.DeleteRegistryKeyAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.DeleteRegistryKeyIfEmptyAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.DeleteRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.FakePlatformServices() -> void
+Instella.Installer.Testing.FakePlatformServices.FakePlatformServices(Instella.Core.Platform.TargetPlatform platform) -> void
+Instella.Installer.Testing.FakePlatformServices.FakePlatformServices(Instella.Installer.Testing.IFakeRegistry! registry, Instella.Core.Platform.TargetPlatform platform = Instella.Core.Platform.TargetPlatform.Windows) -> void
+Instella.Installer.Testing.FakePlatformServices.FileAssociations.get -> System.Collections.Generic.List<Instella.Core.Platform.FileAssociationInfo!>!
+Instella.Installer.Testing.FakePlatformServices.FileAssociationsRemoved.get -> System.Collections.Generic.List<(string! Extension, string! AppId)>!
+Instella.Installer.Testing.FakePlatformServices.GetDefaultInstallPath(string! appName, bool perUser) -> string!
+Instella.Installer.Testing.FakePlatformServices.GetRunningProcesses(string! processName, string? installPath) -> System.Collections.Generic.IReadOnlyList<System.Diagnostics.Process!>!
+Instella.Installer.Testing.FakePlatformServices.PathEntries.get -> System.Collections.Generic.List<(string! Directory, bool PerUser)>!
+Instella.Installer.Testing.FakePlatformServices.PathEntriesRemoved.get -> System.Collections.Generic.List<(string! Directory, bool PerUser)>!
+Instella.Installer.Testing.FakePlatformServices.Platform.get -> Instella.Core.Platform.TargetPlatform
+Instella.Installer.Testing.FakePlatformServices.ReadRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.RegistryValueData?>!
+Instella.Installer.Testing.FakePlatformServices.RegisterFileAssociationAsync(Instella.Core.Platform.FileAssociationInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.RegisterUninstallEntryAsync(Instella.Core.Platform.UninstallEntryInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.Registry.get -> Instella.Installer.Testing.IFakeRegistry!
+Instella.Installer.Testing.FakePlatformServices.RegistryKeyExistsAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<bool>!
+Instella.Installer.Testing.FakePlatformServices.RemoveAutoStartAsync(string! appId, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.RemoveFromPathAsync(string! directory, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.RemoveShortcutAsync(Instella.Core.Platform.ShortcutInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.Shortcuts.get -> System.Collections.Generic.List<Instella.Core.Platform.ShortcutInfo!>!
+Instella.Installer.Testing.FakePlatformServices.ShortcutsRemoved.get -> System.Collections.Generic.List<Instella.Core.Platform.ShortcutInfo!>!
+Instella.Installer.Testing.FakePlatformServices.Snapshot() -> Instella.Installer.Testing.PlatformSnapshot!
+Instella.Installer.Testing.FakePlatformServices.TerminateProcessAsync(System.Diagnostics.Process! process, System.TimeSpan timeout, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.UninstallEntries.get -> System.Collections.Generic.List<Instella.Core.Platform.UninstallEntryInfo!>!
+Instella.Installer.Testing.FakePlatformServices.UninstallEntriesRemoved.get -> System.Collections.Generic.List<(string! AppId, bool PerUser)>!
+Instella.Installer.Testing.FakePlatformServices.UnregisterFileAssociationAsync(string! extension, string! appId, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.UnregisterUninstallEntryAsync(string! appId, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.UpdateShortcutAsync(string! oldTarget, string! newTarget, string! shortcutPath, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.FakePlatformServices.WriteRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, Instella.Core.Platform.InstellaRegistryValueKind kind, object! value, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Installer.Testing.IFakeFileSystem
+Instella.Installer.Testing.IFakeFileSystem.AddDirectory(string! path) -> void
+Instella.Installer.Testing.IFakeFileSystem.AddFile(string! path, byte[]! contents) -> void
+Instella.Installer.Testing.IFakeFileSystem.Snapshot() -> System.Collections.Generic.IReadOnlyDictionary<string!, byte[]!>!
+Instella.Installer.Testing.IFakeRegistry
+Instella.Installer.Testing.IFakeRegistry.Contains(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> bool
+Instella.Installer.Testing.IFakeRegistry.Delete(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name) -> bool
+Instella.Installer.Testing.IFakeRegistry.DeleteKey(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> bool
+Instella.Installer.Testing.IFakeRegistry.Get(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name) -> object?
+Instella.Installer.Testing.IFakeRegistry.Set(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, Instella.Core.Platform.InstellaRegistryValueKind kind, object! value) -> void
+Instella.Installer.Testing.IFakeRegistry.Snapshot() -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Testing.RegistryValueRecord>!
+Instella.Installer.Testing.InMemoryFileSystem
+Instella.Installer.Testing.InMemoryFileSystem.AddDirectory(string! path) -> void
+Instella.Installer.Testing.InMemoryFileSystem.AddFile(string! path, byte[]! contents) -> void
+Instella.Installer.Testing.InMemoryFileSystem.ComputeSha256Async(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<string!>!
+Instella.Installer.Testing.InMemoryFileSystem.CopyFileAsync(string! source, string! dest, bool overwrite, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryFileSystem.CreateDirectoryAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryFileSystem.DeleteDirectoryAsync(string! path, bool recursive, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryFileSystem.DeleteFileAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryFileSystem.DirectoryExists(string! path) -> bool
+Instella.Installer.Testing.InMemoryFileSystem.EnumerateFiles(string! path, string! searchPattern = "*", bool recursive = false) -> System.Collections.Generic.IEnumerable<string!>!
+Instella.Installer.Testing.InMemoryFileSystem.Exists(string! path) -> bool
+Instella.Installer.Testing.InMemoryFileSystem.GetFileSize(string! path) -> long
+Instella.Installer.Testing.InMemoryFileSystem.GetUnixFileMode(string! path) -> System.IO.UnixFileMode?
+Instella.Installer.Testing.InMemoryFileSystem.InMemoryFileSystem() -> void
+Instella.Installer.Testing.InMemoryFileSystem.MoveFileAsync(string! source, string! dest, bool overwrite, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryFileSystem.OpenReadAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult<System.IO.Stream!>>!
+Instella.Installer.Testing.InMemoryFileSystem.OpenWriteAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult<System.IO.Stream!>>!
+Instella.Installer.Testing.InMemoryFileSystem.ReadAllBytesAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult<byte[]!>>!
+Instella.Installer.Testing.InMemoryFileSystem.SetUnixFileModeAsync(string! path, System.IO.UnixFileMode mode, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryFileSystem.Snapshot() -> System.Collections.Generic.IReadOnlyDictionary<string!, byte[]!>!
+Instella.Installer.Testing.InMemoryFileSystem.WriteAllBytesAsync(string! path, byte[]! data, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Installer.Testing.InMemoryRegistry
+Instella.Installer.Testing.InMemoryRegistry.Contains(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> bool
+Instella.Installer.Testing.InMemoryRegistry.Delete(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name) -> bool
+Instella.Installer.Testing.InMemoryRegistry.DeleteKey(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> bool
+Instella.Installer.Testing.InMemoryRegistry.Get(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name) -> object?
+Instella.Installer.Testing.InMemoryRegistry.InMemoryRegistry() -> void
+Instella.Installer.Testing.InMemoryRegistry.Set(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, Instella.Core.Platform.InstellaRegistryValueKind kind, object! value) -> void
+Instella.Installer.Testing.InMemoryRegistry.Snapshot() -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Testing.RegistryValueRecord>!
+Instella.Installer.Testing.InstellaTestHarness
+Instella.Installer.Testing.InstellaTestHarness.Builder
+Instella.Installer.Testing.InstellaTestHarness.Builder.Build() -> Instella.Installer.Testing.InstellaTestHarness!
+Instella.Installer.Testing.InstellaTestHarness.Builder.Builder() -> void
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithAppId(string! appId) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithAppName(string! appName) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithCliArgs(params string![]! args) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithElevation(Instella.Core.Manifest.ElevationMode elevation) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithElevationService(Instella.Installer.Testing.FakeElevationService! elevation) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithFileSystem(Instella.Installer.Testing.IFakeFileSystem! fileSystem) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithInstaller(Instella.Installer.Runtime.Builders.IInstellaInstaller! installer) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithInstallPath(string! path) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithLogSink(Instella.Installer.Testing.RecordingSink! sink) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithMode(Instella.Core.Installation.InstallerMode mode) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithPageState(string! pageId, System.Action<Instella.Installer.Runtime.UI.Widgets.PageState!>! configure) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithPlatform(Instella.Core.Platform.TargetPlatform platform) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithPlatformServices(Instella.Installer.Testing.FakePlatformServices! services) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithScope(Instella.Core.Installation.InstallationScope scope) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithServerUrl(string! serverUrl) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithVersion(System.Version! version) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.Context.get -> Instella.Installer.Runtime.Installation.InstallContext!
+Instella.Installer.Testing.InstellaTestHarness.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Instella.Installer.Testing.InstellaTestHarness.Elevation.get -> Instella.Installer.Testing.FakeElevationService!
+Instella.Installer.Testing.InstellaTestHarness.FileSystem.get -> Instella.Installer.Testing.IFakeFileSystem!
+Instella.Installer.Testing.InstellaTestHarness.LaunchedPrograms.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.InstellaTestHarness.Logger.get -> Instella.Core.Logging.IInstellaLogger!
+Instella.Installer.Testing.InstellaTestHarness.LogSink.get -> Instella.Installer.Testing.RecordingSink!
+Instella.Installer.Testing.InstellaTestHarness.PageStates.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Instella.Installer.Runtime.UI.Widgets.PageState!>!
+Instella.Installer.Testing.InstellaTestHarness.PlatformServices.get -> Instella.Installer.Testing.FakePlatformServices!
+Instella.Installer.Testing.InstellaTestHarness.Registry.get -> Instella.Installer.Testing.IFakeRegistry!
+Instella.Installer.Testing.InstellaTestHarness.RunFullAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Instella.Installer.Testing.InstellaTestHarness.RunInstallAsync(System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.Installation.IInstallStepExecution!>! steps, System.IProgress<Instella.Installer.Runtime.Installation.OverallProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Instella.Installer.Runtime.Installation.ExecutionResult!>!
+Instella.Installer.Testing.InstellaTestHarness.RunStepAsync(Instella.Installer.Runtime.Installation.IInstallStepExecution! step, System.IProgress<Instella.Installer.Runtime.Installation.OverallProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Instella.Installer.Runtime.Installation.ExecutionResult!>!
+Instella.Installer.Testing.InstellaTestHarness.ShownMessages.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot
+Instella.Installer.Testing.PlatformSnapshot.<Clone>$() -> Instella.Installer.Testing.PlatformSnapshot!
+Instella.Installer.Testing.PlatformSnapshot.AutoStarts.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot.AutoStarts.init -> void
+Instella.Installer.Testing.PlatformSnapshot.Deconstruct(out System.Collections.Generic.IReadOnlyList<string!>! Shortcuts, out System.Collections.Generic.IReadOnlyList<string!>! FileAssociations, out System.Collections.Generic.IReadOnlyList<string!>! PathEntries, out System.Collections.Generic.IReadOnlyList<string!>! AutoStarts, out System.Collections.Generic.IReadOnlyList<string!>! UninstallEntries, out System.Collections.Generic.IReadOnlyList<string!>! RegistryValues) -> void
+Instella.Installer.Testing.PlatformSnapshot.Equals(Instella.Installer.Testing.PlatformSnapshot? other) -> bool
+Instella.Installer.Testing.PlatformSnapshot.FileAssociations.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot.FileAssociations.init -> void
+Instella.Installer.Testing.PlatformSnapshot.PathEntries.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot.PathEntries.init -> void
+Instella.Installer.Testing.PlatformSnapshot.PlatformSnapshot(System.Collections.Generic.IReadOnlyList<string!>! Shortcuts, System.Collections.Generic.IReadOnlyList<string!>! FileAssociations, System.Collections.Generic.IReadOnlyList<string!>! PathEntries, System.Collections.Generic.IReadOnlyList<string!>! AutoStarts, System.Collections.Generic.IReadOnlyList<string!>! UninstallEntries, System.Collections.Generic.IReadOnlyList<string!>! RegistryValues) -> void
+Instella.Installer.Testing.PlatformSnapshot.RegistryValues.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot.RegistryValues.init -> void
+Instella.Installer.Testing.PlatformSnapshot.SameAs(Instella.Installer.Testing.PlatformSnapshot! other) -> bool
+Instella.Installer.Testing.PlatformSnapshot.Shortcuts.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot.Shortcuts.init -> void
+Instella.Installer.Testing.PlatformSnapshot.UninstallEntries.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.PlatformSnapshot.UninstallEntries.init -> void
+Instella.Installer.Testing.RecordingLogger
+Instella.Installer.Testing.RecordingLogger.Debug(string! message) -> void
+Instella.Installer.Testing.RecordingLogger.Error(string! message, System.Exception? exception = null) -> void
+Instella.Installer.Testing.RecordingLogger.Info(string! message) -> void
+Instella.Installer.Testing.RecordingLogger.IsEnabled(Instella.Core.Logging.InstellaLogLevel level) -> bool
+Instella.Installer.Testing.RecordingLogger.RecordingLogger(Instella.Installer.Testing.RecordingSink! sink, string! category = "Instella.Test") -> void
+Instella.Installer.Testing.RecordingLogger.Scope(string! segment) -> System.IDisposable!
+Instella.Installer.Testing.RecordingLogger.Trace(string! message) -> void
+Instella.Installer.Testing.RecordingLogger.Warn(string! message) -> void
+Instella.Installer.Testing.RecordingSink
+Instella.Installer.Testing.RecordingSink.AtOrAbove(Instella.Core.Logging.InstellaLogLevel minimum) -> System.Collections.Generic.IReadOnlyList<Instella.Core.Logging.InstellaLogEntry>!
+Instella.Installer.Testing.RecordingSink.Clear() -> void
+Instella.Installer.Testing.RecordingSink.Entries.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Logging.InstellaLogEntry>!
+Instella.Installer.Testing.RecordingSink.FlushAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Instella.Installer.Testing.RecordingSink.RecordingSink() -> void
+Instella.Installer.Testing.RecordingSink.Write(in Instella.Core.Logging.InstellaLogEntry entry) -> void
+Instella.Installer.Testing.RegistryValueRecord
+Instella.Installer.Testing.RegistryValueRecord.Deconstruct(out Instella.Core.Platform.RegistryHive Hive, out string! KeyPath, out string! ValueName, out Instella.Core.Platform.InstellaRegistryValueKind Kind, out object! Value) -> void
+Instella.Installer.Testing.RegistryValueRecord.Equals(Instella.Installer.Testing.RegistryValueRecord other) -> bool
+Instella.Installer.Testing.RegistryValueRecord.Hive.get -> Instella.Core.Platform.RegistryHive
+Instella.Installer.Testing.RegistryValueRecord.Hive.init -> void
+Instella.Installer.Testing.RegistryValueRecord.KeyPath.get -> string!
+Instella.Installer.Testing.RegistryValueRecord.KeyPath.init -> void
+Instella.Installer.Testing.RegistryValueRecord.Kind.get -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Installer.Testing.RegistryValueRecord.Kind.init -> void
+Instella.Installer.Testing.RegistryValueRecord.RegistryValueRecord() -> void
+Instella.Installer.Testing.RegistryValueRecord.RegistryValueRecord(Instella.Core.Platform.RegistryHive Hive, string! KeyPath, string! ValueName, Instella.Core.Platform.InstellaRegistryValueKind Kind, object! Value) -> void
+Instella.Installer.Testing.RegistryValueRecord.Value.get -> object!
+Instella.Installer.Testing.RegistryValueRecord.Value.init -> void
+Instella.Installer.Testing.RegistryValueRecord.ValueName.get -> string!
+Instella.Installer.Testing.RegistryValueRecord.ValueName.init -> void
+override Instella.Installer.Testing.PlatformSnapshot.Equals(object? obj) -> bool
+override Instella.Installer.Testing.PlatformSnapshot.GetHashCode() -> int
+override Instella.Installer.Testing.PlatformSnapshot.ToString() -> string!
+override Instella.Installer.Testing.RegistryValueRecord.GetHashCode() -> int
+static Instella.Installer.Testing.InstellaTestHarness.Create() -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+static Instella.Installer.Testing.PlatformSnapshot.operator !=(Instella.Installer.Testing.PlatformSnapshot? left, Instella.Installer.Testing.PlatformSnapshot? right) -> bool
+static Instella.Installer.Testing.PlatformSnapshot.operator ==(Instella.Installer.Testing.PlatformSnapshot? left, Instella.Installer.Testing.PlatformSnapshot? right) -> bool
+static Instella.Installer.Testing.RegistryValueRecord.operator !=(Instella.Installer.Testing.RegistryValueRecord left, Instella.Installer.Testing.RegistryValueRecord right) -> bool
+static Instella.Installer.Testing.RegistryValueRecord.operator ==(Instella.Installer.Testing.RegistryValueRecord left, Instella.Installer.Testing.RegistryValueRecord right) -> bool
+~override Instella.Installer.Testing.RegistryValueRecord.Equals(object obj) -> bool
+~override Instella.Installer.Testing.RegistryValueRecord.ToString() -> string

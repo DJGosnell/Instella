@@ -1,0 +1,18 @@
+@using Instella.Server.Services
+@inject NavigationManager Navigation
+@inject AuthService AuthService
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Before the first admin exists everything leads to setup; afterwards to the login page,
+        // returning to where the user was going.
+        if (!await AuthService.IsSetupCompleteAsync())
+        {
+            Navigation.NavigateTo("/setup", forceLoad: true);
+            return;
+        }
+        var returnUrl = Uri.EscapeDataString(Navigation.ToBaseRelativePath(Navigation.Uri));
+        Navigation.NavigateTo($"/login?returnUrl={returnUrl}", forceLoad: true);
+    }
+}

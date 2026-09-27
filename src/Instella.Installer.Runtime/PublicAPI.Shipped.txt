@@ -1,0 +1,514 @@
+#nullable enable
+abstract Instella.Installer.Runtime.UI.Widgets.ImageSource.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.ImageSource!
+abstract Instella.Installer.Runtime.UI.Widgets.Widget.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.Widget!
+Instella.Installer.Runtime.Builders.CliArgs
+Instella.Installer.Runtime.Builders.CliArgs.Get<T>(string! name) -> T
+Instella.Installer.Runtime.Builders.CliArgs.Get<T>(string! name, T default) -> T
+Instella.Installer.Runtime.Builders.CliArgs.IsSilent.get -> bool
+Instella.Installer.Runtime.Builders.CliArgs.Raw.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Runtime.Builders.CliArgs.TryGet<T>(string! name, out T value) -> bool
+Instella.Installer.Runtime.Builders.CliArgs.WasProvided(string! name) -> bool
+Instella.Installer.Runtime.Builders.IInstellaInstaller
+Instella.Installer.Runtime.Builders.IInstellaInstaller.RunAsync(string![]! args, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Instella.Installer.Runtime.Builders.InstallerBuilder
+Instella.Installer.Runtime.Builders.InstallerBuilder.AddCliFlag<T>(string! name, T defaultValue = default(T), string? help = null) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.AddPage(string! id, System.Action<Instella.Installer.Runtime.Builders.PageBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.AddStep(string! name, System.Action<Instella.Installer.Runtime.Installation.Builders.StepBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.AllowInsecureServer() -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.AllowUnsignedUpdates() -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.Build() -> Instella.Installer.Runtime.Builders.IInstellaInstaller!
+Instella.Installer.Runtime.Builders.InstallerBuilder.ConfigureLogging(System.Action<Instella.Core.Logging.LoggingBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.EnablePreview() -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.MapCliFlag(string! flagName, string! pageStateKey) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.OnLinux(System.Action<Instella.Installer.Runtime.Builders.LinuxBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.OnMacOS(System.Action<Instella.Installer.Runtime.Builders.MacOSBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.OnWindows(System.Action<Instella.Installer.Runtime.Builders.WindowsBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithApp(string! name, string! appId, System.Version! version) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithAutoStart(bool enabled = true) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithBrandImage(Instella.Installer.Runtime.UI.Widgets.ImageSource? image) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithChannel(string! channel) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithDescription(string! text) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithDownloadToken(string! token) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithElevation(Instella.Core.Manifest.ElevationMode mode) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithExecutableName(string! exeName) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithFileAssociation(string! extension, string! description, Instella.Installer.Runtime.UI.Widgets.ImageSource? icon = null) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithHomepage(string! url) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithIcon(Instella.Installer.Runtime.UI.Widgets.ImageSource! icon) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithInstallPath(System.Func<Instella.Installer.Runtime.Installation.InstallContext!, string!>! resolver) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithLaunchAfterInstall(bool checkedByDefault = true) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithLicense(string! url) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithLogLevel(Instella.Core.Logging.InstellaLogLevel level) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithNewerVersionPrompt(bool enabled = true) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithPathRegistration(bool enabled = true) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithPayloadFilter(System.Action<Instella.Installer.Runtime.Builders.PayloadFilterBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithPrerequisite(System.Action<Instella.Installer.Runtime.Builders.PrerequisiteBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithPublisher(string! publisher) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithPublisherKey(string! publicKeyBase64) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithServer(string! url) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithShortcuts(System.Action<Instella.Installer.Runtime.Builders.ShortcutBuilder!>! configure) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstallerBuilder.WithVersionSelection(bool enabled = true) -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+Instella.Installer.Runtime.Builders.InstellaInstaller
+Instella.Installer.Runtime.Builders.LinuxBuilder
+Instella.Installer.Runtime.Builders.MacOSBuilder
+Instella.Installer.Runtime.Builders.PageBuilder
+Instella.Installer.Runtime.Builders.PageBuilder.BrandImage(Instella.Installer.Runtime.UI.Widgets.ImageSource! source, int maxHeight = 96) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.CheckBox(string! id, string! label, bool defaultValue = false) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.ContinueWhen(System.Func<Instella.Installer.Runtime.UI.Widgets.PageState!, bool>! predicate) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.Dropdown(string! id, string! label, params string![]! options) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.FilePicker(string! id, string! label, params Instella.Installer.Runtime.UI.Widgets.FileFilter![]! filters) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.FolderPicker(string! id, string! label, string? defaultPath = null) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.Heading(string! text) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.InModes(params Instella.Core.Installation.InstallerMode[]! modes) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.OnEnter(System.Func<Instella.Installer.Runtime.Installation.InstallContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! handler) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.OnLeave(System.Func<Instella.Installer.Runtime.Installation.InstallContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! handler) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.OnValidate(System.Func<Instella.Installer.Runtime.UI.Widgets.PageState!, Instella.Installer.Runtime.Builders.ValidationResult>! validator) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.Paragraph(string! text) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.Progress() -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.RadioGroup(string! id, string! label, params Instella.Installer.Runtime.UI.Widgets.RadioOption![]! options) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.ScrollableText(string! text) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.StatusLine() -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.TextInput(string! id, string! label, string! defaultValue = "") -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.When(System.Func<Instella.Installer.Runtime.Installation.InstallContext!, bool>! predicate) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.PageBuilder.Widget(Instella.Installer.Runtime.UI.Widgets.Widget! widget) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.Pages
+Instella.Installer.Runtime.Builders.PayloadFilterBuilder
+Instella.Installer.Runtime.Builders.PayloadFilterBuilder.Exclude(params string![]! globs) -> Instella.Installer.Runtime.Builders.PayloadFilterBuilder!
+Instella.Installer.Runtime.Builders.PayloadFilterBuilder.ExcludeDefaults(Instella.Installer.Runtime.Builders.PayloadFilterPreset preset) -> Instella.Installer.Runtime.Builders.PayloadFilterBuilder!
+Instella.Installer.Runtime.Builders.PayloadFilterBuilder.Include(params string![]! globs) -> Instella.Installer.Runtime.Builders.PayloadFilterBuilder!
+Instella.Installer.Runtime.Builders.PayloadFilterPreset
+Instella.Installer.Runtime.Builders.PayloadFilterPreset.DebugArtifacts = 0 -> Instella.Installer.Runtime.Builders.PayloadFilterPreset
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithBundlePath(string! path) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithDetectionRegistry(string! keyPath) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithDownloadUrl(string! url) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithInstallArguments(params string![]! arguments) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithName(string! name) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithSha256(string! hex) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.PrerequisiteBuilder.WithSuccessExitCodes(params int[]! exitCodes) -> Instella.Installer.Runtime.Builders.PrerequisiteBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetBinary(string! name, byte[]! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetBinary(string! name, System.Func<Instella.Installer.Runtime.Installation.InstallContext!, byte[]!>! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetDWord(string! name, int value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetDWord(string! name, System.Func<Instella.Installer.Runtime.Installation.InstallContext!, int>! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetExpandString(string! name, string! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetExpandString(string! name, System.Func<Instella.Installer.Runtime.Installation.InstallContext!, string!>! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetMultiString(string! name, string![]! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetMultiString(string! name, System.Func<Instella.Installer.Runtime.Installation.InstallContext!, string![]!>! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetQWord(string! name, long value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetQWord(string! name, System.Func<Instella.Installer.Runtime.Installation.InstallContext!, long>! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetString(string! name, string! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.RegistryKeyBuilder.SetString(string! name, System.Func<Instella.Installer.Runtime.Installation.InstallContext!, string!>! value) -> Instella.Installer.Runtime.Builders.RegistryKeyBuilder!
+Instella.Installer.Runtime.Builders.ShortcutBuilder
+Instella.Installer.Runtime.Builders.ShortcutBuilder.Desktop(bool enabled = true) -> Instella.Installer.Runtime.Builders.ShortcutBuilder!
+Instella.Installer.Runtime.Builders.ShortcutBuilder.StartMenu(bool enabled = true) -> Instella.Installer.Runtime.Builders.ShortcutBuilder!
+Instella.Installer.Runtime.Builders.ValidationResult
+Instella.Installer.Runtime.Builders.ValidationResult.Deconstruct(out bool IsValid, out string? Error) -> void
+Instella.Installer.Runtime.Builders.ValidationResult.Equals(Instella.Installer.Runtime.Builders.ValidationResult other) -> bool
+Instella.Installer.Runtime.Builders.ValidationResult.Error.get -> string?
+Instella.Installer.Runtime.Builders.ValidationResult.Error.init -> void
+Instella.Installer.Runtime.Builders.ValidationResult.IsValid.get -> bool
+Instella.Installer.Runtime.Builders.ValidationResult.IsValid.init -> void
+Instella.Installer.Runtime.Builders.ValidationResult.ValidationResult() -> void
+Instella.Installer.Runtime.Builders.ValidationResult.ValidationResult(bool IsValid, string? Error) -> void
+Instella.Installer.Runtime.Builders.WindowsBuilder
+Instella.Installer.Runtime.Builders.WindowsBuilder.AddRegistryKey(Instella.Core.Platform.RegistryHive hive, string! keyPath, System.Action<Instella.Installer.Runtime.Builders.RegistryKeyBuilder!>! configure) -> Instella.Installer.Runtime.Builders.WindowsBuilder!
+Instella.Installer.Runtime.Core.InstallOptions
+Instella.Installer.Runtime.Core.InstallOptions.<Clone>$() -> Instella.Installer.Runtime.Core.InstallOptions!
+Instella.Installer.Runtime.Core.InstallOptions.AddToPath.get -> bool
+Instella.Installer.Runtime.Core.InstallOptions.AddToPath.init -> void
+Instella.Installer.Runtime.Core.InstallOptions.ConfigureAutoStart.get -> bool
+Instella.Installer.Runtime.Core.InstallOptions.ConfigureAutoStart.init -> void
+Instella.Installer.Runtime.Core.InstallOptions.CreateDesktopShortcut.get -> bool
+Instella.Installer.Runtime.Core.InstallOptions.CreateDesktopShortcut.init -> void
+Instella.Installer.Runtime.Core.InstallOptions.CreateStartMenuShortcut.get -> bool
+Instella.Installer.Runtime.Core.InstallOptions.CreateStartMenuShortcut.init -> void
+Instella.Installer.Runtime.Core.InstallOptions.Elevation.get -> Instella.Core.Manifest.ElevationMode
+Instella.Installer.Runtime.Core.InstallOptions.Elevation.init -> void
+Instella.Installer.Runtime.Core.InstallOptions.Equals(Instella.Installer.Runtime.Core.InstallOptions? other) -> bool
+Instella.Installer.Runtime.Core.InstallOptions.InstallOptions() -> void
+Instella.Installer.Runtime.Core.InstallOptions.InstallPath.get -> string!
+Instella.Installer.Runtime.Core.InstallOptions.InstallPath.init -> void
+Instella.Installer.Runtime.Core.InstallOptions.RegisterFileAssociations.get -> bool
+Instella.Installer.Runtime.Core.InstallOptions.RegisterFileAssociations.init -> void
+Instella.Installer.Runtime.Installation.Builders.StepBuilder
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.After(Instella.Core.Installation.InstallStage stage) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.After(string! stepName) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.Before(Instella.Core.Installation.InstallStage stage) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.Before(string! stepName) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.Execute(Instella.Installer.Runtime.Installation.Builders.StepExecuteAsync! execute) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.InStage(Instella.Core.Installation.InstallStage stage) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.NoRollbackNeeded(string! reason) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.OnUninstall(System.Func<Instella.Installer.Runtime.Installation.InstallContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! uninstall) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.PointOfNoReturn(string! reason) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.Rollback(Instella.Installer.Runtime.Installation.Builders.StepRollbackAsync! rollback) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.UseTrackedRollback() -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.Weight(int weight) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.When(System.Func<Instella.Installer.Runtime.Installation.InstallContext!, bool>! predicate) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepBuilder.WithDisplayName(string! displayName) -> Instella.Installer.Runtime.Installation.Builders.StepBuilder!
+Instella.Installer.Runtime.Installation.Builders.StepExecuteAsync
+Instella.Installer.Runtime.Installation.Builders.StepRollbackAsync
+Instella.Installer.Runtime.Installation.ExecutionResult
+Instella.Installer.Runtime.Installation.ExecutionResult.<Clone>$() -> Instella.Installer.Runtime.Installation.ExecutionResult!
+Instella.Installer.Runtime.Installation.ExecutionResult.Deconstruct(out bool Success, out string? Error, out System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.Installation.StepExecutionRecord!>! Steps, out System.Collections.Generic.IReadOnlyList<string!>! Warnings) -> void
+Instella.Installer.Runtime.Installation.ExecutionResult.Equals(Instella.Installer.Runtime.Installation.ExecutionResult? other) -> bool
+Instella.Installer.Runtime.Installation.ExecutionResult.Error.get -> string?
+Instella.Installer.Runtime.Installation.ExecutionResult.Error.init -> void
+Instella.Installer.Runtime.Installation.ExecutionResult.ExecutionResult(bool Success, string? Error, System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.Installation.StepExecutionRecord!>! Steps, System.Collections.Generic.IReadOnlyList<string!>! Warnings) -> void
+Instella.Installer.Runtime.Installation.ExecutionResult.Steps.get -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.Installation.StepExecutionRecord!>!
+Instella.Installer.Runtime.Installation.ExecutionResult.Steps.init -> void
+Instella.Installer.Runtime.Installation.ExecutionResult.Success.get -> bool
+Instella.Installer.Runtime.Installation.ExecutionResult.Success.init -> void
+Instella.Installer.Runtime.Installation.ExecutionResult.Warnings.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Runtime.Installation.ExecutionResult.Warnings.init -> void
+Instella.Installer.Runtime.Installation.IInstallStepExecution
+Instella.Installer.Runtime.Installation.IInstallStepExecution.ExecuteAsync(Instella.Installer.Runtime.Installation.InstallContext! context, Instella.Core.Installation.IStepProgress! progress, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Instella.Core.Installation.StepResult>!
+Instella.Installer.Runtime.Installation.IInstallStepExecution.IsPointOfNoReturn.get -> bool
+Instella.Installer.Runtime.Installation.IInstallStepExecution.PointOfNoReturnReason.get -> string?
+Instella.Installer.Runtime.Installation.IInstallStepExecution.RollbackAsync(Instella.Installer.Runtime.Installation.InstallContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Instella.Installer.Runtime.Installation.IInstallStepExecution.ShouldRun(Instella.Installer.Runtime.Installation.InstallContext! context) -> bool
+Instella.Installer.Runtime.Installation.InstallContext
+Instella.Installer.Runtime.Installation.InstallContext.AppId.get -> string!
+Instella.Installer.Runtime.Installation.InstallContext.AppId.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.AppName.get -> string!
+Instella.Installer.Runtime.Installation.InstallContext.AppName.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.AppVersion.get -> System.Version!
+Instella.Installer.Runtime.Installation.InstallContext.AppVersion.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Cli.get -> Instella.Installer.Runtime.Builders.CliArgs!
+Instella.Installer.Runtime.Installation.InstallContext.Cli.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.ExecutablePath.get -> string?
+Instella.Installer.Runtime.Installation.InstallContext.ExistingInstallation.get -> Instella.Core.Installation.InstalledManifest?
+Instella.Installer.Runtime.Installation.InstallContext.ExistingInstallation.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.ExtractedFiles.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.InstalledFile!>!
+Instella.Installer.Runtime.Installation.InstallContext.FileSystem.get -> Instella.Core.FileSystem.IFileSystem!
+Instella.Installer.Runtime.Installation.InstallContext.FileSystem.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.InstallPath.get -> string!
+Instella.Installer.Runtime.Installation.InstallContext.InstallPath.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Log.get -> Instella.Core.Logging.IInstellaLogger!
+Instella.Installer.Runtime.Installation.InstallContext.Log.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Manifest.get -> Instella.Core.Manifest.InstellaManifest!
+Instella.Installer.Runtime.Installation.InstallContext.Manifest.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Mode.get -> Instella.Core.Installation.InstallerMode
+Instella.Installer.Runtime.Installation.InstallContext.Mode.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Options.get -> Instella.Installer.Runtime.Core.InstallOptions!
+Instella.Installer.Runtime.Installation.InstallContext.Options.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Pages.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Instella.Installer.Runtime.UI.Widgets.PageState!>!
+Instella.Installer.Runtime.Installation.InstallContext.Pages.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.Platform.get -> Instella.Core.Platform.IPlatformServices!
+Instella.Installer.Runtime.Installation.InstallContext.Platform.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.RebootRequired.get -> bool
+Instella.Installer.Runtime.Installation.InstallContext.RebootRequired.set -> void
+Instella.Installer.Runtime.Installation.InstallContext.Scope.get -> Instella.Core.Installation.InstallationScope
+Instella.Installer.Runtime.Installation.InstallContext.Scope.init -> void
+Instella.Installer.Runtime.Installation.InstallContext.TrackDirectory(string! path, bool recursive = false) -> void
+Instella.Installer.Runtime.Installation.InstallContext.TrackFile(string! path) -> void
+Instella.Installer.Runtime.Installation.InstallContext.TrackPathEntry(string! directory) -> void
+Instella.Installer.Runtime.Installation.InstallContext.TrackRegistryKey(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> void
+Instella.Installer.Runtime.Installation.InstallContext.TrackRegistryValue(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name) -> void
+Instella.Installer.Runtime.Installation.InstallContext.TrackRegistryValueRestore(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, Instella.Core.Platform.RegistryValueData! previous) -> void
+Instella.Installer.Runtime.Installation.OverallProgress
+Instella.Installer.Runtime.Installation.OverallProgress.Deconstruct(out double Fraction, out Instella.Core.Installation.InstallStage Stage, out string? StepName, out string? Status) -> void
+Instella.Installer.Runtime.Installation.OverallProgress.Equals(Instella.Installer.Runtime.Installation.OverallProgress other) -> bool
+Instella.Installer.Runtime.Installation.OverallProgress.Fraction.get -> double
+Instella.Installer.Runtime.Installation.OverallProgress.Fraction.init -> void
+Instella.Installer.Runtime.Installation.OverallProgress.OverallProgress() -> void
+Instella.Installer.Runtime.Installation.OverallProgress.OverallProgress(double Fraction, Instella.Core.Installation.InstallStage Stage, string? StepName, string? Status) -> void
+Instella.Installer.Runtime.Installation.OverallProgress.Stage.get -> Instella.Core.Installation.InstallStage
+Instella.Installer.Runtime.Installation.OverallProgress.Stage.init -> void
+Instella.Installer.Runtime.Installation.OverallProgress.Status.get -> string?
+Instella.Installer.Runtime.Installation.OverallProgress.Status.init -> void
+Instella.Installer.Runtime.Installation.OverallProgress.StepName.get -> string?
+Instella.Installer.Runtime.Installation.OverallProgress.StepName.init -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord
+Instella.Installer.Runtime.Installation.StepExecutionRecord.<Clone>$() -> Instella.Installer.Runtime.Installation.StepExecutionRecord!
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Deconstruct(out string! Name, out Instella.Core.Installation.InstallStage Stage, out Instella.Installer.Runtime.Installation.StepOutcome Outcome, out string? Error, out System.Collections.Generic.IReadOnlyList<string!>? Warnings) -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Equals(Instella.Installer.Runtime.Installation.StepExecutionRecord? other) -> bool
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Error.get -> string?
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Error.init -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Name.get -> string!
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Name.init -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Outcome.get -> Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Outcome.init -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Stage.get -> Instella.Core.Installation.InstallStage
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Stage.init -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord.StepExecutionRecord(string! Name, Instella.Core.Installation.InstallStage Stage, Instella.Installer.Runtime.Installation.StepOutcome Outcome, string? Error = null, System.Collections.Generic.IReadOnlyList<string!>? Warnings = null) -> void
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Warnings.get -> System.Collections.Generic.IReadOnlyList<string!>?
+Instella.Installer.Runtime.Installation.StepExecutionRecord.Warnings.init -> void
+Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.Installation.StepOutcome.Failed = 2 -> Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.Installation.StepOutcome.RolledBack = 4 -> Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.Installation.StepOutcome.Skipped = 3 -> Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.Installation.StepOutcome.Succeeded = 0 -> Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.Installation.StepOutcome.SucceededWithWarnings = 1 -> Instella.Installer.Runtime.Installation.StepOutcome
+Instella.Installer.Runtime.UI.Widgets.BrandImage
+Instella.Installer.Runtime.UI.Widgets.BrandImage.BrandImage(Instella.Installer.Runtime.UI.Widgets.ImageSource! Source, int MaxHeight = 96) -> void
+Instella.Installer.Runtime.UI.Widgets.BrandImage.Deconstruct(out Instella.Installer.Runtime.UI.Widgets.ImageSource! Source, out int MaxHeight) -> void
+Instella.Installer.Runtime.UI.Widgets.BrandImage.Equals(Instella.Installer.Runtime.UI.Widgets.BrandImage? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.BrandImage.MaxHeight.get -> int
+Instella.Installer.Runtime.UI.Widgets.BrandImage.MaxHeight.init -> void
+Instella.Installer.Runtime.UI.Widgets.BrandImage.Source.get -> Instella.Installer.Runtime.UI.Widgets.ImageSource!
+Instella.Installer.Runtime.UI.Widgets.BrandImage.Source.init -> void
+Instella.Installer.Runtime.UI.Widgets.CheckBox
+Instella.Installer.Runtime.UI.Widgets.CheckBox.CheckBox(string! Label, bool Default = false) -> void
+Instella.Installer.Runtime.UI.Widgets.CheckBox.Deconstruct(out string! Label, out bool Default) -> void
+Instella.Installer.Runtime.UI.Widgets.CheckBox.Default.get -> bool
+Instella.Installer.Runtime.UI.Widgets.CheckBox.Default.init -> void
+Instella.Installer.Runtime.UI.Widgets.CheckBox.Equals(Instella.Installer.Runtime.UI.Widgets.CheckBox? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.CheckBox.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.CheckBox.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.Dropdown
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Deconstruct(out string! Label, out System.Collections.Generic.IReadOnlyList<string!>! Options, out string? Default) -> void
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Default.get -> string?
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Default.init -> void
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Dropdown(string! Label, System.Collections.Generic.IReadOnlyList<string!>! Options, string? Default = null) -> void
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Equals(Instella.Installer.Runtime.UI.Widgets.Dropdown? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Options.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Runtime.UI.Widgets.Dropdown.Options.init -> void
+Instella.Installer.Runtime.UI.Widgets.FileFilter
+Instella.Installer.Runtime.UI.Widgets.FileFilter.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.FileFilter!
+Instella.Installer.Runtime.UI.Widgets.FileFilter.Deconstruct(out string! Description, out string![]! Extensions) -> void
+Instella.Installer.Runtime.UI.Widgets.FileFilter.Description.get -> string!
+Instella.Installer.Runtime.UI.Widgets.FileFilter.Description.init -> void
+Instella.Installer.Runtime.UI.Widgets.FileFilter.Equals(Instella.Installer.Runtime.UI.Widgets.FileFilter? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.FileFilter.Extensions.get -> string![]!
+Instella.Installer.Runtime.UI.Widgets.FileFilter.Extensions.init -> void
+Instella.Installer.Runtime.UI.Widgets.FileFilter.FileFilter(string! Description, string![]! Extensions) -> void
+Instella.Installer.Runtime.UI.Widgets.FilePicker
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Deconstruct(out string! Label, out System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.UI.Widgets.FileFilter!>! Filters, out string? Default) -> void
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Default.get -> string?
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Default.init -> void
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Equals(Instella.Installer.Runtime.UI.Widgets.FilePicker? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.FilePicker.FilePicker(string! Label, System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.UI.Widgets.FileFilter!>! Filters, string? Default = null) -> void
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Filters.get -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.UI.Widgets.FileFilter!>!
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Filters.init -> void
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.FilePicker.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.FolderPicker
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.Deconstruct(out string! Label, out string? Default) -> void
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.Default.get -> string?
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.Default.init -> void
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.Equals(Instella.Installer.Runtime.UI.Widgets.FolderPicker? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.FolderPicker(string! Label, string? Default = null) -> void
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.FolderPicker.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.Heading
+Instella.Installer.Runtime.UI.Widgets.Heading.Deconstruct(out string! Text) -> void
+Instella.Installer.Runtime.UI.Widgets.Heading.Equals(Instella.Installer.Runtime.UI.Widgets.Heading? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.Heading.Heading(string! Text) -> void
+Instella.Installer.Runtime.UI.Widgets.Heading.Text.get -> string!
+Instella.Installer.Runtime.UI.Widgets.Heading.Text.init -> void
+Instella.Installer.Runtime.UI.Widgets.ImageSource
+Instella.Installer.Runtime.UI.Widgets.ImageSource.ImageSource() -> void
+Instella.Installer.Runtime.UI.Widgets.ImageSource.ImageSource(Instella.Installer.Runtime.UI.Widgets.ImageSource! original) -> void
+Instella.Installer.Runtime.UI.Widgets.PageState
+Instella.Installer.Runtime.UI.Widgets.PageState.Bool(string! id, bool default = false) -> bool
+Instella.Installer.Runtime.UI.Widgets.PageState.Clear() -> void
+Instella.Installer.Runtime.UI.Widgets.PageState.Get<T>(string! id, T default = default(T)) -> T
+Instella.Installer.Runtime.UI.Widgets.PageState.PageState() -> void
+Instella.Installer.Runtime.UI.Widgets.PageState.Set(string! id, object? value) -> void
+Instella.Installer.Runtime.UI.Widgets.PageState.Snapshot() -> System.Collections.Generic.IReadOnlyDictionary<string!, object?>!
+Instella.Installer.Runtime.UI.Widgets.PageState.StateChanged -> System.Action?
+Instella.Installer.Runtime.UI.Widgets.PageState.Text(string! id, string! default = "") -> string!
+Instella.Installer.Runtime.UI.Widgets.PageState.TryGet<T>(string! id, out T value) -> bool
+Instella.Installer.Runtime.UI.Widgets.Paragraph
+Instella.Installer.Runtime.UI.Widgets.Paragraph.Deconstruct(out string! Text) -> void
+Instella.Installer.Runtime.UI.Widgets.Paragraph.Equals(Instella.Installer.Runtime.UI.Widgets.Paragraph? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.Paragraph.Paragraph(string! Text) -> void
+Instella.Installer.Runtime.UI.Widgets.Paragraph.Text.get -> string!
+Instella.Installer.Runtime.UI.Widgets.Paragraph.Text.init -> void
+Instella.Installer.Runtime.UI.Widgets.Progress
+Instella.Installer.Runtime.UI.Widgets.Progress.Equals(Instella.Installer.Runtime.UI.Widgets.Progress? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.Progress.Progress() -> void
+Instella.Installer.Runtime.UI.Widgets.RadioGroup
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Deconstruct(out string! Label, out System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.UI.Widgets.RadioOption!>! Options, out string? Default) -> void
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Default.get -> string?
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Default.init -> void
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Equals(Instella.Installer.Runtime.UI.Widgets.RadioGroup? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Options.get -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.UI.Widgets.RadioOption!>!
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.Options.init -> void
+Instella.Installer.Runtime.UI.Widgets.RadioGroup.RadioGroup(string! Label, System.Collections.Generic.IReadOnlyList<Instella.Installer.Runtime.UI.Widgets.RadioOption!>! Options, string? Default = null) -> void
+Instella.Installer.Runtime.UI.Widgets.RadioOption
+Instella.Installer.Runtime.UI.Widgets.RadioOption.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.RadioOption!
+Instella.Installer.Runtime.UI.Widgets.RadioOption.Deconstruct(out string! Value, out string! Label) -> void
+Instella.Installer.Runtime.UI.Widgets.RadioOption.Equals(Instella.Installer.Runtime.UI.Widgets.RadioOption? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.RadioOption.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.RadioOption.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.RadioOption.RadioOption(string! Value, string! Label) -> void
+Instella.Installer.Runtime.UI.Widgets.RadioOption.Value.get -> string!
+Instella.Installer.Runtime.UI.Widgets.RadioOption.Value.init -> void
+Instella.Installer.Runtime.UI.Widgets.ScrollableText
+Instella.Installer.Runtime.UI.Widgets.ScrollableText.Deconstruct(out string! Text) -> void
+Instella.Installer.Runtime.UI.Widgets.ScrollableText.Equals(Instella.Installer.Runtime.UI.Widgets.ScrollableText? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.ScrollableText.ScrollableText(string! Text) -> void
+Instella.Installer.Runtime.UI.Widgets.ScrollableText.Text.get -> string!
+Instella.Installer.Runtime.UI.Widgets.ScrollableText.Text.init -> void
+Instella.Installer.Runtime.UI.Widgets.StatusLine
+Instella.Installer.Runtime.UI.Widgets.StatusLine.Equals(Instella.Installer.Runtime.UI.Widgets.StatusLine? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.StatusLine.StatusLine() -> void
+Instella.Installer.Runtime.UI.Widgets.TextInput
+Instella.Installer.Runtime.UI.Widgets.TextInput.Deconstruct(out string! Label, out string! Default) -> void
+Instella.Installer.Runtime.UI.Widgets.TextInput.Default.get -> string!
+Instella.Installer.Runtime.UI.Widgets.TextInput.Default.init -> void
+Instella.Installer.Runtime.UI.Widgets.TextInput.Equals(Instella.Installer.Runtime.UI.Widgets.TextInput? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.TextInput.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.TextInput.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.TextInput.TextInput(string! Label, string! Default = "") -> void
+Instella.Installer.Runtime.UI.Widgets.Widget
+Instella.Installer.Runtime.UI.Widgets.Widget.Enabled.get -> System.Func<Instella.Installer.Runtime.UI.Widgets.PageState!, bool>?
+Instella.Installer.Runtime.UI.Widgets.Widget.Enabled.init -> void
+Instella.Installer.Runtime.UI.Widgets.Widget.Id.get -> string?
+Instella.Installer.Runtime.UI.Widgets.Widget.Id.init -> void
+Instella.Installer.Runtime.UI.Widgets.Widget.Visible.get -> System.Func<Instella.Installer.Runtime.UI.Widgets.PageState!, bool>?
+Instella.Installer.Runtime.UI.Widgets.Widget.Visible.init -> void
+Instella.Installer.Runtime.UI.Widgets.Widget.Widget() -> void
+Instella.Installer.Runtime.UI.Widgets.Widget.Widget(Instella.Installer.Runtime.UI.Widgets.Widget! original) -> void
+override Instella.Installer.Runtime.Builders.ValidationResult.GetHashCode() -> int
+override Instella.Installer.Runtime.Core.InstallOptions.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.Core.InstallOptions.GetHashCode() -> int
+override Instella.Installer.Runtime.Core.InstallOptions.ToString() -> string!
+override Instella.Installer.Runtime.Installation.ExecutionResult.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.Installation.ExecutionResult.GetHashCode() -> int
+override Instella.Installer.Runtime.Installation.ExecutionResult.ToString() -> string!
+override Instella.Installer.Runtime.Installation.OverallProgress.GetHashCode() -> int
+override Instella.Installer.Runtime.Installation.StepExecutionRecord.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.Installation.StepExecutionRecord.GetHashCode() -> int
+override Instella.Installer.Runtime.Installation.StepExecutionRecord.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.BrandImage.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.BrandImage!
+override Instella.Installer.Runtime.UI.Widgets.BrandImage.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.BrandImage.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.BrandImage.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.CheckBox.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.CheckBox!
+override Instella.Installer.Runtime.UI.Widgets.CheckBox.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.CheckBox.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.CheckBox.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.Dropdown.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.Dropdown!
+override Instella.Installer.Runtime.UI.Widgets.Dropdown.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.Dropdown.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.Dropdown.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.FileFilter.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.FileFilter.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.FileFilter.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.FilePicker.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.FilePicker!
+override Instella.Installer.Runtime.UI.Widgets.FilePicker.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.FilePicker.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.FilePicker.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.FolderPicker.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.FolderPicker!
+override Instella.Installer.Runtime.UI.Widgets.FolderPicker.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.FolderPicker.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.FolderPicker.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.Heading.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.Heading!
+override Instella.Installer.Runtime.UI.Widgets.Heading.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.Heading.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.Heading.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.ImageSource.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.ImageSource.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.ImageSource.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.Paragraph.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.Paragraph!
+override Instella.Installer.Runtime.UI.Widgets.Paragraph.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.Paragraph.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.Paragraph.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.Progress.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.Progress!
+override Instella.Installer.Runtime.UI.Widgets.Progress.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.Progress.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.Progress.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.RadioGroup.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.RadioGroup!
+override Instella.Installer.Runtime.UI.Widgets.RadioGroup.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.RadioGroup.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.RadioGroup.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.RadioOption.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.RadioOption.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.RadioOption.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.ScrollableText.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.ScrollableText!
+override Instella.Installer.Runtime.UI.Widgets.ScrollableText.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.ScrollableText.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.ScrollableText.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.StatusLine.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.StatusLine!
+override Instella.Installer.Runtime.UI.Widgets.StatusLine.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.StatusLine.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.StatusLine.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.TextInput.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.TextInput!
+override Instella.Installer.Runtime.UI.Widgets.TextInput.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.TextInput.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.TextInput.ToString() -> string!
+override Instella.Installer.Runtime.UI.Widgets.Widget.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.Widget.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.Widget.ToString() -> string!
+override sealed Instella.Installer.Runtime.UI.Widgets.BrandImage.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.CheckBox.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.Dropdown.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.FilePicker.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.FolderPicker.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.Heading.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.Paragraph.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.Progress.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.RadioGroup.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.ScrollableText.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.StatusLine.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+override sealed Instella.Installer.Runtime.UI.Widgets.TextInput.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+static Instella.Installer.Runtime.Builders.InstellaInstaller.Create() -> Instella.Installer.Runtime.Builders.InstallerBuilder!
+static Instella.Installer.Runtime.Builders.Pages.Destination(string! defaultPath) -> System.Action<Instella.Installer.Runtime.Builders.PageBuilder!>!
+static Instella.Installer.Runtime.Builders.Pages.License(string! licenseText) -> System.Action<Instella.Installer.Runtime.Builders.PageBuilder!>!
+static Instella.Installer.Runtime.Builders.Pages.ReleaseNotes(string! notesText) -> System.Action<Instella.Installer.Runtime.Builders.PageBuilder!>!
+static Instella.Installer.Runtime.Builders.PayloadFilterBuilder.ExpandPreset(Instella.Installer.Runtime.Builders.PayloadFilterPreset preset) -> System.Collections.Generic.IReadOnlyList<string!>!
+static Instella.Installer.Runtime.Builders.ValidationResult.Fail(string! message) -> Instella.Installer.Runtime.Builders.ValidationResult
+static Instella.Installer.Runtime.Builders.ValidationResult.Ok.get -> Instella.Installer.Runtime.Builders.ValidationResult
+static Instella.Installer.Runtime.Builders.ValidationResult.operator !=(Instella.Installer.Runtime.Builders.ValidationResult left, Instella.Installer.Runtime.Builders.ValidationResult right) -> bool
+static Instella.Installer.Runtime.Builders.ValidationResult.operator ==(Instella.Installer.Runtime.Builders.ValidationResult left, Instella.Installer.Runtime.Builders.ValidationResult right) -> bool
+static Instella.Installer.Runtime.Core.InstallOptions.operator !=(Instella.Installer.Runtime.Core.InstallOptions? left, Instella.Installer.Runtime.Core.InstallOptions? right) -> bool
+static Instella.Installer.Runtime.Core.InstallOptions.operator ==(Instella.Installer.Runtime.Core.InstallOptions? left, Instella.Installer.Runtime.Core.InstallOptions? right) -> bool
+static Instella.Installer.Runtime.Installation.ExecutionResult.operator !=(Instella.Installer.Runtime.Installation.ExecutionResult? left, Instella.Installer.Runtime.Installation.ExecutionResult? right) -> bool
+static Instella.Installer.Runtime.Installation.ExecutionResult.operator ==(Instella.Installer.Runtime.Installation.ExecutionResult? left, Instella.Installer.Runtime.Installation.ExecutionResult? right) -> bool
+static Instella.Installer.Runtime.Installation.OverallProgress.operator !=(Instella.Installer.Runtime.Installation.OverallProgress left, Instella.Installer.Runtime.Installation.OverallProgress right) -> bool
+static Instella.Installer.Runtime.Installation.OverallProgress.operator ==(Instella.Installer.Runtime.Installation.OverallProgress left, Instella.Installer.Runtime.Installation.OverallProgress right) -> bool
+static Instella.Installer.Runtime.Installation.StepExecutionRecord.operator !=(Instella.Installer.Runtime.Installation.StepExecutionRecord? left, Instella.Installer.Runtime.Installation.StepExecutionRecord? right) -> bool
+static Instella.Installer.Runtime.Installation.StepExecutionRecord.operator ==(Instella.Installer.Runtime.Installation.StepExecutionRecord? left, Instella.Installer.Runtime.Installation.StepExecutionRecord? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.BrandImage.operator !=(Instella.Installer.Runtime.UI.Widgets.BrandImage? left, Instella.Installer.Runtime.UI.Widgets.BrandImage? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.BrandImage.operator ==(Instella.Installer.Runtime.UI.Widgets.BrandImage? left, Instella.Installer.Runtime.UI.Widgets.BrandImage? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.CheckBox.operator !=(Instella.Installer.Runtime.UI.Widgets.CheckBox? left, Instella.Installer.Runtime.UI.Widgets.CheckBox? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.CheckBox.operator ==(Instella.Installer.Runtime.UI.Widgets.CheckBox? left, Instella.Installer.Runtime.UI.Widgets.CheckBox? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Dropdown.operator !=(Instella.Installer.Runtime.UI.Widgets.Dropdown? left, Instella.Installer.Runtime.UI.Widgets.Dropdown? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Dropdown.operator ==(Instella.Installer.Runtime.UI.Widgets.Dropdown? left, Instella.Installer.Runtime.UI.Widgets.Dropdown? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.FileFilter.operator !=(Instella.Installer.Runtime.UI.Widgets.FileFilter? left, Instella.Installer.Runtime.UI.Widgets.FileFilter? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.FileFilter.operator ==(Instella.Installer.Runtime.UI.Widgets.FileFilter? left, Instella.Installer.Runtime.UI.Widgets.FileFilter? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.FilePicker.operator !=(Instella.Installer.Runtime.UI.Widgets.FilePicker? left, Instella.Installer.Runtime.UI.Widgets.FilePicker? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.FilePicker.operator ==(Instella.Installer.Runtime.UI.Widgets.FilePicker? left, Instella.Installer.Runtime.UI.Widgets.FilePicker? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.FolderPicker.operator !=(Instella.Installer.Runtime.UI.Widgets.FolderPicker? left, Instella.Installer.Runtime.UI.Widgets.FolderPicker? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.FolderPicker.operator ==(Instella.Installer.Runtime.UI.Widgets.FolderPicker? left, Instella.Installer.Runtime.UI.Widgets.FolderPicker? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Heading.operator !=(Instella.Installer.Runtime.UI.Widgets.Heading? left, Instella.Installer.Runtime.UI.Widgets.Heading? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Heading.operator ==(Instella.Installer.Runtime.UI.Widgets.Heading? left, Instella.Installer.Runtime.UI.Widgets.Heading? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.ImageSource.FromBytes(byte[]! bytes) -> Instella.Installer.Runtime.UI.Widgets.ImageSource!
+static Instella.Installer.Runtime.UI.Widgets.ImageSource.FromFile(string! path) -> Instella.Installer.Runtime.UI.Widgets.ImageSource!
+static Instella.Installer.Runtime.UI.Widgets.ImageSource.FromResource(string! name, System.Reflection.Assembly? asm = null) -> Instella.Installer.Runtime.UI.Widgets.ImageSource!
+static Instella.Installer.Runtime.UI.Widgets.ImageSource.operator !=(Instella.Installer.Runtime.UI.Widgets.ImageSource? left, Instella.Installer.Runtime.UI.Widgets.ImageSource? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.ImageSource.operator ==(Instella.Installer.Runtime.UI.Widgets.ImageSource? left, Instella.Installer.Runtime.UI.Widgets.ImageSource? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Paragraph.operator !=(Instella.Installer.Runtime.UI.Widgets.Paragraph? left, Instella.Installer.Runtime.UI.Widgets.Paragraph? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Paragraph.operator ==(Instella.Installer.Runtime.UI.Widgets.Paragraph? left, Instella.Installer.Runtime.UI.Widgets.Paragraph? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Progress.operator !=(Instella.Installer.Runtime.UI.Widgets.Progress? left, Instella.Installer.Runtime.UI.Widgets.Progress? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Progress.operator ==(Instella.Installer.Runtime.UI.Widgets.Progress? left, Instella.Installer.Runtime.UI.Widgets.Progress? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.RadioGroup.operator !=(Instella.Installer.Runtime.UI.Widgets.RadioGroup? left, Instella.Installer.Runtime.UI.Widgets.RadioGroup? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.RadioGroup.operator ==(Instella.Installer.Runtime.UI.Widgets.RadioGroup? left, Instella.Installer.Runtime.UI.Widgets.RadioGroup? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.RadioOption.operator !=(Instella.Installer.Runtime.UI.Widgets.RadioOption? left, Instella.Installer.Runtime.UI.Widgets.RadioOption? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.RadioOption.operator ==(Instella.Installer.Runtime.UI.Widgets.RadioOption? left, Instella.Installer.Runtime.UI.Widgets.RadioOption? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.ScrollableText.operator !=(Instella.Installer.Runtime.UI.Widgets.ScrollableText? left, Instella.Installer.Runtime.UI.Widgets.ScrollableText? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.ScrollableText.operator ==(Instella.Installer.Runtime.UI.Widgets.ScrollableText? left, Instella.Installer.Runtime.UI.Widgets.ScrollableText? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.StatusLine.operator !=(Instella.Installer.Runtime.UI.Widgets.StatusLine? left, Instella.Installer.Runtime.UI.Widgets.StatusLine? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.StatusLine.operator ==(Instella.Installer.Runtime.UI.Widgets.StatusLine? left, Instella.Installer.Runtime.UI.Widgets.StatusLine? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.TextInput.operator !=(Instella.Installer.Runtime.UI.Widgets.TextInput? left, Instella.Installer.Runtime.UI.Widgets.TextInput? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.TextInput.operator ==(Instella.Installer.Runtime.UI.Widgets.TextInput? left, Instella.Installer.Runtime.UI.Widgets.TextInput? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Widget.operator !=(Instella.Installer.Runtime.UI.Widgets.Widget? left, Instella.Installer.Runtime.UI.Widgets.Widget? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.Widget.operator ==(Instella.Installer.Runtime.UI.Widgets.Widget? left, Instella.Installer.Runtime.UI.Widgets.Widget? right) -> bool
+virtual Instella.Installer.Runtime.Installation.Builders.StepExecuteAsync.Invoke(Instella.Installer.Runtime.Installation.InstallContext! context, Instella.Core.Installation.IStepProgress! progress, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Instella.Core.Installation.StepResult>!
+virtual Instella.Installer.Runtime.Installation.Builders.StepRollbackAsync.Invoke(Instella.Installer.Runtime.Installation.InstallContext! context, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+virtual Instella.Installer.Runtime.UI.Widgets.ImageSource.EqualityContract.get -> System.Type!
+virtual Instella.Installer.Runtime.UI.Widgets.ImageSource.Equals(Instella.Installer.Runtime.UI.Widgets.ImageSource? other) -> bool
+virtual Instella.Installer.Runtime.UI.Widgets.ImageSource.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual Instella.Installer.Runtime.UI.Widgets.Widget.EqualityContract.get -> System.Type!
+virtual Instella.Installer.Runtime.UI.Widgets.Widget.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+virtual Instella.Installer.Runtime.UI.Widgets.Widget.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override Instella.Installer.Runtime.Builders.ValidationResult.Equals(object obj) -> bool
+~override Instella.Installer.Runtime.Builders.ValidationResult.ToString() -> string
+~override Instella.Installer.Runtime.Installation.OverallProgress.Equals(object obj) -> bool
+~override Instella.Installer.Runtime.Installation.OverallProgress.ToString() -> string

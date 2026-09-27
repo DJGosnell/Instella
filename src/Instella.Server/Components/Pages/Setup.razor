@@ -1,0 +1,526 @@
+@page "/setup"
+@attribute [AllowAnonymous]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+@using Instella.Server.Storage
+@inject AuthService AuthService
+@inject StorageSettingsService StorageSettingsService
+@inject NavigationManager Navigation
+@inject SetupTokenService SetupToken
+
+<PageTitle>Setup - Instella Server</PageTitle>
+
+<div class="setup-container">
+    <img class="setup-logo" src="logo-large.svg" alt="" width="96" height="96" />
+    <h1>Welcome to Instella Server</h1>
+
+    <div class="progress-steps">
+        <div class="step @(_step == 1 ? "active" : _step > 1 ? "completed" : "")">
+            <span class="step-number">1</span>
+            <span class="step-label">Admin Account</span>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step @(_step == 2 ? "active" : _step > 2 ? "completed" : "")">
+            <span class="step-number">2</span>
+            <span class="step-label">Storage</span>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="error">@_error</div>
+    }
+
+    @if (_step == 1)
+    {
+        <p>Create your admin account to get started.</p>
+
+        <div class="form-group">
+                <label for="setupToken">Setup token</label>
+                <input id="setupToken" @bind="_adminModel.SetupToken" class="form-control" autocomplete="off" />
+                <small>Stored in <code>@SetupToken.TokenPath</code> (the server log names the file). It proves you can reach the server's files.</small>
+            </div>
+
+        <div class="form-group">
+                <label for="username">Username</label>
+                <input id="username" @bind="_adminModel.Username" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password" type="password" @bind="_adminModel.Password" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input id="confirmPassword" type="password" @bind="_adminModel.ConfirmPassword" class="form-control" />
+            </div>
+
+            <button type="button" class="btn-primary" disabled="@_isSubmitting" @onclick="HandleAdminSubmit">
+                @if (_isSubmitting)
+                {
+                    <span>Creating account...</span>
+                }
+                else
+                {
+                    <span>Next: Configure Storage</span>
+                }
+            </button>
+    }
+    else if (_step == 2)
+    {
+        <p>Configure where packages will be stored.</p>
+
+        <div class="form-group">
+                <label>Storage Provider</label>
+                <div class="radio-group">
+                    <label class="radio-option @(_storageModel.Provider == StorageProviderType.Local ? "selected" : "")">
+                        <input type="radio" name="provider"
+                               checked="@(_storageModel.Provider == StorageProviderType.Local)"
+                               @onchange="() => _storageModel.Provider = StorageProviderType.Local" />
+                        <span class="radio-label">
+                            <strong>Local Storage</strong>
+                            <small>Store packages on this server's filesystem</small>
+                        </span>
+                    </label>
+                    <label class="radio-option @(_storageModel.Provider == StorageProviderType.S3 ? "selected" : "")">
+                        <input type="radio" name="provider"
+                               checked="@(_storageModel.Provider == StorageProviderType.S3)"
+                               @onchange="() => _storageModel.Provider = StorageProviderType.S3" />
+                        <span class="radio-label">
+                            <strong>S3-Compatible Storage</strong>
+                            <small>AWS S3, MinIO, Cloudflare R2, Backblaze B2, DigitalOcean Spaces</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            @if (_storageModel.Provider == StorageProviderType.Local)
+            {
+                <div class="form-group">
+                    <label for="localPath">Storage Path</label>
+                    <input id="localPath" @bind="_storageModel.LocalBasePath" class="form-control" />
+                    <small class="form-hint">Directory where packages will be stored</small>
+                </div>
+            }
+            else
+            {
+                <div class="form-group">
+                    <label for="s3Preset">Provider</label>
+                    <select id="s3Preset" @bind="_storageModel.S3Preset" @bind:after="OnS3PresetChangedAsync" class="form-control">
+                        <option value="@S3ProviderPreset.AwsS3">Amazon S3</option>
+                        <option value="@S3ProviderPreset.MinIO">MinIO (Self-hosted)</option>
+                        <option value="@S3ProviderPreset.CloudflareR2">Cloudflare R2</option>
+                        <option value="@S3ProviderPreset.BackblazeB2">Backblaze B2</option>
+                        <option value="@S3ProviderPreset.DigitalOceanSpaces">DigitalOcean Spaces</option>
+                        <option value="@S3ProviderPreset.Custom">Custom S3 Endpoint</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="s3Endpoint">Endpoint URL</label>
+                    <input id="s3Endpoint" @bind="_storageModel.S3Endpoint" class="form-control"
+                               placeholder="@GetEndpointPlaceholder()" />
+                    <small class="form-hint">@GetEndpointHint()</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="s3Bucket">Bucket Name</label>
+                    <input id="s3Bucket" @bind="_storageModel.S3Bucket" class="form-control" />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="s3AccessKey">Access Key</label>
+                        <input id="s3AccessKey" @bind="_storageModel.S3AccessKey" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label for="s3SecretKey">Secret Key</label>
+                        <input id="s3SecretKey" type="password" @bind="_storageModel.S3SecretKey" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="s3Region">Region</label>
+                    <input id="s3Region" @bind="_storageModel.S3Region" class="form-control"
+                               placeholder="@GetRegionPlaceholder()" />
+                </div>
+
+                <div class="form-group">
+                    <label for="s3UrlExpiry">Download URL Expiry (minutes)</label>
+                    <input id="s3UrlExpiry" type="number" @bind="_storageModel.S3UrlExpiryMinutes" class="form-control" min="5" max="1440" />
+                    <small class="form-hint">How long pre-signed download URLs remain valid (5-1440 minutes)</small>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_testResult))
+                {
+                    <div class="@(_testSuccess ? "success" : "error")">@_testResult</div>
+                }
+
+                <button type="button" class="btn-secondary" @onclick="TestS3Connection" disabled="@_isTesting">
+                    @(_isTesting ? "Testing..." : "Test Connection")
+                </button>
+            }
+
+            <div class="button-row">
+                <button type="button" class="btn-secondary" @onclick="() => _step = 1">Back</button>
+                <button type="button" class="btn-primary" disabled="@_isSubmitting" @onclick="HandleStorageSubmit">
+                    @if (_isSubmitting)
+                    {
+                        <span>Completing setup...</span>
+                    }
+                    else
+                    {
+                        <span>Complete Setup</span>
+                    }
+                </button>
+            </div>
+    }
+</div>
+
+<style>
+    .setup-logo {
+        display: block;
+        margin-bottom: 8px;
+    }
+    .setup-container {
+        max-width: 500px;
+        margin: 50px auto;
+        padding: 20px;
+    }
+    .progress-steps {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+    .step {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #999;
+    }
+    .step.active { color: #0078d4; }
+    .step.completed { color: #2e7d32; }
+    .step-number {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    .step.active .step-number {
+        background: #0078d4;
+        border-color: #0078d4;
+        color: #fff;
+    }
+    .step.completed .step-number {
+        background: #2e7d32;
+        border-color: #2e7d32;
+        color: #fff;
+    }
+    .step-connector {
+        width: 60px;
+        height: 2px;
+        background: #ddd;
+        margin: 0 15px;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .form-hint {
+        display: block;
+        color: #666;
+        font-size: 12px;
+        margin-top: 4px;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+    .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .radio-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .radio-option:hover { border-color: #0078d4; }
+    .radio-option.selected { border-color: #0078d4; background: #f0f8ff; }
+    .radio-option input { margin-top: 3px; }
+    .radio-label {
+        display: flex;
+        flex-direction: column;
+    }
+    .radio-label small {
+        color: #666;
+        font-weight: normal;
+    }
+    .btn-primary, .btn-secondary {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-primary {
+        background: #0078d4;
+        color: white;
+        width: 100%;
+    }
+    .btn-secondary {
+        background: #eee;
+        color: #333;
+    }
+    .btn-primary:hover { background: #006cbd; }
+    .btn-secondary:hover { background: #ddd; }
+    .btn-primary:disabled, .btn-secondary:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    .button-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .button-row .btn-primary { flex: 1; }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .success {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+</style>
+
+@code {
+    private int _step = 1;
+
+    private AdminModel _adminModel = new();
+    private StorageModel _storageModel = new();
+    private string? _error;
+    private bool _isSubmitting;
+    private bool _isTesting;
+    private string? _testResult;
+    private bool _testSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AuthService.IsSetupCompleteAsync())
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task HandleAdminSubmit()
+    {
+        _error = null;
+        _isSubmitting = true;
+
+        try
+        {
+            if (_adminModel.Password != _adminModel.ConfirmPassword)
+            {
+                _error = "Passwords do not match";
+                return;
+            }
+
+            if (_adminModel.Password.Length < 8)
+            {
+                _error = "Password must be at least 8 characters";
+                return;
+            }
+
+            // The first admin can only be created with the setup token, and only once.
+            if (!SetupToken.IsValid(_adminModel.SetupToken))
+            {
+                _error = "The setup token is not correct";
+                return;
+            }
+            if (await AuthService.IsSetupCompleteAsync())
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            await AuthService.CreateAdminUserAsync(_adminModel.Username, _adminModel.Password);
+            SetupToken.Consume();
+            _step = 2;
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to create account: " + ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task HandleStorageSubmit()
+    {
+        _error = null;
+        _isSubmitting = true;
+
+        try
+        {
+            var settings = new ServerSettings
+            {
+                StorageProvider = _storageModel.Provider,
+                LocalBasePath = _storageModel.LocalBasePath,
+                S3Preset = _storageModel.S3Preset,
+                S3Endpoint = _storageModel.S3Endpoint,
+                S3Bucket = _storageModel.S3Bucket,
+                S3AccessKey = _storageModel.S3AccessKey,
+                S3SecretKey = _storageModel.S3SecretKey,
+                S3Region = _storageModel.S3Region,
+                S3UrlExpiryMinutes = _storageModel.S3UrlExpiryMinutes
+            };
+
+            await StorageSettingsService.SaveSettingsAsync(settings);
+            Navigation.NavigateTo("/login?setup=complete");
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to save settings: " + ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private Task OnS3PresetChangedAsync()
+    {
+        var info = StorageSettingsService.GetS3ProviderInfo(_storageModel.S3Preset);
+        _storageModel.S3Region = info.DefaultRegion;
+        if (!string.IsNullOrEmpty(info.Endpoint) && !info.Endpoint.Contains("{"))
+        {
+            _storageModel.S3Endpoint = info.Endpoint;
+        }
+        return Task.CompletedTask;
+    }
+
+    private string GetEndpointPlaceholder()
+    {
+        var info = StorageSettingsService.GetS3ProviderInfo(_storageModel.S3Preset);
+        return info.Endpoint;
+    }
+
+    private string GetEndpointHint()
+    {
+        return _storageModel.S3Preset switch
+        {
+            S3ProviderPreset.AwsS3 => "Replace {region} with your AWS region (e.g., us-east-1)",
+            S3ProviderPreset.MinIO => "Your MinIO server URL (e.g., https://minio.example.com)",
+            S3ProviderPreset.CloudflareR2 => "Replace {account_id} with your Cloudflare account ID",
+            S3ProviderPreset.BackblazeB2 => "Replace {region} with your B2 region (e.g., us-west-004)",
+            S3ProviderPreset.DigitalOceanSpaces => "Replace {region} with your Spaces region (e.g., nyc3)",
+            _ => "Your S3-compatible endpoint URL"
+        };
+    }
+
+    private string GetRegionPlaceholder()
+    {
+        var info = StorageSettingsService.GetS3ProviderInfo(_storageModel.S3Preset);
+        return info.DefaultRegion;
+    }
+
+    private async Task TestS3Connection()
+    {
+        _isTesting = true;
+        _testResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var settings = new ServerSettings
+            {
+                StorageProvider = StorageProviderType.S3,
+                S3Endpoint = _storageModel.S3Endpoint,
+                S3Bucket = _storageModel.S3Bucket,
+                S3AccessKey = _storageModel.S3AccessKey,
+                S3SecretKey = _storageModel.S3SecretKey,
+                S3Region = _storageModel.S3Region,
+                S3AllowInsecureEndpoint = false,
+            };
+
+            // The same endpoint rules as saving, then a real write, read and delete.
+            if (StorageSettingsService.ValidateS3Endpoint(settings) is { } problem)
+            {
+                _testResult = "Connection failed: " + problem;
+                _testSuccess = false;
+                return;
+            }
+            using var provider = StorageSettingsService.CreateStorageProvider(settings) as S3StorageProvider;
+            if (provider != null)
+            {
+                var (ok, message) = await provider.TestConnectionAsync();
+                _testResult = ok ? message : "Connection failed: " + message;
+                _testSuccess = ok;
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UriFormatException)
+        {
+            _testResult = "Connection failed: the settings are not valid (" + ex.GetType().Name + ")";
+            _testSuccess = false;
+        }
+        finally
+        {
+            _isTesting = false;
+        }
+    }
+
+    private class AdminModel
+    {
+        public string SetupToken { get; set; } = "";
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+    }
+
+    private class StorageModel
+    {
+        public StorageProviderType Provider { get; set; } = StorageProviderType.Local;
+        public string LocalBasePath { get; set; } = "/packages";
+        public S3ProviderPreset S3Preset { get; set; } = S3ProviderPreset.AwsS3;
+        public string S3Endpoint { get; set; } = "";
+        public string S3Bucket { get; set; } = "";
+        public string S3AccessKey { get; set; } = "";
+        public string S3SecretKey { get; set; } = "";
+        public string S3Region { get; set; } = "us-east-1";
+        public int S3UrlExpiryMinutes { get; set; } = 60;
+    }
+}

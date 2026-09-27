@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Trim and AOT analyzers on; TreatWarningsAsErrors makes their findings build errors. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- IL2090 fires only inside Logsmith's generator-embedded LogConfigBuilder.SetMinimumLevel<T>,
+         which Instella never calls; an .editorconfig glob cannot target generator output. -->
+    <NoWarn>$(NoWarn);IL2090</NoWarn>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Instella.Installer.Runtime</RootNamespace>
+    <AssemblyName>Instella.Installer.Runtime</AssemblyName>
+    <Description>Fluent installer builder, wizard UI and install/update step pipeline. Reference this from your *.Installer project. Windows x64/arm64/x86 supported; Linux and macOS experimental.</Description>
+    <PackageId>Instella.Installer.Runtime</PackageId>
+    <PackageTags>instella;installer;updater;setup;wizard</PackageTags>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Force Logsmith Standalone: emit logging infrastructure as internal types
+         into this assembly so users never see a Logsmith symbol. -->
+    <LogsmithMode>Standalone</LogsmithMode>
+  </PropertyGroup>
+
+  <!-- Platform constants derived from RuntimeIdentifier for compile-time platform selection -->
+  <!-- Fault-injection hooks for the E2E crash-recovery test only. Never set for a
+       shipping build: the E2E stage builds into its own artifacts directory. -->
+  <PropertyGroup Condition="'$(InstellaTestHooks)' == 'true'">
+    <DefineConstants>$(DefineConstants);INSTELLA_TEST_HOOKS</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
+    <DefineConstants>$(DefineConstants);PLATFORM_WINDOWS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+    <DefineConstants>$(DefineConstants);PLATFORM_LINUX</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx'))">
+    <DefineConstants>$(DefineConstants);PLATFORM_MACOS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Instella.Installer.Runtime.Tests" />
+    <InternalsVisibleTo Include="Instella.Contract.Tests" />
+    <InternalsVisibleTo Include="Instella.Installer.Testing" />
+    <InternalsVisibleTo Include="Instella.Installer.Testing.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Instella.Core\Instella.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The Instella logo (UI/InstellaBranding.cs): the Welcome page's default brand image and the
+       fallback window icon. The source files live in assets/logo/. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\logo\instella-icon-256.png" LogicalName="Instella.Installer.Runtime.Branding.logo.png" Visible="false" />
+    <EmbeddedResource Include="..\..\assets\logo\instella.ico" LogicalName="Instella.Installer.Runtime.Branding.instella.ico" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Logsmith.Generator" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

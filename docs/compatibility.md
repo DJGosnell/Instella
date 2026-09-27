@@ -1,0 +1,146 @@
+# Compatibility Policy
+
+## Before 1.0: no promise
+
+Instella is in its 0.x series: tested, but not yet field-tested. Until 1.0 **nothing is guaranteed to
+stay compatible between releases**:
+
+- **Formats** (build, installed and release manifests, the payload footer, the transaction journal,
+  the post-update marker, the patch manifest) may change or drop older versions.
+- **The updater command line** between the SDK and the installed stub may change.
+- **The wire protocol** between clients and the server (routes, request and response bodies) may change.
+- **The public C# API** of every package may change.
+- **The server's database schema** changes through EF Core migrations applied at startup, but a 0.x
+  release may also require starting from an empty database.
+
+Every release's [CHANGELOG](../CHANGELOG.md) entry names its breaking changes and says whether
+installations must be reinstalled (uninstall with the old stub, then install the new version) or the
+server database recreated. Pin exact versions of the packages and the server image, and read the
+changelog before updating.
+
+The rest of this document describes the rules Instella already follows and will promise from 1.0:
+each format's version field and reader rule, the updater command line, and the public API policy.
+
+## Formats and reader rules
+
+Instella writes several formats that outlive the process that wrote them: installers sit on download
+servers, installed manifests and journals sit on user machines, and release manifests are signed once
+and served for years. Each of them carries a version field, and each reader follows a stated rule.
+
+| Document | Field | Current value | Reader rule |
+|---|---|---|---|
+| Build manifest (`InstellaManifest`, `instella.json`) | `schemaVersion` | 1 | Accept ≤ 1 (an absent field reads as 0 and is accepted). Reject newer with "written by a newer Instella". |
+| Installed manifest (`.instella-manifest.json`) | `manifestVersion` | 4 | Accept exactly 4; values 1–3 are rejected. Optional fields may be absent, including `downloadToken` (the token the installer was built with; updates keep it unchanged). |
+| Release manifest (signed, served by the server) | `formatVersion` | 1 | Exactly 1. The server refuses to store other versions; clients refuse to trust them. |
+| Payload footer | `format_version` | 3 | Exactly 3. A later version or an unknown flag bit: "built by a newer Instella" (exit 12). See [footer-format.md](footer-format.md). |
+| Transaction journal (`.instella/txn/{id}/journal.json`) | `journalVersion` | 1 | Exactly 1. Any other version (including an absent field): refuse to touch the installation and exit 23 with a message naming the journal. |
+| Post-update marker (`.instella/post-update/{appId}.{updateId}.json`) | `markerVersion` | 1 | Exactly 1: the SDK skips a marker of any other version (the app then simply isn't told about that update). |
+| Patch manifest (`patch-manifest/…`, stored verbatim by the server) | `formatVersion` | 1 | An absent field is 1. A newer version: the client ignores the patch and downloads the changed files in full. The server writes 1. |
+| Patch blobs | 8-byte signature | `BSDIFF40` | New algorithms get a new signature, never a version byte. |
+
+**Reserved fields.** `CheckUpdateResponse.mandatory` is always `false`; clients ignore it until a
+later version defines it.
+
+## Rules from 1.0
+
+Before 1.0 a release may break any of these; the changelog says so when it does.
+
+- **Readers accept every older version of their major line.** A 1.3 reader accepts installed manifests
+  4 through its own current version, and upgrades older ones in memory. A 1.x installer can therefore
+  always update an installation made by any earlier 1.x.
+- **Writers emit a newer version only when a feature needs it.** A release that changes nothing in a
+  format keeps writing the old version, so older readers keep working with its output.
+- **Newer than known is refused, never guessed at.** A reader never interprets a version it does not
+  know. For state on a user's machine (journals, installed manifests) that means leaving the files
+  untouched: acting on a misread journal could destroy the installation it exists to protect.
+- **Writers of the installed manifest preserve properties they don't understand.** A 1.x reader ignores
+  unknown fields, and a 1.x writer never drops them. This matters because the stub is never replaced:
+  a 1.0 updater rewrites the manifest a 1.3 installer wrote, and must keep the 1.3 fields.
+- **Versions have one spelling.** `1.3`, `1.3.0` and `1.3.0.0` are the same version, `1.3.0`: three
+  parts, plus a fourth only when the revision is greater than zero. Every comparison uses that form.
+- **The server schema starts from one baseline migration** (`InitialCreate`). Every later schema change is
+  a new migration, and a released migration is never edited.
+- **A breaking change is a major version.** Dropping support for a format version, or changing a
+  format without bumping its version, requires Instella 2.0.
+
+## Updater command line
+
+The stub (`instella.exe` in the install folder) is never replaced by an auto-update, so an installed stub
+meets SDKs from every later release. The command line between them follows these rules (a contract from
+1.0; before 1.0 a release may break it, and its changelog then says installations must be reinstalled):
+
+1. The SDK starts `{installRoot}/instella[.exe]` with `--update` followed by the flags
+   `UpdaterArgs.ToArgumentList` produces.
+2. The stub ignores flags it doesn't know, and logs them ("ignoring options this updater does not know").
+3. A new flag must be optional. Its absence must mean the behaviour without it.
+4. A flag must never change meaning.
+5. `--extra-args` is last, and everything after it belongs to the app: the stub never reads it.
+6. The same rules apply to `--recover`.
+
+Every other mode (install, manage, uninstall, preview) stays strict: an unknown flag is a usage error (exit 40).
+
+`--update` only ever updates the stub's own folder (`--app-path` must name it). `--uninstall`, `--recover` and
+`--manage` accept another folder with `--path`, but never elevate for it (docs/security-model.md).
+
+## Where the versions live
+
+| Format | Constant |
+|---|---|
+| Build manifest | `InstellaManifest.CurrentSchemaVersion` (`src/Instella.Core/Manifest/InstellaManifest.cs`) |
+| Installed manifest | `InstallManifestWriter.CurrentVersion` (`src/Instella.Core/Installation/InstalledManifest.cs`) |
+| Release manifest | `ReleaseManifest.CurrentFormatVersion` (`src/Instella.Core/Trust/ReleaseManifest.cs`) |
+| Payload footer | `PayloadFooterReader.FormatVersion` (`src/Instella.Core/Internal/PayloadFooterReader.cs`) |
+| Transaction journal | `TransactionJournal.CurrentVersion` (`src/Instella.Core/Installation/TransactionJournal.cs`) |
+| Post-update marker | `PostUpdateMarker.CurrentVersion` (`src/Instella.Core/Installation/PostUpdateMarker.cs`) |
+| Patch manifest | `PatchManifest.CurrentFormatVersion` (`src/Instella.Core/Update/PatchManifest.cs`) |
+| Patch blobs | `BSDiff/Constants.cs` |
+
+# Public API Policy
+
+Instella follows [Semantic Versioning](https://semver.org/). Before 1.0 the public API may change in
+any minor release (0.x). From 1.0, the public API of these packages is frozen for the 1.x line:
+
+| Package | Public surface |
+|---|---|
+| `Instella.Core` | Manifests, platform abstractions, exit codes, logging interfaces, update results, wire DTOs and trust types |
+| `Instella.Sdk` | `InstellaClient` and its result and option types |
+| `Instella.Installer.Runtime` | `InstellaInstaller`, the builders, widgets, `InstallContext`, step and page types |
+| `Instella.Installer.Testing` | `InstellaTestHarness`, the in-memory file system and registry, fake platform services, recording sinks |
+
+`Instella.Installer.Build` (MSBuild properties, items and diagnostics) and `instella-cli`
+(commands, options, exit codes) follow the same rules for their documented surface. The server's
+HTTP API is versioned by its route prefix (`/api/v1`); the server's C# types are not a public API.
+
+## Rules
+
+- **1.x only adds.** A minor release may add types, members, builder methods, optional
+  parameters on new overloads, enum values where the docs say the set is open, and new
+  diagnostics that are warnings. It does not remove, rename or change the signature or meaning
+  of anything public.
+- **Removals take two steps.** Something to be removed is marked `[Obsolete]` with the
+  replacement in the message in a 1.x release, and removed no earlier than 2.0.
+- **Builders are sealed classes with internal constructors, not interfaces.** Adding a method to
+  a builder is therefore never breaking. Do not derive from or construct them.
+- **Interfaces you implement are extended with default members.** `IPlatformServices`,
+  `IFileSystem`, `IInstellaLogSink` and the other interfaces meant for your own fakes or sinks
+  get new members only with a default implementation, so existing implementations keep
+  compiling.
+- **Internal is internal.** Engine types (step executor, update engine, downloaders, diff
+  engine, platform service implementations, `SafePath`, `Checksum`, JSON contexts) can change in
+  any release. `InternalsVisibleTo` exists only for Instella's own assemblies and tests.
+- **Behaviour is part of the contract where it is documented**: exit codes, reserved CLI flags,
+  the update acceptance rules ([security-model.md](security-model.md)), and the reader rules
+  above.
+
+## How it is enforced
+
+Core, Sdk, Runtime and Testing build with `Microsoft.CodeAnalysis.PublicApiAnalyzers`. Every public
+symbol is listed in the project's `PublicAPI.Shipped.txt` (the last release's surface) or
+`PublicAPI.Unshipped.txt` (added since the last release). An undeclared public symbol (`RS0016`),
+a declared symbol that no longer exists (`RS0017`) and a public member without an XML doc comment
+(`CS1591`) are build errors. A change to the public surface is therefore always a visible,
+reviewed edit to those files:
+
+- **Adding API:** add the lines the analyzer's code fix proposes to `PublicAPI.Unshipped.txt`.
+- **Releasing:** move the `Unshipped` lines into `Shipped` in the release commit.
+- **Removing API (a 0.x minor, or 2.0 once 1.0 ships):** add a `*REMOVED*` line for the symbol to `PublicAPI.Unshipped.txt`.

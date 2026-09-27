@@ -1,0 +1,1261 @@
+@page "/settings"
+@using Instella.Server.Services
+@using Instella.Server.Auth
+@using Instella.Server.Data.Entities
+@using Instella.Server.Storage
+@inject AuthService AuthService
+@inject StorageSettingsService StorageSettingsService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IRateLimitService RateLimitService
+@inject IIpBanService IpBanService
+@inject ISecurityLogService SecurityLogService
+
+<PageTitle>Settings - Instella Server</PageTitle>
+
+<h1>Settings</h1>
+
+<div class="settings-grid">
+
+<div class="card">
+    <div class="card-header">
+        <h2>Storage Configuration</h2>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(_storageError))
+        {
+            <div class="error">@_storageError</div>
+        }
+        @if (_storageSuccess)
+        {
+            <div class="success">
+                Storage settings saved.
+                @if (_storageModel.Provider == StorageProviderType.Local)
+                {
+                    <span>Restart the server for changes to take effect.</span>
+                }
+            </div>
+        }
+
+        @if (_showMigrationWarning)
+        {
+            <div class="warning-box">
+                <strong>Warning: Existing Packages Detected</strong>
+                <p>You have <strong>@_packageCount package(s)</strong> stored in the current storage location.
+                   Changing the storage provider will make these packages inaccessible until you manually
+                   migrate the files to the new storage location.</p>
+                <p>Downloads will fail for any packages not present in the new storage.</p>
+                <label class="confirm-checkbox">
+                    <input type="checkbox" @bind="_confirmMigration" />
+                    I understand that I need to manually migrate existing files
+                </label>
+            </div>
+        }
+
+        <EditForm Model="_storageModel" OnValidSubmit="HandleStorageSave">
+            <div class="form-group">
+                <label>Storage Provider</label>
+                <div class="radio-group">
+                    <label class="radio-option @(_storageModel.Provider == StorageProviderType.Local ? "selected" : "")">
+                        <input type="radio" name="provider"
+                               checked="@(_storageModel.Provider == StorageProviderType.Local)"
+                               @onchange="() => OnProviderChanged(StorageProviderType.Local)" />
+                        <span class="radio-label">
+                            <strong>Local Storage</strong>
+                            <small>Store packages on this server's filesystem</small>
+                        </span>
+                    </label>
+                    <label class="radio-option @(_storageModel.Provider == StorageProviderType.S3 ? "selected" : "")">
+                        <input type="radio" name="provider"
+                               checked="@(_storageModel.Provider == StorageProviderType.S3)"
+                               @onchange="() => OnProviderChanged(StorageProviderType.S3)" />
+                        <span class="radio-label">
+                            <strong>S3-Compatible Storage</strong>
+                            <small>AWS S3, MinIO, Cloudflare R2, Backblaze B2, DigitalOcean Spaces</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            @if (_storageModel.Provider == StorageProviderType.Local)
+            {
+                <div class="form-group">
+                    <label for="localPath">Storage Path</label>
+                    <InputText id="localPath" @bind-Value="_storageModel.LocalBasePath" class="form-control" />
+                    <small class="form-hint">Directory where packages will be stored</small>
+                </div>
+            }
+            else
+            {
+                <div class="form-group">
+                    <label for="s3Preset">Provider</label>
+                    <InputSelect id="s3Preset" @bind-Value="_storageModel.S3Preset" class="form-control" @oninput="OnS3PresetChanged">
+                        <option value="@S3ProviderPreset.AwsS3">Amazon S3</option>
+                        <option value="@S3ProviderPreset.MinIO">MinIO (Self-hosted)</option>
+                        <option value="@S3ProviderPreset.CloudflareR2">Cloudflare R2</option>
+                        <option value="@S3ProviderPreset.BackblazeB2">Backblaze B2</option>
+                        <option value="@S3ProviderPreset.DigitalOceanSpaces">DigitalOcean Spaces</option>
+                        <option value="@S3ProviderPreset.Custom">Custom S3 Endpoint</option>
+                    </InputSelect>
+                </div>
+
+                <div class="form-group">
+                    <label for="s3Endpoint">Endpoint URL</label>
+                    <InputText id="s3Endpoint" @bind-Value="_storageModel.S3Endpoint" class="form-control"
+                               placeholder="@GetEndpointPlaceholder()" />
+                    <small class="form-hint">@GetEndpointHint()</small>
+                    <label class="checkbox-label">
+                        <InputCheckbox @bind-Value="_storageModel.S3AllowInsecureEndpoint" />
+                        Allow insecure (http) endpoint - local development only
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="s3Bucket">Bucket Name</label>
+                    <InputText id="s3Bucket" @bind-Value="_storageModel.S3Bucket" class="form-control" />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="s3AccessKey">Access Key</label>
+                        <InputText id="s3AccessKey" @bind-Value="_storageModel.S3AccessKey" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label for="s3SecretKey">Secret Key</label>
+                        <InputText id="s3SecretKey" type="password" @bind-Value="_storageModel.S3SecretKey" class="form-control"
+                                   placeholder="@(_storageModel.HasExistingSecret ? "(unchanged)" : "")" />
+                        <small class="form-hint">Leave blank to keep existing secret</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="s3Region">Region</label>
+                    <InputText id="s3Region" @bind-Value="_storageModel.S3Region" class="form-control"
+                               placeholder="@GetRegionPlaceholder()" />
+                </div>
+
+                <div class="form-group">
+                    <label for="s3UrlExpiry">Download URL Expiry (minutes)</label>
+                    <InputNumber id="s3UrlExpiry" @bind-Value="_storageModel.S3UrlExpiryMinutes" class="form-control" min="5" max="1440" />
+                    <small class="form-hint">How long pre-signed download URLs remain valid (5-1440 minutes)</small>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_testResult))
+                {
+                    <div class="@(_testSuccess ? "success" : "error")">@_testResult</div>
+                }
+
+                <button type="button" class="btn-secondary" @onclick="TestS3Connection" disabled="@_isTesting">
+                    @(_isTesting ? "Testing..." : "Test Connection")
+                </button>
+            }
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary" disabled="@(_isSavingStorage || (_showMigrationWarning && !_confirmMigration))">
+                    @(_isSavingStorage ? "Saving..." : "Save Storage Settings")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Change Password</h2>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(_passwordError))
+        {
+            <div class="error">@_passwordError</div>
+        }
+        @if (_passwordSuccess)
+        {
+            <div class="success">Password changed successfully.</div>
+        }
+
+        <EditForm Model="_passwordModel" OnValidSubmit="HandleChangePassword">
+            <div class="form-group">
+                <label>Current Password</label>
+                <InputText type="password" @bind-Value="_passwordModel.CurrentPassword" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label>New Password</label>
+                <InputText type="password" @bind-Value="_passwordModel.NewPassword" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label>Confirm New Password</label>
+                <InputText type="password" @bind-Value="_passwordModel.ConfirmPassword" class="form-control" />
+            </div>
+
+            <button type="submit" class="btn-primary" disabled="@_isChangingPassword">
+                @(_isChangingPassword ? "Changing..." : "Change Password")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Two-Factor Authentication</h2>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(_totpError))
+        {
+            <div class="error">@_totpError</div>
+        }
+
+        @if (_totpEnabled)
+        {
+            <div class="totp-status enabled">
+                <span>&#x2713;</span> Two-factor authentication is enabled
+            </div>
+            <button class="btn-danger" @onclick="DisableTotp" disabled="@_isTogglingTotp">
+                @(_isTogglingTotp ? "Disabling..." : "Disable 2FA")
+            </button>
+        }
+        else if (_totpSetupSecret != null)
+        {
+            <p>Scan this QR code with your authenticator app:</p>
+            @if (!string.IsNullOrEmpty(_totpQrCodeDataUrl))
+            {
+                <div class="qr-code">
+                    <img src="@_totpQrCodeDataUrl" alt="TOTP QR Code" />
+                </div>
+            }
+            <p class="totp-manual">Or enter this secret manually: <code>@_totpSetupSecret</code></p>
+
+            <div class="form-group">
+                <label>Enter the code from your authenticator app to verify:</label>
+                <input @bind="_totpCode" class="form-control" maxlength="6" placeholder="000000" />
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" @onclick="VerifyTotp" disabled="@_isTogglingTotp">
+                    @(_isTogglingTotp ? "Verifying..." : "Verify & Enable")
+                </button>
+                <button class="btn-secondary" @onclick="CancelTotpSetup">Cancel</button>
+            </div>
+        }
+        else
+        {
+            <div class="totp-status disabled">
+                Two-factor authentication is not enabled
+            </div>
+            <button class="btn-primary" @onclick="SetupTotp" disabled="@_isTogglingTotp">
+                @(_isTogglingTotp ? "Setting up..." : "Enable 2FA")
+            </button>
+        }
+    </div>
+</div>
+
+</div> <!-- End settings-grid -->
+
+@* Its own full-width row: column-span does not apply to the grid's inline-block cards. *@
+<div class="card wide-card">
+    <div class="card-header">
+        <h2>Security</h2>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(_securityError))
+        {
+            <div class="error">@_securityError</div>
+        }
+        @if (_securitySuccess)
+        {
+            <div class="success">@_securityMessage</div>
+        }
+
+        <div class="security-section">
+            <h3>Temporary Blocks</h3>
+            <p>@_temporaryBlocks.Count active block(s) due to failed attempts.</p>
+
+            @if (_temporaryBlocks.Count > 0)
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Failures</th>
+                            <th>Blocked Until</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var block in _temporaryBlocks)
+                        {
+                            <tr>
+                                <td class="mono">@block.Key</td>
+                                <td>@block.FailureCount</td>
+                                <td>@block.BlockedUntil.ToString("g")</td>
+                                <td><button class="btn-small" @onclick="() => ClearBlock(block.Key)">Clear</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (_showClearAllConfirmation)
+                {
+                    <div class="confirm-dialog">
+                        <p>Are you sure you want to clear all temporary blocks?</p>
+                        <div class="button-group">
+                            <button class="btn-danger" @onclick="ClearAllBlocks">Yes, Clear All</button>
+                            <button class="btn-secondary" @onclick="() => _showClearAllConfirmation = false">Cancel</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <button class="btn-danger" @onclick="() => _showClearAllConfirmation = true">Clear All Temporary Blocks</button>
+                }
+            }
+        </div>
+
+        <div class="security-section">
+            <h3>Permanent IP Bans</h3>
+
+            <div class="add-form">
+                <input @bind="_newBanIp" placeholder="IP Address" class="form-control" />
+                <input @bind="_newBanReason" placeholder="Reason" class="form-control" />
+                <button class="btn-primary" @onclick="AddBan" disabled="@(string.IsNullOrWhiteSpace(_newBanIp))">Add Ban</button>
+            </div>
+
+            @if (_ipBans.Count > 0)
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Reason</th>
+                            <th>Banned At</th>
+                            <th>Banned By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ban in _ipBans)
+                        {
+                            <tr>
+                                <td class="mono">@ban.IpAddress</td>
+                                <td>@ban.Reason</td>
+                                <td>@ban.CreatedAt.ToString("g")</td>
+                                <td>@ban.CreatedByAdmin.Username</td>
+                                <td><button class="btn-small btn-danger" @onclick="() => RemoveBan(ban.Id)">Remove</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p class="muted">No permanent IP bans configured.</p>
+            }
+        </div>
+
+        <div class="security-section">
+            <h3>Recent Security Events</h3>
+
+            <div class="filter-row">
+                <select @bind="_eventFilter" @bind:after="OnEventFilterChanged" class="form-control">
+                    <option value="">All Events</option>
+                    @foreach (var type in Enum.GetValues<SecurityEventType>())
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+                <button class="btn-secondary" @onclick="LoadSecurityEvents">Refresh</button>
+            </div>
+
+            @if (_securityEvents.Count > 0)
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>IP Address</th>
+                            <th>User/Key</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var evt in _securityEvents)
+                        {
+                            <tr class="@GetEventClass(evt.EventType)">
+                                <td>@evt.Timestamp.ToString("g")</td>
+                                <td>@evt.EventType</td>
+                                <td class="mono">@evt.IpAddress</td>
+                                <td>@(evt.Username ?? evt.ApiKeyName ?? "-")</td>
+                                <td class="details-cell">@evt.Details</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (_eventsTotalPages > 1)
+                {
+                    <div class="pagination">
+                        <button class="btn-page" disabled="@(_eventsPage <= 1)" @onclick="() => GoToEventsPage(1)">
+                            &laquo;
+                        </button>
+                        <button class="btn-page" disabled="@(_eventsPage <= 1)" @onclick="() => GoToEventsPage(_eventsPage - 1)">
+                            &lsaquo;
+                        </button>
+
+                        <span class="page-info">Page @_eventsPage of @_eventsTotalPages (@_eventsTotalCount events)</span>
+
+                        <button class="btn-page" disabled="@(_eventsPage >= _eventsTotalPages)" @onclick="() => GoToEventsPage(_eventsPage + 1)">
+                            &rsaquo;
+                        </button>
+                        <button class="btn-page" disabled="@(_eventsPage >= _eventsTotalPages)" @onclick="() => GoToEventsPage(_eventsTotalPages)">
+                            &raquo;
+                        </button>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="muted">No security events found.</p>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    h1 { margin-bottom: 20px; }
+
+    /* Masonry grid layout */
+    .settings-grid {
+        columns: 1;
+        column-gap: 20px;
+    }
+
+    .card {
+        background: #fff;
+        break-inside: avoid;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        display: inline-block;
+        width: 100%;
+    }
+
+    /* Responsive masonry columns */
+    @@media (min-width: 900px) {
+        .settings-grid {
+            columns: 2;
+        }
+    }
+
+    @@media (min-width: 1400px) {
+        .settings-grid {
+            columns: 3;
+        }
+    }
+    .card-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #eee;
+    }
+    .card-header h2 {
+        margin: 0;
+        font-size: 16px;
+    }
+    .card-body {
+        padding: 20px;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .form-hint {
+        display: block;
+        color: #666;
+        font-size: 12px;
+        margin-top: 4px;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    @@media (max-width: 600px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    .form-actions {
+        margin-top: 20px;
+    }
+    .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .radio-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .radio-option:hover { border-color: #0078d4; }
+    .radio-option.selected { border-color: #0078d4; background: #f0f8ff; }
+    .radio-option input { margin-top: 3px; }
+    .radio-label {
+        display: flex;
+        flex-direction: column;
+    }
+    .radio-label small {
+        color: #666;
+        font-weight: normal;
+    }
+    .btn-primary, .btn-secondary, .btn-danger {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-primary { background: #0078d4; color: #fff; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-danger { background: #d32f2f; color: #fff; }
+    .btn-primary:disabled, .btn-secondary:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .success {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .warning-box {
+        background: #fff3e0;
+        border: 1px solid #ff9800;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .warning-box strong {
+        color: #e65100;
+    }
+    .warning-box p {
+        margin: 10px 0;
+        color: #555;
+    }
+    .confirm-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        cursor: pointer;
+    }
+    .confirm-checkbox input {
+        width: 18px;
+        height: 18px;
+    }
+    .totp-status {
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .totp-status.enabled {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+    .totp-status.disabled {
+        background: #fff3e0;
+        color: #e65100;
+    }
+    .qr-code {
+        text-align: center;
+        margin: 20px 0;
+    }
+    .qr-code img {
+        max-width: 200px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        background: white;
+    }
+    .totp-manual {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 20px;
+    }
+    .totp-manual code {
+        background: #f5f5f5;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+    }
+    .totp-secret {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: monospace;
+        margin: 15px 0;
+        word-break: break-all;
+    }
+    .wide-card {
+        /* Below the masonry grid, full width */
+        display: block;
+    }
+    .wide-card .card-body {
+        overflow-x: auto;
+    }
+    .security-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    .security-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    .security-section h3 {
+        margin: 0 0 15px 0;
+        font-size: 14px;
+        color: #333;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+        font-size: 13px;
+    }
+    .data-table th, .data-table td {
+        padding: 8px 10px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    .data-table th {
+        background: #f5f5f5;
+        font-weight: 600;
+    }
+    .data-table .mono {
+        font-family: monospace;
+        font-size: 12px;
+    }
+    .data-table .details-cell {
+        /* Show all of it: session ids and file counts wrap instead of being cut. */
+        white-space: normal;
+        overflow-wrap: anywhere;
+        width: 100%;
+    }
+    .data-table td {
+        vertical-align: top;
+    }
+    .btn-small {
+        padding: 4px 8px;
+        font-size: 12px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        background: #eee;
+    }
+    .btn-small.btn-danger {
+        background: #d32f2f;
+        color: #fff;
+    }
+    .add-form {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .add-form .form-control {
+        flex: 1;
+    }
+    .filter-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .filter-row .form-control {
+        width: 200px;
+    }
+    .confirm-dialog {
+        background: #fff3e0;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 15px 0;
+    }
+    .muted {
+        color: #888;
+        font-style: italic;
+    }
+    .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+    .btn-page {
+        padding: 6px 12px;
+        border: 1px solid #ddd;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        min-width: 36px;
+    }
+    .btn-page:hover:not(:disabled) {
+        background: #f5f5f5;
+        border-color: #0078d4;
+    }
+    .btn-page:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .page-info {
+        padding: 0 15px;
+        color: #666;
+        font-size: 13px;
+    }
+    .event-success { background: #e8f5e9; }
+    .event-warning { background: #fff3e0; }
+    .event-error { background: #ffebee; }
+</style>
+
+@code {
+    // Storage settings
+    private StorageModel _storageModel = new();
+    private ServerSettings? _originalSettings;
+    private string? _storageError;
+    private bool _storageSuccess;
+    private bool _isSavingStorage;
+    private bool _isTesting;
+    private string? _testResult;
+    private bool _testSuccess;
+    private bool _showMigrationWarning;
+    private bool _confirmMigration;
+    private long _packageCount;
+
+    // Password settings
+    private PasswordModel _passwordModel = new();
+    private string? _passwordError;
+    private bool _passwordSuccess;
+    private bool _isChangingPassword;
+
+    // TOTP settings
+    private bool _totpEnabled;
+    private string? _totpSetupSecret;
+    private string? _totpQrCodeDataUrl;
+    private string _totpCode = "";
+    private string? _totpError;
+    private bool _isTogglingTotp;
+
+    // Security settings
+    private List<TemporaryBlock> _temporaryBlocks = new();
+    private List<IpBan> _ipBans = new();
+    private List<SecurityEvent> _securityEvents = new();
+    private string _newBanIp = "";
+    private string _newBanReason = "";
+    private string? _eventFilter;
+    private bool _showClearAllConfirmation;
+    private string? _securityError;
+    private bool _securitySuccess;
+    private string? _securityMessage;
+
+    // Pagination
+    private int _eventsPage = 1;
+    private int _eventsPageSize = 15;
+    private int _eventsTotalCount;
+    private int _eventsTotalPages => (int)Math.Ceiling((double)_eventsTotalCount / _eventsPageSize);
+
+    private long? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The circuit's authentication state, not HttpContext (which interactive circuits lack).
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = state.User.GetUserId();
+
+        if (_userId.HasValue)
+        {
+            var user = await AuthService.GetAdminUserAsync(_userId.Value);
+            _totpEnabled = user?.TotpEnabled ?? false;
+        }
+
+        // Load storage settings
+        _originalSettings = await StorageSettingsService.GetSettingsAsync();
+        _storageModel = new StorageModel
+        {
+            Provider = _originalSettings.StorageProvider,
+            LocalBasePath = _originalSettings.LocalBasePath,
+            S3Preset = _originalSettings.S3Preset,
+            S3Endpoint = _originalSettings.S3Endpoint,
+            S3Bucket = _originalSettings.S3Bucket,
+            S3AccessKey = _originalSettings.S3AccessKey,
+            S3SecretKey = "",
+            S3Region = _originalSettings.S3Region,
+            S3UrlExpiryMinutes = _originalSettings.S3UrlExpiryMinutes > 0 ? _originalSettings.S3UrlExpiryMinutes : 60,
+            S3AllowInsecureEndpoint = _originalSettings.S3AllowInsecureEndpoint,
+            HasExistingSecret = !string.IsNullOrEmpty(_originalSettings.S3SecretKey)
+        };
+
+        _packageCount = await StorageSettingsService.GetPackageCountAsync();
+
+        // Load security data
+        await LoadSecurityData();
+    }
+
+    private async Task LoadSecurityData()
+    {
+        _temporaryBlocks = RateLimitService.GetTemporaryBlocks().ToList();
+        _ipBans = await IpBanService.GetAllBansAsync();
+        await LoadSecurityEvents();
+    }
+
+    private async Task LoadSecurityEvents()
+    {
+        SecurityEventType? filter = null;
+        if (!string.IsNullOrEmpty(_eventFilter) && Enum.TryParse<SecurityEventType>(_eventFilter, out var parsed))
+        {
+            filter = parsed;
+        }
+        var result = await SecurityLogService.GetEventsPagedAsync(_eventsPage, _eventsPageSize, filter);
+        _securityEvents = result.Events;
+        _eventsTotalCount = result.TotalCount;
+    }
+
+    private async Task GoToEventsPage(int page)
+    {
+        if (page < 1 || page > _eventsTotalPages) return;
+        _eventsPage = page;
+        await LoadSecurityEvents();
+    }
+
+    private async Task OnEventFilterChanged()
+    {
+        _eventsPage = 1; // Reset to first page when filter changes
+        await LoadSecurityEvents();
+    }
+
+    private void OnProviderChanged(StorageProviderType newProvider)
+    {
+        _storageModel.Provider = newProvider;
+        CheckMigrationWarning();
+    }
+
+    private void CheckMigrationWarning()
+    {
+        // Show warning if provider changed and packages exist
+        _showMigrationWarning = _packageCount > 0 &&
+            _originalSettings != null &&
+            _storageModel.Provider != _originalSettings.StorageProvider;
+        _confirmMigration = false;
+    }
+
+    private async Task HandleStorageSave()
+    {
+        _storageError = null;
+        _storageSuccess = false;
+        _isSavingStorage = true;
+
+        try
+        {
+            var settings = new ServerSettings
+            {
+                StorageProvider = _storageModel.Provider,
+                LocalBasePath = _storageModel.LocalBasePath,
+                S3Preset = _storageModel.S3Preset,
+                S3Endpoint = _storageModel.S3Endpoint,
+                S3Bucket = _storageModel.S3Bucket,
+                S3AccessKey = _storageModel.S3AccessKey,
+                S3SecretKey = string.IsNullOrEmpty(_storageModel.S3SecretKey)
+                    ? _originalSettings?.S3SecretKey ?? ""
+                    : _storageModel.S3SecretKey,
+                S3Region = _storageModel.S3Region,
+                S3UrlExpiryMinutes = _storageModel.S3UrlExpiryMinutes,
+                S3AllowInsecureEndpoint = _storageModel.S3AllowInsecureEndpoint,
+            };
+
+            await StorageSettingsService.SaveSettingsAsync(settings);
+            _originalSettings = settings;
+            _storageSuccess = true;
+            _showMigrationWarning = false;
+            _confirmMigration = false;
+            _storageModel.HasExistingSecret = !string.IsNullOrEmpty(settings.S3SecretKey);
+        }
+        catch (Exception ex)
+        {
+            _storageError = "Failed to save settings: " + ex.Message;
+        }
+        finally
+        {
+            _isSavingStorage = false;
+        }
+    }
+
+    private void OnS3PresetChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<S3ProviderPreset>(e.Value?.ToString(), out var preset))
+        {
+            _storageModel.S3Preset = preset;
+            var info = StorageSettingsService.GetS3ProviderInfo(preset);
+            _storageModel.S3Region = info.DefaultRegion;
+            if (!string.IsNullOrEmpty(info.Endpoint) && !info.Endpoint.Contains("{"))
+            {
+                _storageModel.S3Endpoint = info.Endpoint;
+            }
+        }
+    }
+
+    private string GetEndpointPlaceholder()
+    {
+        var info = StorageSettingsService.GetS3ProviderInfo(_storageModel.S3Preset);
+        return info.Endpoint;
+    }
+
+    private string GetEndpointHint()
+    {
+        return _storageModel.S3Preset switch
+        {
+            S3ProviderPreset.AwsS3 => "Replace {region} with your AWS region (e.g., us-east-1)",
+            S3ProviderPreset.MinIO => "Your MinIO server URL (e.g., https://minio.example.com)",
+            S3ProviderPreset.CloudflareR2 => "Replace {account_id} with your Cloudflare account ID",
+            S3ProviderPreset.BackblazeB2 => "Replace {region} with your B2 region (e.g., us-west-004)",
+            S3ProviderPreset.DigitalOceanSpaces => "Replace {region} with your Spaces region (e.g., nyc3)",
+            _ => "Your S3-compatible endpoint URL"
+        };
+    }
+
+    private string GetRegionPlaceholder()
+    {
+        var info = StorageSettingsService.GetS3ProviderInfo(_storageModel.S3Preset);
+        return info.DefaultRegion;
+    }
+
+    private async Task TestS3Connection()
+    {
+        _isTesting = true;
+        _testResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var secretKey = string.IsNullOrEmpty(_storageModel.S3SecretKey)
+                ? _originalSettings?.S3SecretKey ?? ""
+                : _storageModel.S3SecretKey;
+
+            var settings = new ServerSettings
+            {
+                StorageProvider = StorageProviderType.S3,
+                S3Endpoint = _storageModel.S3Endpoint,
+                S3Bucket = _storageModel.S3Bucket,
+                S3AccessKey = _storageModel.S3AccessKey,
+                S3SecretKey = secretKey,
+                S3Region = _storageModel.S3Region,
+                S3AllowInsecureEndpoint = _storageModel.S3AllowInsecureEndpoint,
+            };
+
+            // The same endpoint rules as saving, then a real write, read and delete.
+            if (StorageSettingsService.ValidateS3Endpoint(settings) is { } problem)
+            {
+                _testResult = "Connection failed: " + problem;
+                _testSuccess = false;
+                return;
+            }
+            using var provider = StorageSettingsService.CreateStorageProvider(settings) as S3StorageProvider;
+            if (provider != null)
+            {
+                var (ok, message) = await provider.TestConnectionAsync();
+                _testResult = ok ? message : "Connection failed: " + message;
+                _testSuccess = ok;
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UriFormatException)
+        {
+            _testResult = "Connection failed: the settings are not valid (" + ex.GetType().Name + ")";
+            _testSuccess = false;
+        }
+        finally
+        {
+            _isTesting = false;
+        }
+    }
+
+    // Password handling
+    private async Task HandleChangePassword()
+    {
+        _passwordError = null;
+        _passwordSuccess = false;
+        _isChangingPassword = true;
+
+        try
+        {
+            if (_passwordModel.NewPassword != _passwordModel.ConfirmPassword)
+            {
+                _passwordError = "New passwords do not match";
+                return;
+            }
+
+            if (_passwordModel.NewPassword.Length < 8)
+            {
+                _passwordError = "Password must be at least 8 characters";
+                return;
+            }
+
+            if (!_userId.HasValue)
+            {
+                _passwordError = "Not logged in";
+                return;
+            }
+
+            var success = await AuthService.ChangePasswordAsync(
+                _userId.Value,
+                _passwordModel.CurrentPassword,
+                _passwordModel.NewPassword);
+
+            if (success)
+            {
+                _passwordSuccess = true;
+                _passwordModel = new PasswordModel();
+            }
+            else
+            {
+                _passwordError = "Current password is incorrect";
+            }
+        }
+        finally
+        {
+            _isChangingPassword = false;
+        }
+    }
+
+    // TOTP handling
+    private async Task SetupTotp()
+    {
+        _totpError = null;
+        _isTogglingTotp = true;
+
+        try
+        {
+            if (!_userId.HasValue) return;
+            _totpSetupSecret = await AuthService.SetupTotpAsync(_userId.Value);
+
+            // Generate QR code
+            var user = await AuthService.GetAdminUserAsync(_userId.Value);
+            var otpauthUri = $"otpauth://totp/Instella:{user?.Username ?? "admin"}?secret={_totpSetupSecret}&issuer=Instella";
+
+            using var qrGenerator = new QRCoder.QRCodeGenerator();
+            using var qrCodeData = qrGenerator.CreateQrCode(otpauthUri, QRCoder.QRCodeGenerator.ECCLevel.M);
+            using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+            var qrCodeBytes = qrCode.GetGraphic(5);
+            _totpQrCodeDataUrl = $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+        }
+        catch (Exception ex)
+        {
+            _totpError = "Failed to setup 2FA: " + ex.Message;
+        }
+        finally
+        {
+            _isTogglingTotp = false;
+        }
+    }
+
+    private async Task VerifyTotp()
+    {
+        _totpError = null;
+        _isTogglingTotp = true;
+
+        try
+        {
+            if (!_userId.HasValue) return;
+
+            var success = await AuthService.VerifyAndEnableTotpAsync(_userId.Value, _totpCode);
+            if (success)
+            {
+                _totpEnabled = true;
+                _totpSetupSecret = null;
+                _totpQrCodeDataUrl = null;
+                _totpCode = "";
+            }
+            else
+            {
+                _totpError = "Invalid code. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _totpError = "Verification failed: " + ex.Message;
+        }
+        finally
+        {
+            _isTogglingTotp = false;
+        }
+    }
+
+    private void CancelTotpSetup()
+    {
+        _totpSetupSecret = null;
+        _totpQrCodeDataUrl = null;
+        _totpCode = "";
+    }
+
+    private async Task DisableTotp()
+    {
+        _totpError = null;
+        _isTogglingTotp = true;
+
+        try
+        {
+            if (!_userId.HasValue) return;
+            await AuthService.DisableTotpAsync(_userId.Value);
+            _totpEnabled = false;
+        }
+        catch (Exception ex)
+        {
+            _totpError = "Failed to disable 2FA: " + ex.Message;
+        }
+        finally
+        {
+            _isTogglingTotp = false;
+        }
+    }
+
+    // Security handling
+    private async Task AddBan()
+    {
+        _securityError = null;
+        _securitySuccess = false;
+
+        if (string.IsNullOrWhiteSpace(_newBanIp))
+        {
+            _securityError = "IP address is required";
+            return;
+        }
+
+        try
+        {
+            if (!_userId.HasValue)
+            {
+                _securityError = "Not logged in";
+                return;
+            }
+
+            await IpBanService.AddBanAsync(_newBanIp.Trim(), _newBanReason.Trim(), _userId.Value);
+            _newBanIp = "";
+            _newBanReason = "";
+            _securitySuccess = true;
+            _securityMessage = "IP ban added successfully.";
+            await LoadSecurityData();
+        }
+        catch (Exception ex)
+        {
+            _securityError = "Failed to add ban: " + ex.Message;
+        }
+    }
+
+    private async Task RemoveBan(long banId)
+    {
+        _securityError = null;
+        _securitySuccess = false;
+
+        try
+        {
+            if (!_userId.HasValue)
+            {
+                _securityError = "Not logged in";
+                return;
+            }
+
+            await IpBanService.RemoveBanAsync(banId, _userId.Value);
+            _securitySuccess = true;
+            _securityMessage = "IP ban removed.";
+            await LoadSecurityData();
+        }
+        catch (Exception ex)
+        {
+            _securityError = "Failed to remove ban: " + ex.Message;
+        }
+    }
+
+    private async Task ClearBlock(string key)
+    {
+        RateLimitService.ClearTemporaryBlock(key);
+        _temporaryBlocks = RateLimitService.GetTemporaryBlocks().ToList();
+        await SecurityLogService.LogEventAsync(
+            SecurityEventType.TempBlocksCleared,
+            "admin",
+            details: $"Cleared block: {key}");
+        await LoadSecurityEvents();
+    }
+
+    private async Task ClearAllBlocks()
+    {
+        RateLimitService.ClearAllTemporaryBlocks();
+        _temporaryBlocks = RateLimitService.GetTemporaryBlocks().ToList();
+        _showClearAllConfirmation = false;
+        await SecurityLogService.LogEventAsync(
+            SecurityEventType.TempBlocksCleared,
+            "admin",
+            details: "Cleared all temporary blocks");
+        await LoadSecurityEvents();
+    }
+
+    private static string GetEventClass(SecurityEventType type)
+    {
+        return type switch
+        {
+            SecurityEventType.LoginSuccess or SecurityEventType.UploadSuccess or SecurityEventType.IpUnbanned => "event-success",
+            SecurityEventType.LoginBlocked or SecurityEventType.UploadBlocked or SecurityEventType.IpBanned => "event-warning",
+            SecurityEventType.LoginFailed or SecurityEventType.ApiKeyInvalid or SecurityEventType.HashMismatch => "event-error",
+            _ => ""
+        };
+    }
+
+    private class StorageModel
+    {
+        public StorageProviderType Provider { get; set; } = StorageProviderType.Local;
+        public string LocalBasePath { get; set; } = "/packages";
+        public S3ProviderPreset S3Preset { get; set; } = S3ProviderPreset.AwsS3;
+        public string S3Endpoint { get; set; } = "";
+        public string S3Bucket { get; set; } = "";
+        public string S3AccessKey { get; set; } = "";
+        public string S3SecretKey { get; set; } = "";
+        public string S3Region { get; set; } = "us-east-1";
+        public int S3UrlExpiryMinutes { get; set; } = 60;
+        public bool S3AllowInsecureEndpoint { get; set; }
+        public bool HasExistingSecret { get; set; }
+    }
+
+    private class PasswordModel
+    {
+        public string CurrentPassword { get; set; } = "";
+        public string NewPassword { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

@@ -1,0 +1,35 @@
+@using Instella.Core.Wire
+@using Instella.Server.Services
+
+@* The installer buttons of one version, grouped by platform. *@
+<div class="installer-links">
+    @foreach (var platform in Installers.GroupBy(i => (i.Os, i.Arch)))
+    {
+        <div class="platform">
+            <span class="platform-name">@PlatformLabel(platform.Key.Os, platform.Key.Arch)</span>
+            @foreach (var installer in platform)
+            {
+                <a class="@(installer.Kind == InstallerKinds.Online ? "btn-primary" : "btn-secondary")" href="@installer.Url"
+                   download="@installer.FileName" title="@installer.FileName">
+                    @(installer.Kind == InstallerKinds.Online ? "Online installer" : "Offline installer")
+                    <small>(@FormatSize(installer.Size))</small>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public required IReadOnlyList<DownloadPageInstaller> Installers { get; set; }
+
+    private static string PlatformLabel(string os, string arch) =>
+        (os switch { "windows" => "Windows", "linux" => "Linux", "macos" => "macOS", _ => os }) + " " + arch;
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1024 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes} B",
+    };
+}

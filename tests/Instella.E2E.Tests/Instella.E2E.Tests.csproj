@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    End-to-end lifecycle test: real processes — the server on Kestrel, the CLI,
+    a published installer, the installed app, the updater — on Windows, in the user profile.
+    Every test is [Category("E2E")], so the default solution test run skips it;
+    verify.ps1 -Stage E2E runs it.
+  -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Instella.Server\Instella.Server.csproj" />
+    <ProjectReference Include="..\..\src\Instella.Core\Instella.Core.csproj" />
+    <ProjectReference Include="..\..\src\Instella.CLI\Instella.CLI.csproj" />
+  </ItemGroup>
+</Project>

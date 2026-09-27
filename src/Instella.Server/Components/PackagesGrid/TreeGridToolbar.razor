@@ -1,0 +1,163 @@
+@implements IDisposable
+
+<div class="tree-grid-toolbar">
+    <div class="toolbar-left">
+        <h2>Packages</h2>
+    </div>
+    <div class="toolbar-right">
+        <div class="search-box">
+            <input type="text"
+                   placeholder="Search packages..."
+                   value="@_inputValue"
+                   @oninput="OnSearchInput" />
+            @if (!string.IsNullOrEmpty(_inputValue))
+            {
+                <button class="clear-btn" @onclick="ClearSearch" title="Clear search">×</button>
+            }
+        </div>
+        <button class="btn-add" @onclick="() => OnAddPackage.InvokeAsync()" title="New Package">
+            +
+        </button>
+    </div>
+</div>
+
+<style>
+    .tree-grid-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fafafa;
+    }
+
+    .toolbar-left h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .search-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-box input {
+        padding: 8px 32px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        width: 220px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: #0078d4;
+        box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.1);
+    }
+
+    .search-box .clear-btn {
+        position: absolute;
+        right: 8px;
+        background: none;
+        border: none;
+        font-size: 18px;
+        color: #999;
+        cursor: pointer;
+        padding: 0 4px;
+        line-height: 1;
+    }
+
+    .search-box .clear-btn:hover {
+        color: #666;
+    }
+
+    .btn-add {
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 6px;
+        background: #0078d4;
+        color: white;
+        font-size: 24px;
+        font-weight: 300;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+
+    .btn-add:hover {
+        background: #106ebe;
+    }
+</style>
+
+@code {
+    /// <summary>Current search term value (controlled).</summary>
+    [Parameter] public string SearchTerm { get; set; } = "";
+
+    /// <summary>Callback when search term changes (debounced).</summary>
+    [Parameter] public EventCallback<string> OnSearchChanged { get; set; }
+
+    /// <summary>Callback when add package button is clicked.</summary>
+    [Parameter] public EventCallback OnAddPackage { get; set; }
+
+    /// <summary>Debounce timer for search input.</summary>
+    private Timer? _debounceTimer;
+
+    /// <summary>Local input value for immediate UI feedback.</summary>
+    private string _inputValue = "";
+
+    protected override void OnParametersSet()
+    {
+        // Sync local value with parameter on external changes
+        if (_inputValue != SearchTerm)
+        {
+            _inputValue = SearchTerm;
+        }
+    }
+
+    /// <summary>
+    /// Handles input event, updates local value, and schedules debounced callback.
+    /// Debounce delay: 300ms.
+    /// </summary>
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _inputValue = e.Value?.ToString() ?? "";
+
+        // Cancel any pending timer
+        _debounceTimer?.Dispose();
+
+        // Schedule debounced callback
+        _debounceTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await OnSearchChanged.InvokeAsync(_inputValue);
+            });
+        }, null, 300, Timeout.Infinite);
+    }
+
+    /// <summary>Clears search term immediately.</summary>
+    private async Task ClearSearch()
+    {
+        _debounceTimer?.Dispose();
+        _inputValue = "";
+        await OnSearchChanged.InvokeAsync("");
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

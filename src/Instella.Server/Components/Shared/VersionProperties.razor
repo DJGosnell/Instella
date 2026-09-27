@@ -1,0 +1,248 @@
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+@inject PackageService PackageService
+
+<div class="properties">
+    <h3>Version @Version.VersionString</h3>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="error">@_error</div>
+    }
+
+    <EditForm Model="_model" OnValidSubmit="HandleSave">
+        <div class="form-group">
+            <label>Version</label>
+            <InputText @bind-Value="Version.VersionString" class="form-control" disabled />
+        </div>
+
+        <div class="form-group">
+            <label>Channel</label>
+            <span class="badge channel-badge channel-@Version.Channel">@Version.Channel</span>
+        </div>
+
+        <div class="form-group">
+            <label>Changelog</label>
+            <InputTextArea @bind-Value="_model.Changelog" class="form-control" rows="6" />
+            <small>Supports Markdown</small>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <InputCheckbox @bind-Value="_model.IsDeprecated" />
+                Mark as deprecated
+            </label>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="btn-primary" disabled="@_isSaving">
+                @(_isSaving ? "Saving..." : "Save")
+            </button>
+            <button type="button" class="btn-danger" @onclick="HandleDelete">Delete</button>
+        </div>
+    </EditForm>
+
+    <div class="info-section">
+        <h4>Info</h4>
+        <p><strong>Released:</strong> @Version.ReleasedAt.ToString("g")</p>
+        <p><strong>Builds:</strong> @Version.Builds.Count</p>
+        <p><strong>Downloads:</strong> @Version.Builds.Sum(b => b.DownloadCount)</p>
+    </div>
+
+    <div class="builds-section">
+        <h4>Builds</h4>
+        @if (Version.Builds.Count == 0)
+        {
+            <p class="empty-message">No builds yet.</p>
+        }
+        else
+        {
+            <table class="builds-table">
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Size</th>
+                        <th>Files</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var build in Version.Builds)
+                    {
+                        <tr>
+                            <td>@build.OS / @build.Architecture</td>
+                            <td>@FormatSize(build.TotalSize)</td>
+                            <td>@build.Files.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<style>
+    .properties h3 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .form-control:disabled {
+        background: #f5f5f5;
+    }
+    small {
+        display: block;
+        color: #666;
+        margin-top: 3px;
+        font-size: 12px;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: normal !important;
+    }
+    .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    .badge.stable { background: #4caf50; color: #fff; }
+    .badge.beta { background: #ff9800; color: #fff; }
+    .badge.nightly { background: #9c27b0; color: #fff; }
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn-primary, .btn-secondary, .btn-danger {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-primary { background: #0078d4; color: #fff; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-danger { background: #d32f2f; color: #fff; }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .info-section, .builds-section {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+    .info-section h4, .builds-section h4 {
+        margin-top: 0;
+    }
+    .info-section p {
+        margin: 8px 0;
+    }
+    .builds-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .builds-table th, .builds-table td {
+        padding: 8px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    .builds-table th {
+        font-weight: 600;
+    }
+    .empty-message {
+        color: #888;
+    }
+</style>
+
+@code {
+    [Parameter] public required PackageVersion Version { get; set; }
+    [Parameter] public required Package Package { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private VersionModel _model = new();
+    private string? _error;
+    private bool _isSaving;
+
+    protected override void OnParametersSet()
+    {
+        _model = new VersionModel
+        {
+            Changelog = Version.Changelog,
+            IsDeprecated = Version.IsDeprecated
+        };
+    }
+
+    private async Task HandleSave()
+    {
+        _error = null;
+        _isSaving = true;
+
+        try
+        {
+            await PackageService.UpdateVersionAsync(
+                Version.Id,
+                changelog: _model.Changelog,
+                isDeprecated: _model.IsDeprecated);
+
+            await OnSave.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to save: " + ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        try
+        {
+            await PackageService.DeleteVersionAsync(Version.Id);
+            await OnDelete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to delete: " + ex.Message;
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes >= 1_073_741_824) return $"{bytes / 1_073_741_824.0:F1} GB";
+        if (bytes >= 1_048_576) return $"{bytes / 1_048_576.0:F1} MB";
+        if (bytes >= 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes} B";
+    }
+
+    private class VersionModel
+    {
+        public string Changelog { get; set; } = "";
+        public bool IsDeprecated { get; set; }
+    }
+}

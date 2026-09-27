@@ -1,0 +1,13 @@
+<Project>
+  <Import Project="..\Directory.Build.props" />
+
+  <!--
+    NU1903 is triggered by Tmds.DBus.Protocol 0.20.0, pulled in transitively by
+    Avalonia. D-Bus is only used on Linux, so the vulnerability has no impact
+    on this Windows installer sample. Keep it as a warning instead of an error
+    so the sample can be built without patching the Avalonia graph.
+  -->
+  <PropertyGroup>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1903</WarningsNotAsErrors>
+  </PropertyGroup>
+</Project>

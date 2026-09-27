@@ -1,0 +1,109 @@
+@page "/download/{PackageId}"
+@attribute [AllowAnonymous]
+@using Instella.Core.Wire
+@using Instella.Server.Models
+@using Instella.Server.Services
+@inject DownloadPageService Pages
+
+@* Public download page (no sign-in): the installers published with each version of an
+   open-access package. Private packages have no page. *@
+
+<PageTitle>@(_model?.DisplayName ?? "Download") - Download</PageTitle>
+
+<div class="download-page">
+    @if (_loading)
+    {
+        <p>Loading…</p>
+    }
+    else if (_model is null)
+    {
+        <h1>Not found</h1>
+        <p>There is no download page at this address.</p>
+    }
+    else
+    {
+        <h1>@_model.DisplayName</h1>
+        @if (!string.IsNullOrWhiteSpace(_model.Description))
+        {
+            <p class="description">@_model.Description</p>
+        }
+        @if (_model.Channel != "stable")
+        {
+            <p class="channel-note">Showing the <strong>@_model.Channel</strong> channel.</p>
+        }
+
+        @if (_model.Versions.Count == 0)
+        {
+            <p>No installers have been published yet.</p>
+        }
+        else
+        {
+            var latest = _model.Versions[0];
+            <section class="latest">
+                <h2>Version @latest.Version <small>released @latest.ReleasedAt.ToString("yyyy-MM-dd")</small></h2>
+                <InstallerLinks Installers="latest.Installers" />
+                @if (!string.IsNullOrWhiteSpace(latest.Changelog))
+                {
+                    <h3>What's new</h3>
+                    <div class="changelog">@latest.Changelog</div>
+                }
+            </section>
+
+            @if (_model.Versions.Count > 1)
+            {
+                <details class="older">
+                    <summary>Older versions (@(_model.Versions.Count - 1))</summary>
+                    @foreach (var version in _model.Versions.Skip(1))
+                    {
+                        <section>
+                            <h3>@version.Version <small>@version.ReleasedAt.ToString("yyyy-MM-dd")</small></h3>
+                            <InstallerLinks Installers="version.Installers" />
+                            @if (!string.IsNullOrWhiteSpace(version.Changelog))
+                            {
+                                <div class="changelog">@version.Changelog</div>
+                            }
+                        </section>
+                    }
+                </details>
+            }
+
+            <p class="hint">
+                The <strong>online installer</strong> is small and downloads the app while it installs. The
+                <strong>offline installer</strong> contains everything and works without an internet connection.
+            </p>
+        }
+    }
+</div>
+
+<style>
+    .download-page { max-width: 760px; margin: 2rem auto; padding: 0 16px; line-height: 1.5; }
+    .download-page h1 { margin-bottom: .25rem; }
+    .download-page h2 small, .download-page h3 small { font-weight: normal; color: #666; font-size: .8em; }
+    .download-page .description { color: #444; }
+    .download-page .channel-note { background: #fff8e1; padding: .5rem .75rem; border-radius: 4px; }
+    .download-page .installer-links .platform { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .5rem 0; }
+    .download-page .platform-name { min-width: 9rem; font-weight: 600; }
+    .download-page .btn-primary, .download-page .btn-secondary { display: inline-block; padding: .5rem 1rem; border-radius: 4px; text-decoration: none; }
+    .download-page .btn-primary { background: #2563eb; color: #fff; }
+    .download-page .btn-secondary { background: #e5e7eb; color: #111; }
+    .download-page .changelog { white-space: pre-wrap; background: #f6f6f6; padding: .75rem; border-radius: 4px; }
+    .download-page details.older { margin-top: 1.5rem; }
+    .download-page .hint { color: #666; font-size: .9em; margin-top: 2rem; }
+</style>
+
+@code {
+    [Parameter] public required string PackageId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "channel")] public string? Channel { get; set; }
+
+    private DownloadPageModel? _model;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        // Any valid channel name the package has; anything else looks like an unknown package.
+        _model = await Pages.GetAsync(PackageId, Channel ?? Instella.Core.Wire.ChannelNames.Stable);
+        _loading = false;
+    }
+}

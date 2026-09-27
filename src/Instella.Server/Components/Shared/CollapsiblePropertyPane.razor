@@ -1,0 +1,186 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (Visible)
+{
+    <!-- Mobile backdrop (click to close) -->
+    <div class="property-pane-backdrop @(_isMobile ? "visible" : "")"
+         @onclick="HandleBackdropClick"></div>
+}
+
+<div class="property-pane @(Visible ? "visible" : "") @(_isMobile ? "mobile" : "")">
+    <div class="property-pane-header">
+        <button class="close-btn" @onclick="() => OnClose.InvokeAsync()" title="Close">×</button>
+    </div>
+    <div class="property-pane-content">
+        @ChildContent
+    </div>
+</div>
+
+<style>
+    .property-pane {
+        width: 350px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .property-pane.visible {
+        display: flex;
+    }
+
+    .property-pane-header {
+        display: flex;
+        justify-content: flex-end;
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
+        background: #fafafa;
+    }
+
+    .close-btn {
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        font-size: 20px;
+        color: #666;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .close-btn:hover {
+        background: #f0f0f0;
+        color: #333;
+    }
+
+    .property-pane-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+    }
+
+    .property-pane-backdrop {
+        display: none;
+    }
+
+    /* Mobile styles */
+    @@media (max-width: 768px) {
+        .property-pane {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 85%;
+            max-width: 350px;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            border-radius: 0;
+        }
+
+        .property-pane.visible {
+            transform: translateX(0);
+        }
+
+        .property-pane-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .property-pane-backdrop.visible {
+            display: block;
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+</style>
+
+@code {
+    /// <summary>Whether the pane should be visible.</summary>
+    [Parameter] public bool Visible { get; set; }
+
+    /// <summary>Content to render inside the pane.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Callback when close is requested.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    /// <summary>Whether currently in mobile viewport.</summary>
+    private bool _isMobile;
+
+    /// <summary>JS interop reference for resize listener.</summary>
+    private DotNetObjectReference<CollapsiblePropertyPane>? _dotNetRef;
+
+    /// <summary>JS module reference.</summary>
+    private IJSObjectReference? _jsModule;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            try
+            {
+                _jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "propertyPane.init", _dotNetRef);
+            }
+            catch
+            {
+                // JS interop may fail during prerendering
+            }
+        }
+    }
+
+    /// <summary>Called from JS when viewport crosses mobile breakpoint.</summary>
+    [JSInvokable]
+    public void OnViewportChanged(bool isMobile)
+    {
+        if (_isMobile != isMobile)
+        {
+            _isMobile = isMobile;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>Handles backdrop click (mobile only) - closes pane.</summary>
+    private async Task HandleBackdropClick()
+    {
+        if (_isMobile)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsModule != null)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("dispose");
+                await _jsModule.DisposeAsync();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+        }
+        _dotNetRef?.Dispose();
+    }
+}

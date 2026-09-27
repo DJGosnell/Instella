@@ -1,0 +1,123 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Package as MSBuild tasks -->
+    <IsBuildTaskProject>true</IsBuildTaskProject>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+
+    <!-- NuGet package configuration -->
+    <RootNamespace>Instella.Installer.Build</RootNamespace>
+    <AssemblyName>Instella.Installer.Build</AssemblyName>
+    <PackageId>Instella.Installer.Build</PackageId>
+    <Description>MSBuild targets and tasks for creating Instella installers. Windows x64/arm64/x86 supported; Linux and macOS experimental.</Description>
+    <PackageTags>instella;installer;msbuild;build</PackageTags>
+
+    <!-- Include build assets in package -->
+    <BuildOutputTargetFolder>tasks</BuildOutputTargetFolder>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <DevelopmentDependency>true</DevelopmentDependency>
+
+    <!-- The task assembly lives under tasks/, not lib/, so a symbol package would
+         place its PDB where nuget.org's symbol validation does not look (and it
+         would carry no PDBs at all for the two vendored dependencies). -->
+    <IncludeSymbols>false</IncludeSymbols>
+
+    <!--
+      NU5100: assemblies land in tasks/ rather than lib/, which is correct for a
+              task package and is exactly what NU5100 complains about.
+      NU5128: the package declares a dependency group with no lib/ref folder,
+              again inherent to a task package.
+      Both are structural to this package's shape, so they stay suppressed.
+      NU1903 was also suppressed here, together with NuGetAudit=false, on the
+      grounds that "MSBuild packages have known vulnerabilities". Neither is
+      needed: nothing this project references is currently flagged, and blanket
+      disabling the audit means a real future advisory would land silently.
+      Removed deliberately; if an advisory does appear, deal with it then.
+    -->
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+
+    <!--
+      The task is loaded by MSBuild via UsingTask AssemblyFile=, with no
+      .deps.json beside it, so NuGet *dependencies* cannot satisfy it at runtime
+      - every assembly the task touches has to sit next to it in tasks/.
+      TargetsForTfmSpecificBuildOutput below copies them in.
+    -->
+    <TargetsForTfmSpecificBuildOutput>
+      $(TargetsForTfmSpecificBuildOutput);InstellaPackTaskDependencies
+    </TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      MSBuild reference assemblies. PrivateAssets="all" keeps them out of the
+      nuspec (otherwise every consumer drags MSBuild into its restore graph -
+      the classic task-package conflict), and ExcludeAssets="runtime" keeps them
+      out of our own output, since the MSBuild that loads the task supplies them.
+    -->
+    <PackageReference Include="Microsoft.Build.Framework" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" PrivateAssets="all" ExcludeAssets="runtime" />
+
+    <!-- Payload glob matching (.WithPayloadFilter). Packed into
+         tasks/ by InstellaPackTaskDependencies, so it is a private asset too. -->
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Instella.Core is BOTH vendored into tasks/ and declared as a dependency,
+      and it needs to be both.
+
+      Vendored, because UsingTask AssemblyFile= loads the task with no
+      .deps.json beside it, so a NuGet dependency cannot satisfy it at run time.
+
+      Declared, because the vendored copy is the payload footer *writer* while
+      Instella.Installer.Runtime supplies the *reader*. Left undeclared, nothing
+      recorded which Instella.Core was embedded: the assembly was invisible to
+      NuGet audit and SBOM tooling, so a future advisory against Instella.Core
+      would never surface for consumers of this package, and a version skew
+      between writer and reader was undetectable. Declaring it puts the version
+      on the record. DevelopmentDependency=true above keeps it from flowing on
+      to the consumer's own consumers.
+
+      Unlike Microsoft.Build.*, which the host supplies and which must stay
+      PrivateAssets="all" so consumers do not drag MSBuild into their restore
+      graph.
+    -->
+    <ProjectReference Include="..\Instella.Core\Instella.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Include .targets and .props files in package. This must be the only item packing
+       build\: a second one (a Content item, say) packs the same files again and fails the
+       pack with NU5118. -->
+  <ItemGroup>
+    <None Include="build\**\*" Pack="true" PackagePath="build\" />
+  </ItemGroup>
+
+  <!--
+    Copy the task's runtime dependencies into tasks/$(TargetFramework)/ next to
+    the task assembly. Without this the package contains exactly one DLL and
+    PayloadAppender's static initialiser (MagicBytes = PayloadFooterReader.MagicBytes)
+    throws TypeInitializationException on the consumer's first publish.
+    Microsoft.Build.* is excluded: the hosting MSBuild provides those, and
+    shipping our own copies risks loading a second, conflicting version.
+  -->
+  <!-- DependsOnTargets="ResolveReferences" is load-bearing: without it
+       @(ReferenceCopyLocalPaths) is empty when this target runs during pack and
+       the dependencies are silently omitted. Verified by reverting it and
+       watching PackageLayoutTests fail. -->
+  <Target Name="InstellaPackTaskDependencies" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage
+        Include="@(ReferenceCopyLocalPaths)"
+        Condition="'%(Extension)' == '.dll' and
+                   !$([System.String]::Copy('%(Filename)').StartsWith('Microsoft.Build'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>

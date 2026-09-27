@@ -1,0 +1,26 @@
+@page "/Error"
+@attribute [AllowAnonymous]
+@using System.Diagnostics
+
+<PageTitle>Error - Instella Server</PageTitle>
+
+@* Target of the UI exception handler. No exception details are shown; the request
+   id matches the server log entry. *@
+<div class="login-container">
+    <h1>Something went wrong</h1>
+    <p>The server could not complete your request.</p>
+    @if (!string.IsNullOrEmpty(_requestId))
+    {
+        <p><strong>Request id:</strong> <code>@_requestId</code></p>
+    }
+    <p><a href="/">Back to the dashboard</a></p>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private string? _requestId;
+
+    protected override void OnInitialized() =>
+        _requestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

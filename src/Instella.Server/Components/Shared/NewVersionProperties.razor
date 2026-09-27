@@ -1,0 +1,110 @@
+@using Instella.Server.Models
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+
+<div class="properties">
+    <h3>Add Version to @Package.DisplayName</h3>
+
+    <div class="info-box">
+        <h4>Upload via API</h4>
+        <p>Versions are created automatically when you upload files via the API or CLI.</p>
+
+        <h5>Using instella-cli:</h5>
+        <code>
+instella upload \
+  --server https://your-server.com \
+  --package @Package.PackageId \
+  --version 1.0.0 \
+  --path ./publish \
+  --api-key YOUR_API_KEY
+        </code>
+
+        <h5>Using the API directly:</h5>
+        <ol>
+            <li>Start a session: <code>POST /api/upload/start</code></li>
+            <li>Upload each file: <code>POST /api/upload/{"{sessionId}"}/file</code></li>
+            <li>Complete the upload: <code>POST /api/upload/{"{sessionId}"}/complete</code></li>
+        </ol>
+
+        <p>See the <a href="/docs">documentation</a> for complete API details.</p>
+    </div>
+
+    <div class="button-group">
+        <button type="button" class="btn-secondary" @onclick="HandleCancel">Close</button>
+    </div>
+</div>
+
+<style>
+    .properties h3 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+    .info-box {
+        padding: 15px;
+        background: #f0f8ff;
+        border: 1px solid #0078d4;
+        border-radius: 4px;
+    }
+    .info-box h4 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #0078d4;
+    }
+    .info-box h5 {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+    .info-box p {
+        margin: 8px 0;
+        font-size: 14px;
+    }
+    .info-box code {
+        display: block;
+        background: #fff;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        margin: 10px 0;
+        white-space: pre-wrap;
+    }
+    .info-box ol {
+        padding-left: 20px;
+        font-size: 14px;
+    }
+    .info-box ol code {
+        display: inline;
+        padding: 2px 6px;
+        margin: 0;
+    }
+    .info-box a {
+        color: #0078d4;
+    }
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn-secondary {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        background: #eee;
+        color: #333;
+    }
+</style>
+
+@code {
+    [Parameter] public required Package Package { get; set; }
+    [Parameter] public EventCallback<PackageVersion> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

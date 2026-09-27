@@ -1,0 +1,43 @@
+# The server image for self-hosting. Every push to master that touches the server publishes
+# ghcr.io/djgosnell/instella-server:edge and :sha-<commit>. Release tags come from release.yml.
+# Update a host with: scripts/deploy.sh edge --pull
+name: server-image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/Instella.Server/**'
+      - 'src/Instella.Core/**'
+      - 'tests/Instella.Server.Tests/**'
+      - 'Directory.Build.props'
+      - 'Directory.Build.targets'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '.github/workflows/server-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/djgosnell/instella-server
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet test tests/Instella.Server.Tests -c Release
+      - run: dotnet publish src/Instella.Server -c Release -o src/Instella.Server/publish -p:VersionSuffix=edge.${{ github.run_number }}
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker build -t $IMAGE:edge -t $IMAGE:sha-${{ github.sha }} src/Instella.Server
+      - run: docker push --all-tags $IMAGE

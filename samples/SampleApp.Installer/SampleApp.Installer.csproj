@@ -1,0 +1,113 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    =====================================================================
+    QuickNotes sample — v3 fluent-builder installer.
+
+    This project compiles INTO the installer binary itself. Program.cs
+    calls InstellaInstaller.Create()...Build().RunAsync(args); running
+    it as `dotnet run` gives a JIT installer for fast iteration, and
+    `dotnet publish -c Release -r <rid>` produces the shipping AOT
+    installer.
+
+    The referenced SampleApp project is the app being installed. The
+    InstellaPayload=true metadata on the ProjectReference tells
+    Instella.Installer.Build to publish it to its own ordinary publish
+    directory, collect those files by reference (no scratch directory,
+    no copying), and append them as a zip, plus the manifest emitted
+    via the emit-manifest CLI flag, to the tail of this project's
+    published exe.
+
+    Build:
+      dotnet publish -r win-x64 -c Release
+      (produces bin\Release\net10.0\win-x64\publish\QuickNotes.Installer.exe
+       with embedded manifest + zipped QuickNotes payload appended)
+
+    Run (dev loop, JIT; skips payload append):
+      dotnet run  (then pass CLI flags via args in your launchSettings)
+    =====================================================================
+  -->
+
+  <!-- Import Instella.Installer.Build props (defaults for the publish flow). -->
+  <Import Project="..\..\src\Instella.Installer.Build\build\Instella.Installer.Build.props" />
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>QuickNotes.Installer</RootNamespace>
+    <AssemblyName>QuickNotes.Installer</AssemblyName>
+
+    <!--
+      Version is declared once here; AssemblyVersion/FileVersion default from
+      it via the .NET SDK. Program.cs reads Assembly.GetExecutingAssembly()
+      at startup and threads the PE version into WithApp(...), so the
+      Instella manifest stays in lock-step with PE metadata without a second
+      copy. Bump here and it propagates to both.
+    -->
+    <Version>1.2.0</Version>
+
+    <!--
+      PE icon shown by Explorer / taskbar / Alt-Tab. Distinct from
+      .WithIcon(...) in Program.cs which drives the installer UI + ARP
+      entry icon — they can point at the same .ico or different assets
+      depending on whether the installer brand and the app brand differ.
+    -->
+    <ApplicationIcon>..\SampleApp\Assets\icon.ico</ApplicationIcon>
+
+    <!-- Shipping builds go AOT; dev builds (`dotnet run`) stay JIT. -->
+    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
+    <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
+
+    <!-- 'dotnet run' on this project should NOT trigger payload append.
+         InstellaEnabled defaults to true; we flip it for Debug here so
+         the dev loop is just a JIT exe with no payload staging work. -->
+    <InstellaEnabled Condition="'$(Configuration)' == 'Debug'">false</InstellaEnabled>
+  </PropertyGroup>
+
+  <!--
+    Project-reference override for the task assembly path. In shipping
+    packages the default (tasks/net10.0/...) wins; in-tree dev points
+    at the build output.
+  -->
+  <PropertyGroup>
+    <_InstellaBuildRoot>$([MSBuild]::NormalizePath($(MSBuildProjectDirectory), '..', '..', 'src', 'Instella.Installer.Build'))</_InstellaBuildRoot>
+    <InstellaBuildTasksAssembly>$(_InstellaBuildRoot)\bin\$(Configuration)\net10.0\Instella.Installer.Build.dll</InstellaBuildTasksAssembly>
+  </PropertyGroup>
+
+  <!--
+    Optional build inputs read by Program.cs (the E2E test sets both):
+      dotnet publish -p:SampleServerUrl=http://127.0.0.1:5000 -p:SamplePublisherKey=<base64 SPKI>
+  -->
+  <ItemGroup>
+    <AssemblyMetadata Include="SampleServerUrl" Value="$(SampleServerUrl)" />
+    <AssemblyMetadata Include="SamplePublisherKey" Value="$(SamplePublisherKey)" />
+  </ItemGroup>
+
+  <!-- Installer runtime — compiles into this project's exe. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Instella.Installer.Runtime\Instella.Installer.Runtime.csproj" />
+  </ItemGroup>
+
+  <!--
+    The app being installed. InstellaPayload="true" marks it for the
+    InstellaPublishPayload MSBuild target; ReferenceOutputAssembly=false
+    + Private=false keep SampleApp's compile output out of the installer's
+    own publish directory (the app is staged separately and appended as
+    payload).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\SampleApp\SampleApp.csproj">
+      <InstellaPayload>true</InstellaPayload>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+      <OutputItemType>_InstellaPayloadAssembly</OutputItemType>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!--
+    Import Instella.Installer.Build targets AFTER all property/item
+    definitions so targets can see the ProjectReference metadata.
+  -->
+  <Import Project="..\..\src\Instella.Installer.Build\build\Instella.Installer.Build.targets" />
+
+</Project>

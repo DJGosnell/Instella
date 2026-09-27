@@ -1,0 +1,1129 @@
+#nullable enable
+const Instella.Core.Manifest.InstellaManifest.CurrentSchemaVersion = 1 -> int
+const Instella.Core.Trust.ReleaseManifest.CurrentFormatVersion = 1 -> int
+const Instella.Core.Wire.ApiRoutes.CheckUpdate = "check-update" -> string!
+const Instella.Core.Wire.ApiRoutes.DownloadBuild = "download/{packageId}/{version}/{os}/{arch}" -> string!
+const Instella.Core.Wire.ApiRoutes.DownloadFile = "download/{packageId}/{version}/{os}/{arch}/file/{**path}" -> string!
+const Instella.Core.Wire.ApiRoutes.DownloadInstaller = "installer/{packageId}/{version}/{os}/{arch}/{kind}" -> string!
+const Instella.Core.Wire.ApiRoutes.Draft = "drafts/{packageId}/{version}/{os}/{arch}" -> string!
+const Instella.Core.Wire.ApiRoutes.LatestVersion = "latest" -> string!
+const Instella.Core.Wire.ApiRoutes.Package = "packages/{packageId}" -> string!
+const Instella.Core.Wire.ApiRoutes.Packages = "packages" -> string!
+const Instella.Core.Wire.ApiRoutes.PackageVersion = "packages/{packageId}/versions/{version}" -> string!
+const Instella.Core.Wire.ApiRoutes.PackageVersions = "packages/{packageId}/versions" -> string!
+const Instella.Core.Wire.ApiRoutes.Patch = "patch/{packageId}/{fromVersion}/{toVersion}/{os}/{arch}" -> string!
+const Instella.Core.Wire.ApiRoutes.PatchManifest = "patch-manifest/{packageId}/{fromVersion}/{toVersion}/{os}/{arch}" -> string!
+const Instella.Core.Wire.ApiRoutes.Prefix = "api/v1" -> string!
+const Instella.Core.Wire.ApiRoutes.PublishDraft = "drafts/{packageId}/{version}/{os}/{arch}/publish" -> string!
+const Instella.Core.Wire.ApiRoutes.Release = "release/{packageId}/{version}/{os}/{arch}" -> string!
+const Instella.Core.Wire.ApiRoutes.UploadCancel = "upload/{sessionId}" -> string!
+const Instella.Core.Wire.ApiRoutes.UploadComplete = "upload/{sessionId}/complete" -> string!
+const Instella.Core.Wire.ApiRoutes.UploadFile = "upload/{sessionId}/file" -> string!
+const Instella.Core.Wire.ApiRoutes.UploadInstaller = "upload/{sessionId}/installer" -> string!
+const Instella.Core.Wire.ApiRoutes.UploadStart = "upload/start" -> string!
+const Instella.Core.Wire.ChannelNames.MaxLength = 32 -> int
+const Instella.Core.Wire.ChannelNames.Rule = "a channel name is 1-32 characters: lowercase letters, digits and '-', starting and ending with a letter or digit" -> string!
+const Instella.Core.Wire.ChannelNames.Stable = "stable" -> string!
+const Instella.Core.Wire.InstallerKinds.MaxFileNameLength = 128 -> int
+const Instella.Core.Wire.InstallerKinds.Offline = "offline" -> string!
+const Instella.Core.Wire.InstallerKinds.Online = "online" -> string!
+Instella.Core.FileSystem.FileSystemError
+Instella.Core.FileSystem.FileSystemError.<Clone>$() -> Instella.Core.FileSystem.FileSystemError!
+Instella.Core.FileSystem.FileSystemError.Deconstruct(out Instella.Core.FileSystem.FileSystemErrorType Type, out string! Message, out System.Exception? Exception) -> void
+Instella.Core.FileSystem.FileSystemError.Equals(Instella.Core.FileSystem.FileSystemError? other) -> bool
+Instella.Core.FileSystem.FileSystemError.Exception.get -> System.Exception?
+Instella.Core.FileSystem.FileSystemError.Exception.init -> void
+Instella.Core.FileSystem.FileSystemError.FileSystemError(Instella.Core.FileSystem.FileSystemErrorType Type, string! Message, System.Exception? Exception = null) -> void
+Instella.Core.FileSystem.FileSystemError.Message.get -> string!
+Instella.Core.FileSystem.FileSystemError.Message.init -> void
+Instella.Core.FileSystem.FileSystemError.Type.get -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemError.Type.init -> void
+Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.AccessDenied = 2 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.DiskFull = 4 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.InUse = 3 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.InvalidPath = 5 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.None = 0 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.NotFound = 1 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemErrorType.Unknown = 255 -> Instella.Core.FileSystem.FileSystemErrorType
+Instella.Core.FileSystem.FileSystemResult
+Instella.Core.FileSystem.FileSystemResult.Error.get -> Instella.Core.FileSystem.FileSystemError?
+Instella.Core.FileSystem.FileSystemResult.FileSystemResult() -> void
+Instella.Core.FileSystem.FileSystemResult.Success.get -> bool
+Instella.Core.FileSystem.FileSystemResult<T>
+Instella.Core.FileSystem.FileSystemResult<T>.Error.get -> Instella.Core.FileSystem.FileSystemError?
+Instella.Core.FileSystem.FileSystemResult<T>.FileSystemResult() -> void
+Instella.Core.FileSystem.FileSystemResult<T>.Success.get -> bool
+Instella.Core.FileSystem.FileSystemResult<T>.Value.get -> T?
+Instella.Core.FileSystem.IFileSystem
+Instella.Core.FileSystem.IFileSystem.ComputeSha256Async(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<string!>!
+Instella.Core.FileSystem.IFileSystem.CopyFileAsync(string! source, string! dest, bool overwrite, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.FileSystem.IFileSystem.CreateDirectoryAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.FileSystem.IFileSystem.DeleteDirectoryAsync(string! path, bool recursive, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.FileSystem.IFileSystem.DeleteFileAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.FileSystem.IFileSystem.DirectoryExists(string! path) -> bool
+Instella.Core.FileSystem.IFileSystem.EnumerateFiles(string! path, string! searchPattern = "*", bool recursive = false) -> System.Collections.Generic.IEnumerable<string!>!
+Instella.Core.FileSystem.IFileSystem.Exists(string! path) -> bool
+Instella.Core.FileSystem.IFileSystem.GetFileSize(string! path) -> long
+Instella.Core.FileSystem.IFileSystem.MoveFileAsync(string! source, string! dest, bool overwrite, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.FileSystem.IFileSystem.OpenReadAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult<System.IO.Stream!>>!
+Instella.Core.FileSystem.IFileSystem.OpenWriteAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult<System.IO.Stream!>>!
+Instella.Core.FileSystem.IFileSystem.ReadAllBytesAsync(string! path, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult<byte[]!>>!
+Instella.Core.FileSystem.IFileSystem.SetUnixFileModeAsync(string! path, System.IO.UnixFileMode mode, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.FileSystem.IFileSystem.WriteAllBytesAsync(string! path, byte[]! data, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.FileSystem.FileSystemResult>!
+Instella.Core.Installation.IInstallStep
+Instella.Core.Installation.IInstallStep.Name.get -> string!
+Instella.Core.Installation.IInstallStep.Stage.get -> Instella.Core.Installation.InstallStage
+Instella.Core.Installation.IInstallStep.Weight.get -> int
+Instella.Core.Installation.InstallationScope
+Instella.Core.Installation.InstallationScope.PerUser = 0 -> Instella.Core.Installation.InstallationScope
+Instella.Core.Installation.InstallationScope.SystemWide = 1 -> Instella.Core.Installation.InstallationScope
+Instella.Core.Installation.InstalledFile
+Instella.Core.Installation.InstalledFile.<Clone>$() -> Instella.Core.Installation.InstalledFile!
+Instella.Core.Installation.InstalledFile.Deconstruct(out string! RelativePath, out string! Sha256, out long Size) -> void
+Instella.Core.Installation.InstalledFile.Equals(Instella.Core.Installation.InstalledFile? other) -> bool
+Instella.Core.Installation.InstalledFile.InstalledFile(string! RelativePath, string! Sha256, long Size) -> void
+Instella.Core.Installation.InstalledFile.RelativePath.get -> string!
+Instella.Core.Installation.InstalledFile.RelativePath.init -> void
+Instella.Core.Installation.InstalledFile.Sha256.get -> string!
+Instella.Core.Installation.InstalledFile.Sha256.init -> void
+Instella.Core.Installation.InstalledFile.Size.get -> long
+Instella.Core.Installation.InstalledFile.Size.init -> void
+Instella.Core.Installation.InstalledManifest
+Instella.Core.Installation.InstalledManifest.<Clone>$() -> Instella.Core.Installation.InstalledManifest!
+Instella.Core.Installation.InstalledManifest.AddedToPath.get -> bool
+Instella.Core.Installation.InstalledManifest.AddedToPath.init -> void
+Instella.Core.Installation.InstalledManifest.AllowInsecureServer.get -> bool
+Instella.Core.Installation.InstalledManifest.AllowInsecureServer.init -> void
+Instella.Core.Installation.InstalledManifest.AllowUnsignedUpdates.get -> bool
+Instella.Core.Installation.InstalledManifest.AllowUnsignedUpdates.init -> void
+Instella.Core.Installation.InstalledManifest.AppId.get -> string!
+Instella.Core.Installation.InstalledManifest.AppId.init -> void
+Instella.Core.Installation.InstalledManifest.AppName.get -> string!
+Instella.Core.Installation.InstalledManifest.AppName.init -> void
+Instella.Core.Installation.InstalledManifest.Architecture.get -> Instella.Core.Platform.Architecture?
+Instella.Core.Installation.InstalledManifest.Architecture.init -> void
+Instella.Core.Installation.InstalledManifest.Channel.get -> string?
+Instella.Core.Installation.InstalledManifest.Channel.init -> void
+Instella.Core.Installation.InstalledManifest.DeclaredCliFlags.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestCliFlag!>?
+Instella.Core.Installation.InstalledManifest.DeclaredCliFlags.init -> void
+Instella.Core.Installation.InstalledManifest.DownloadToken.get -> string?
+Instella.Core.Installation.InstalledManifest.DownloadToken.init -> void
+Instella.Core.Installation.InstalledManifest.Equals(Instella.Core.Installation.InstalledManifest? other) -> bool
+Instella.Core.Installation.InstalledManifest.ExecutableName.get -> string!
+Instella.Core.Installation.InstalledManifest.ExecutableName.init -> void
+Instella.Core.Installation.InstalledManifest.FileAssociations.get -> System.Collections.Generic.IReadOnlyList<string!>?
+Instella.Core.Installation.InstalledManifest.FileAssociations.init -> void
+Instella.Core.Installation.InstalledManifest.Files.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.InstalledFile!>!
+Instella.Core.Installation.InstalledManifest.Files.init -> void
+Instella.Core.Installation.InstalledManifest.HasAutoStart.get -> bool
+Instella.Core.Installation.InstalledManifest.HasAutoStart.init -> void
+Instella.Core.Installation.InstalledManifest.HasDesktopShortcut.get -> bool
+Instella.Core.Installation.InstalledManifest.HasDesktopShortcut.init -> void
+Instella.Core.Installation.InstalledManifest.HasStartMenuShortcut.get -> bool
+Instella.Core.Installation.InstalledManifest.HasStartMenuShortcut.init -> void
+Instella.Core.Installation.InstalledManifest.HasUninstallEntry.get -> bool
+Instella.Core.Installation.InstalledManifest.HasUninstallEntry.init -> void
+Instella.Core.Installation.InstalledManifest.InstallDirectory.get -> string!
+Instella.Core.Installation.InstalledManifest.InstallDirectory.init -> void
+Instella.Core.Installation.InstalledManifest.InstalledAt.get -> System.DateTime
+Instella.Core.Installation.InstalledManifest.InstalledAt.init -> void
+Instella.Core.Installation.InstalledManifest.InstalledManifest() -> void
+Instella.Core.Installation.InstalledManifest.InstalledPerUser.get -> bool
+Instella.Core.Installation.InstalledManifest.InstalledPerUser.init -> void
+Instella.Core.Installation.InstalledManifest.Logging.get -> Instella.Core.Installation.ManifestLoggingConfig?
+Instella.Core.Installation.InstalledManifest.Logging.init -> void
+Instella.Core.Installation.InstalledManifest.ManifestVersion.get -> int
+Instella.Core.Installation.InstalledManifest.ManifestVersion.init -> void
+Instella.Core.Installation.InstalledManifest.Platform.get -> Instella.Core.Platform.TargetPlatform
+Instella.Core.Installation.InstalledManifest.Platform.init -> void
+Instella.Core.Installation.InstalledManifest.Registry.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestRegistryEntry!>?
+Instella.Core.Installation.InstalledManifest.Registry.init -> void
+Instella.Core.Installation.InstalledManifest.ServerUrl.get -> string?
+Instella.Core.Installation.InstalledManifest.ServerUrl.init -> void
+Instella.Core.Installation.InstalledManifest.TrackedItems.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestTrackedItem!>?
+Instella.Core.Installation.InstalledManifest.TrackedItems.init -> void
+Instella.Core.Installation.InstalledManifest.TrustedKeys.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>?
+Instella.Core.Installation.InstalledManifest.TrustedKeys.init -> void
+Instella.Core.Installation.InstalledManifest.Version.get -> System.Version!
+Instella.Core.Installation.InstalledManifest.Version.init -> void
+Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Cleanup = 6 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.FirstInstall = 0 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Manage = 5 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Recover = 7 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Repair = 2 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Uninstall = 4 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Update = 3 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallerMode.Upgrade = 1 -> Instella.Core.Installation.InstallerMode
+Instella.Core.Installation.InstallStage
+Instella.Core.Installation.InstallStage.Extract = 1 -> Instella.Core.Installation.InstallStage
+Instella.Core.Installation.InstallStage.Finalize = 3 -> Instella.Core.Installation.InstallStage
+Instella.Core.Installation.InstallStage.Prereqs = 0 -> Instella.Core.Installation.InstallStage
+Instella.Core.Installation.InstallStage.Register = 2 -> Instella.Core.Installation.InstallStage
+Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InstallationBusy = 52 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InstallGeneralFailure = 10 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InstallIntegrityFailed = 12 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InstallPrereqFailed = 11 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InstallRollbackCompletedWithWarnings = 13 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InstallSilentMissingState = 14 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.InsufficientPrivileges = 51 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.Success = 0 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UninstallFilesLocked = 32 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UninstallGeneralFailure = 30 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UninstallManifestMissing = 31 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UnsupportedPlatform = 50 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UpdateAppCouldNotClose = 24 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UpdateGeneralFailure = 20 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UpdateRollbackFailed = 23 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UpdateRolledBack = 22 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UpdateServerUnreachable = 21 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UsageInvalidArgs = 40 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UsageUnknownMode = 41 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UserCancelled = 1 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.IStepProgress
+Instella.Core.Installation.IStepProgress.Report(double fraction, string? status = null) -> void
+Instella.Core.Installation.ManifestCliFlag
+Instella.Core.Installation.ManifestCliFlag.<Clone>$() -> Instella.Core.Installation.ManifestCliFlag!
+Instella.Core.Installation.ManifestCliFlag.Deconstruct(out string! Name, out string! TypeName, out string? MapsTo) -> void
+Instella.Core.Installation.ManifestCliFlag.Equals(Instella.Core.Installation.ManifestCliFlag? other) -> bool
+Instella.Core.Installation.ManifestCliFlag.ManifestCliFlag(string! Name, string! TypeName, string? MapsTo) -> void
+Instella.Core.Installation.ManifestCliFlag.MapsTo.get -> string?
+Instella.Core.Installation.ManifestCliFlag.MapsTo.init -> void
+Instella.Core.Installation.ManifestCliFlag.Name.get -> string!
+Instella.Core.Installation.ManifestCliFlag.Name.init -> void
+Instella.Core.Installation.ManifestCliFlag.TypeName.get -> string!
+Instella.Core.Installation.ManifestCliFlag.TypeName.init -> void
+Instella.Core.Installation.ManifestLoggingConfig
+Instella.Core.Installation.ManifestLoggingConfig.<Clone>$() -> Instella.Core.Installation.ManifestLoggingConfig!
+Instella.Core.Installation.ManifestLoggingConfig.Deconstruct(out Instella.Core.Logging.InstellaLogLevel DefaultLevel, out string? FileSinkPath, out int RetainCount) -> void
+Instella.Core.Installation.ManifestLoggingConfig.DefaultLevel.get -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Installation.ManifestLoggingConfig.DefaultLevel.init -> void
+Instella.Core.Installation.ManifestLoggingConfig.Equals(Instella.Core.Installation.ManifestLoggingConfig? other) -> bool
+Instella.Core.Installation.ManifestLoggingConfig.FileSinkPath.get -> string?
+Instella.Core.Installation.ManifestLoggingConfig.FileSinkPath.init -> void
+Instella.Core.Installation.ManifestLoggingConfig.ManifestLoggingConfig(Instella.Core.Logging.InstellaLogLevel DefaultLevel, string? FileSinkPath, int RetainCount) -> void
+Instella.Core.Installation.ManifestLoggingConfig.RetainCount.get -> int
+Instella.Core.Installation.ManifestLoggingConfig.RetainCount.init -> void
+Instella.Core.Installation.ManifestRegistryEntry
+Instella.Core.Installation.ManifestRegistryEntry.<Clone>$() -> Instella.Core.Installation.ManifestRegistryEntry!
+Instella.Core.Installation.ManifestRegistryEntry.Deconstruct(out Instella.Core.Platform.RegistryHive Hive, out string! KeyPath, out string! ValueName, out Instella.Core.Platform.InstellaRegistryValueKind Kind, out bool PerUser, out bool IsKey) -> void
+Instella.Core.Installation.ManifestRegistryEntry.Equals(Instella.Core.Installation.ManifestRegistryEntry? other) -> bool
+Instella.Core.Installation.ManifestRegistryEntry.Hive.get -> Instella.Core.Platform.RegistryHive
+Instella.Core.Installation.ManifestRegistryEntry.Hive.init -> void
+Instella.Core.Installation.ManifestRegistryEntry.IsKey.get -> bool
+Instella.Core.Installation.ManifestRegistryEntry.IsKey.init -> void
+Instella.Core.Installation.ManifestRegistryEntry.KeyPath.get -> string!
+Instella.Core.Installation.ManifestRegistryEntry.KeyPath.init -> void
+Instella.Core.Installation.ManifestRegistryEntry.Kind.get -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Installation.ManifestRegistryEntry.Kind.init -> void
+Instella.Core.Installation.ManifestRegistryEntry.ManifestRegistryEntry(Instella.Core.Platform.RegistryHive Hive, string! KeyPath, string! ValueName, Instella.Core.Platform.InstellaRegistryValueKind Kind, bool PerUser, bool IsKey = false) -> void
+Instella.Core.Installation.ManifestRegistryEntry.PerUser.get -> bool
+Instella.Core.Installation.ManifestRegistryEntry.PerUser.init -> void
+Instella.Core.Installation.ManifestRegistryEntry.ValueName.get -> string!
+Instella.Core.Installation.ManifestRegistryEntry.ValueName.init -> void
+Instella.Core.Installation.ManifestTrackedItem
+Instella.Core.Installation.ManifestTrackedItem.<Clone>$() -> Instella.Core.Installation.ManifestTrackedItem!
+Instella.Core.Installation.ManifestTrackedItem.Deconstruct(out string! Kind, out string! Path, out bool Recursive, out Instella.Core.Platform.RegistryHive Hive, out string? ValueName) -> void
+Instella.Core.Installation.ManifestTrackedItem.Equals(Instella.Core.Installation.ManifestTrackedItem? other) -> bool
+Instella.Core.Installation.ManifestTrackedItem.Hive.get -> Instella.Core.Platform.RegistryHive
+Instella.Core.Installation.ManifestTrackedItem.Hive.init -> void
+Instella.Core.Installation.ManifestTrackedItem.Kind.get -> string!
+Instella.Core.Installation.ManifestTrackedItem.Kind.init -> void
+Instella.Core.Installation.ManifestTrackedItem.ManifestTrackedItem(string! Kind, string! Path, bool Recursive = false, Instella.Core.Platform.RegistryHive Hive = Instella.Core.Platform.RegistryHive.AutoFromScope, string? ValueName = null) -> void
+Instella.Core.Installation.ManifestTrackedItem.Path.get -> string!
+Instella.Core.Installation.ManifestTrackedItem.Path.init -> void
+Instella.Core.Installation.ManifestTrackedItem.Recursive.get -> bool
+Instella.Core.Installation.ManifestTrackedItem.Recursive.init -> void
+Instella.Core.Installation.ManifestTrackedItem.ValueName.get -> string?
+Instella.Core.Installation.ManifestTrackedItem.ValueName.init -> void
+Instella.Core.Installation.StepResult
+Instella.Core.Installation.StepResult.Deconstruct(out bool Success, out string? Error, out System.Collections.Generic.IReadOnlyList<string!>? Warnings) -> void
+Instella.Core.Installation.StepResult.Equals(Instella.Core.Installation.StepResult other) -> bool
+Instella.Core.Installation.StepResult.Error.get -> string?
+Instella.Core.Installation.StepResult.Error.init -> void
+Instella.Core.Installation.StepResult.StepResult() -> void
+Instella.Core.Installation.StepResult.StepResult(bool Success, string? Error, System.Collections.Generic.IReadOnlyList<string!>? Warnings) -> void
+Instella.Core.Installation.StepResult.Success.get -> bool
+Instella.Core.Installation.StepResult.Success.init -> void
+Instella.Core.Installation.StepResult.Warnings.get -> System.Collections.Generic.IReadOnlyList<string!>?
+Instella.Core.Installation.StepResult.Warnings.init -> void
+Instella.Core.Logging.IInstellaLogger
+Instella.Core.Logging.IInstellaLogger.Debug(string! message) -> void
+Instella.Core.Logging.IInstellaLogger.Error(string! message, System.Exception? exception = null) -> void
+Instella.Core.Logging.IInstellaLogger.Info(string! message) -> void
+Instella.Core.Logging.IInstellaLogger.IsEnabled(Instella.Core.Logging.InstellaLogLevel level) -> bool
+Instella.Core.Logging.IInstellaLogger.Scope(string! segment) -> System.IDisposable!
+Instella.Core.Logging.IInstellaLogger.Trace(string! message) -> void
+Instella.Core.Logging.IInstellaLogger.Warn(string! message) -> void
+Instella.Core.Logging.IInstellaLogSink
+Instella.Core.Logging.IInstellaLogSink.FlushAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Instella.Core.Logging.IInstellaLogSink.Write(in Instella.Core.Logging.InstellaLogEntry entry) -> void
+Instella.Core.Logging.InstellaLogEntry
+Instella.Core.Logging.InstellaLogEntry.Category.get -> string!
+Instella.Core.Logging.InstellaLogEntry.Category.init -> void
+Instella.Core.Logging.InstellaLogEntry.Deconstruct(out System.DateTimeOffset Timestamp, out Instella.Core.Logging.InstellaLogLevel Level, out string! Category, out string! Message, out System.Exception? Exception) -> void
+Instella.Core.Logging.InstellaLogEntry.Equals(Instella.Core.Logging.InstellaLogEntry other) -> bool
+Instella.Core.Logging.InstellaLogEntry.Exception.get -> System.Exception?
+Instella.Core.Logging.InstellaLogEntry.Exception.init -> void
+Instella.Core.Logging.InstellaLogEntry.InstellaLogEntry() -> void
+Instella.Core.Logging.InstellaLogEntry.InstellaLogEntry(System.DateTimeOffset Timestamp, Instella.Core.Logging.InstellaLogLevel Level, string! Category, string! Message, System.Exception? Exception) -> void
+Instella.Core.Logging.InstellaLogEntry.Level.get -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogEntry.Level.init -> void
+Instella.Core.Logging.InstellaLogEntry.Message.get -> string!
+Instella.Core.Logging.InstellaLogEntry.Message.init -> void
+Instella.Core.Logging.InstellaLogEntry.Timestamp.get -> System.DateTimeOffset
+Instella.Core.Logging.InstellaLogEntry.Timestamp.init -> void
+Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogLevel.Critical = 5 -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogLevel.Debug = 1 -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogLevel.Error = 4 -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogLevel.Info = 2 -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogLevel.Trace = 0 -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.InstellaLogLevel.Warn = 3 -> Instella.Core.Logging.InstellaLogLevel
+Instella.Core.Logging.LoggingBuilder
+Instella.Core.Logging.LoggingBuilder.AddSink(Instella.Core.Logging.IInstellaLogSink! sink) -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.Console(bool enabled = true) -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.ConsoleEnabled.get -> bool
+Instella.Core.Logging.LoggingBuilder.DisableEnvironmentLevel() -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.EnvironmentVariableName.get -> string?
+Instella.Core.Logging.LoggingBuilder.File(string! path) -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.FileEnabled.get -> bool
+Instella.Core.Logging.LoggingBuilder.FilePath.get -> string?
+Instella.Core.Logging.LoggingBuilder.InternalErrorHandler.get -> System.Action<System.Exception!>?
+Instella.Core.Logging.LoggingBuilder.Level.get -> Instella.Core.Logging.InstellaLogLevel?
+Instella.Core.Logging.LoggingBuilder.LevelFromEnvironment(string! environmentVariableName = "INSTELLA_LOG_LEVEL") -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.LoggingBuilder() -> void
+Instella.Core.Logging.LoggingBuilder.NoFile() -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.OnInternalError(System.Action<System.Exception!>! handler) -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Logging.LoggingBuilder.Sinks.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Logging.IInstellaLogSink!>!
+Instella.Core.Logging.LoggingBuilder.WithLevel(Instella.Core.Logging.InstellaLogLevel level) -> Instella.Core.Logging.LoggingBuilder!
+Instella.Core.Manifest.ElevationMode
+Instella.Core.Manifest.ElevationMode.PerUser = 0 -> Instella.Core.Manifest.ElevationMode
+Instella.Core.Manifest.ElevationMode.SystemWide = 1 -> Instella.Core.Manifest.ElevationMode
+Instella.Core.Manifest.ElevationMode.UserChoice = 2 -> Instella.Core.Manifest.ElevationMode
+Instella.Core.Manifest.FileAssociation
+Instella.Core.Manifest.FileAssociation.<Clone>$() -> Instella.Core.Manifest.FileAssociation!
+Instella.Core.Manifest.FileAssociation.Deconstruct(out string! Extension, out string! Description, out string? IconPath) -> void
+Instella.Core.Manifest.FileAssociation.Description.get -> string!
+Instella.Core.Manifest.FileAssociation.Description.init -> void
+Instella.Core.Manifest.FileAssociation.Equals(Instella.Core.Manifest.FileAssociation? other) -> bool
+Instella.Core.Manifest.FileAssociation.Extension.get -> string!
+Instella.Core.Manifest.FileAssociation.Extension.init -> void
+Instella.Core.Manifest.FileAssociation.FileAssociation(string! Extension, string! Description, string? IconPath) -> void
+Instella.Core.Manifest.FileAssociation.IconPath.get -> string?
+Instella.Core.Manifest.FileAssociation.IconPath.init -> void
+Instella.Core.Manifest.InstellaManifest
+Instella.Core.Manifest.InstellaManifest.<Clone>$() -> Instella.Core.Manifest.InstellaManifest!
+Instella.Core.Manifest.InstellaManifest.AllowInsecureServer.get -> bool
+Instella.Core.Manifest.InstellaManifest.AllowInsecureServer.init -> void
+Instella.Core.Manifest.InstellaManifest.AllowUnsignedUpdates.get -> bool
+Instella.Core.Manifest.InstellaManifest.AllowUnsignedUpdates.init -> void
+Instella.Core.Manifest.InstellaManifest.AppId.get -> string!
+Instella.Core.Manifest.InstellaManifest.AppId.init -> void
+Instella.Core.Manifest.InstellaManifest.AppName.get -> string!
+Instella.Core.Manifest.InstellaManifest.AppName.init -> void
+Instella.Core.Manifest.InstellaManifest.AutoStart.get -> bool
+Instella.Core.Manifest.InstellaManifest.AutoStart.init -> void
+Instella.Core.Manifest.InstellaManifest.Channel.get -> string!
+Instella.Core.Manifest.InstellaManifest.Channel.init -> void
+Instella.Core.Manifest.InstellaManifest.Description.get -> string?
+Instella.Core.Manifest.InstellaManifest.Description.init -> void
+Instella.Core.Manifest.InstellaManifest.DownloadToken.get -> string?
+Instella.Core.Manifest.InstellaManifest.DownloadToken.init -> void
+Instella.Core.Manifest.InstellaManifest.Elevation.get -> Instella.Core.Manifest.ElevationMode
+Instella.Core.Manifest.InstellaManifest.Elevation.init -> void
+Instella.Core.Manifest.InstellaManifest.Equals(Instella.Core.Manifest.InstellaManifest? other) -> bool
+Instella.Core.Manifest.InstellaManifest.ExecutableName.get -> string?
+Instella.Core.Manifest.InstellaManifest.ExecutableName.init -> void
+Instella.Core.Manifest.InstellaManifest.FileAssociations.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Manifest.FileAssociation!>?
+Instella.Core.Manifest.InstellaManifest.FileAssociations.init -> void
+Instella.Core.Manifest.InstellaManifest.HomepageUrl.get -> string?
+Instella.Core.Manifest.InstellaManifest.HomepageUrl.init -> void
+Instella.Core.Manifest.InstellaManifest.IconPath.get -> string?
+Instella.Core.Manifest.InstellaManifest.IconPath.init -> void
+Instella.Core.Manifest.InstellaManifest.InstellaManifest() -> void
+Instella.Core.Manifest.InstellaManifest.LicenseUrl.get -> string?
+Instella.Core.Manifest.InstellaManifest.LicenseUrl.init -> void
+Instella.Core.Manifest.InstellaManifest.PathRegistration.get -> bool
+Instella.Core.Manifest.InstellaManifest.PathRegistration.init -> void
+Instella.Core.Manifest.InstellaManifest.PayloadFilter.get -> Instella.Core.Manifest.PayloadFilter?
+Instella.Core.Manifest.InstellaManifest.PayloadFilter.init -> void
+Instella.Core.Manifest.InstellaManifest.Prerequisites.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Manifest.Prerequisite!>?
+Instella.Core.Manifest.InstellaManifest.Prerequisites.init -> void
+Instella.Core.Manifest.InstellaManifest.Publisher.get -> string?
+Instella.Core.Manifest.InstellaManifest.Publisher.init -> void
+Instella.Core.Manifest.InstellaManifest.PublisherKeys.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>?
+Instella.Core.Manifest.InstellaManifest.PublisherKeys.init -> void
+Instella.Core.Manifest.InstellaManifest.SchemaVersion.get -> int
+Instella.Core.Manifest.InstellaManifest.SchemaVersion.init -> void
+Instella.Core.Manifest.InstellaManifest.ServerUrl.get -> string!
+Instella.Core.Manifest.InstellaManifest.ServerUrl.init -> void
+Instella.Core.Manifest.InstellaManifest.Shortcuts.get -> Instella.Core.Manifest.ShortcutConfig?
+Instella.Core.Manifest.InstellaManifest.Shortcuts.init -> void
+Instella.Core.Manifest.InstellaManifest.Validate() -> void
+Instella.Core.Manifest.InstellaManifest.Version.get -> System.Version!
+Instella.Core.Manifest.InstellaManifest.Version.init -> void
+Instella.Core.Manifest.InvalidManifestException
+Instella.Core.Manifest.InvalidManifestException.FieldName.get -> string!
+Instella.Core.Manifest.InvalidManifestException.InvalidManifestException(string! fieldName) -> void
+Instella.Core.Manifest.InvalidManifestException.InvalidManifestException(string! fieldName, string! reason) -> void
+Instella.Core.Manifest.PayloadFilter
+Instella.Core.Manifest.PayloadFilter.<Clone>$() -> Instella.Core.Manifest.PayloadFilter!
+Instella.Core.Manifest.PayloadFilter.Equals(Instella.Core.Manifest.PayloadFilter? other) -> bool
+Instella.Core.Manifest.PayloadFilter.Exclude.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Core.Manifest.PayloadFilter.Exclude.init -> void
+Instella.Core.Manifest.PayloadFilter.Include.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Core.Manifest.PayloadFilter.Include.init -> void
+Instella.Core.Manifest.PayloadFilter.PayloadFilter() -> void
+Instella.Core.Manifest.Prerequisite
+Instella.Core.Manifest.Prerequisite.BundlePath.get -> string?
+Instella.Core.Manifest.Prerequisite.BundlePath.init -> void
+Instella.Core.Manifest.Prerequisite.DetectionRegistry.get -> string?
+Instella.Core.Manifest.Prerequisite.DetectionRegistry.init -> void
+Instella.Core.Manifest.Prerequisite.DownloadUrl.get -> string?
+Instella.Core.Manifest.Prerequisite.DownloadUrl.init -> void
+Instella.Core.Manifest.Prerequisite.InstallArguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Core.Manifest.Prerequisite.InstallArguments.init -> void
+Instella.Core.Manifest.Prerequisite.Name.get -> string!
+Instella.Core.Manifest.Prerequisite.Name.init -> void
+Instella.Core.Manifest.Prerequisite.Prerequisite() -> void
+Instella.Core.Manifest.Prerequisite.RequiresElevation.get -> bool
+Instella.Core.Manifest.Prerequisite.RequiresElevation.init -> void
+Instella.Core.Manifest.Prerequisite.Sha256.get -> string?
+Instella.Core.Manifest.Prerequisite.Sha256.init -> void
+Instella.Core.Manifest.Prerequisite.SuccessExitCodes.get -> System.Collections.Generic.IReadOnlyList<int>!
+Instella.Core.Manifest.Prerequisite.SuccessExitCodes.init -> void
+Instella.Core.Manifest.ShortcutConfig
+Instella.Core.Manifest.ShortcutConfig.<Clone>$() -> Instella.Core.Manifest.ShortcutConfig!
+Instella.Core.Manifest.ShortcutConfig.Deconstruct(out bool Desktop, out bool StartMenu) -> void
+Instella.Core.Manifest.ShortcutConfig.Desktop.get -> bool
+Instella.Core.Manifest.ShortcutConfig.Desktop.init -> void
+Instella.Core.Manifest.ShortcutConfig.Equals(Instella.Core.Manifest.ShortcutConfig? other) -> bool
+Instella.Core.Manifest.ShortcutConfig.ShortcutConfig(bool Desktop, bool StartMenu) -> void
+Instella.Core.Manifest.ShortcutConfig.StartMenu.get -> bool
+Instella.Core.Manifest.ShortcutConfig.StartMenu.init -> void
+Instella.Core.Platform.Architecture
+Instella.Core.Platform.Architecture.ARM32 = 4 -> Instella.Core.Platform.Architecture
+Instella.Core.Platform.Architecture.ARM64 = 3 -> Instella.Core.Platform.Architecture
+Instella.Core.Platform.Architecture.X64 = 1 -> Instella.Core.Platform.Architecture
+Instella.Core.Platform.Architecture.X86 = 2 -> Instella.Core.Platform.Architecture
+Instella.Core.Platform.ArchitectureExtensions
+Instella.Core.Platform.AutoStartInfo
+Instella.Core.Platform.AutoStartInfo.<Clone>$() -> Instella.Core.Platform.AutoStartInfo!
+Instella.Core.Platform.AutoStartInfo.AppId.get -> string!
+Instella.Core.Platform.AutoStartInfo.AppId.init -> void
+Instella.Core.Platform.AutoStartInfo.Arguments.get -> string?
+Instella.Core.Platform.AutoStartInfo.Arguments.init -> void
+Instella.Core.Platform.AutoStartInfo.AutoStartInfo(string! AppId, string! ExecutablePath, string? Arguments, bool PerUser = true) -> void
+Instella.Core.Platform.AutoStartInfo.Deconstruct(out string! AppId, out string! ExecutablePath, out string? Arguments, out bool PerUser) -> void
+Instella.Core.Platform.AutoStartInfo.Equals(Instella.Core.Platform.AutoStartInfo? other) -> bool
+Instella.Core.Platform.AutoStartInfo.ExecutablePath.get -> string!
+Instella.Core.Platform.AutoStartInfo.ExecutablePath.init -> void
+Instella.Core.Platform.AutoStartInfo.PerUser.get -> bool
+Instella.Core.Platform.AutoStartInfo.PerUser.init -> void
+Instella.Core.Platform.FileAssociationInfo
+Instella.Core.Platform.FileAssociationInfo.<Clone>$() -> Instella.Core.Platform.FileAssociationInfo!
+Instella.Core.Platform.FileAssociationInfo.AppId.get -> string!
+Instella.Core.Platform.FileAssociationInfo.AppId.init -> void
+Instella.Core.Platform.FileAssociationInfo.Deconstruct(out string! Extension, out string! Description, out string! AppId, out string! ExecutablePath, out string? IconPath, out bool PerUser) -> void
+Instella.Core.Platform.FileAssociationInfo.Description.get -> string!
+Instella.Core.Platform.FileAssociationInfo.Description.init -> void
+Instella.Core.Platform.FileAssociationInfo.Equals(Instella.Core.Platform.FileAssociationInfo? other) -> bool
+Instella.Core.Platform.FileAssociationInfo.ExecutablePath.get -> string!
+Instella.Core.Platform.FileAssociationInfo.ExecutablePath.init -> void
+Instella.Core.Platform.FileAssociationInfo.Extension.get -> string!
+Instella.Core.Platform.FileAssociationInfo.Extension.init -> void
+Instella.Core.Platform.FileAssociationInfo.FileAssociationInfo(string! Extension, string! Description, string! AppId, string! ExecutablePath, string? IconPath, bool PerUser = true) -> void
+Instella.Core.Platform.FileAssociationInfo.IconPath.get -> string?
+Instella.Core.Platform.FileAssociationInfo.IconPath.init -> void
+Instella.Core.Platform.FileAssociationInfo.PerUser.get -> bool
+Instella.Core.Platform.FileAssociationInfo.PerUser.init -> void
+Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.InstellaRegistryValueKind.Binary = 3 -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.InstellaRegistryValueKind.DWord = 4 -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.InstellaRegistryValueKind.ExpandString = 2 -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.InstellaRegistryValueKind.MultiString = 7 -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.InstellaRegistryValueKind.QWord = 11 -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.InstellaRegistryValueKind.String = 1 -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.IPlatformServices
+Instella.Core.Platform.IPlatformServices.AddToPathAsync(string! directory, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.ConfigureAutoStartAsync(Instella.Core.Platform.AutoStartInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.CreateShortcutAsync(Instella.Core.Platform.ShortcutInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.DeleteRegistryKeyAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.DeleteRegistryKeyIfEmptyAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.DeleteRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.GetDefaultInstallPath(string! appName, bool perUser) -> string!
+Instella.Core.Platform.IPlatformServices.GetRunningProcesses(string! processName, string? installPath) -> System.Collections.Generic.IReadOnlyList<System.Diagnostics.Process!>!
+Instella.Core.Platform.IPlatformServices.Platform.get -> Instella.Core.Platform.TargetPlatform
+Instella.Core.Platform.IPlatformServices.ReadRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.RegistryValueData?>!
+Instella.Core.Platform.IPlatformServices.RegisterFileAssociationAsync(Instella.Core.Platform.FileAssociationInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.RegisterUninstallEntryAsync(Instella.Core.Platform.UninstallEntryInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.RegistryKeyExistsAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<bool>!
+Instella.Core.Platform.IPlatformServices.RemoveAutoStartAsync(string! appId, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.RemoveAutoStartAsync(string! appId, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.RemoveFromPathAsync(string! directory, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.RemoveShortcutAsync(Instella.Core.Platform.ShortcutInfo! info, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.TerminateProcessAsync(System.Diagnostics.Process! process, System.TimeSpan timeout, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.UnregisterFileAssociationAsync(string! extension, string! appId, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.UnregisterFileAssociationAsync(string! extension, string! appId, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.UnregisterUninstallEntryAsync(string! appId, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.UpdateShortcutAsync(string! oldTarget, string! newTarget, string! shortcutPath, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.IPlatformServices.WriteRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, Instella.Core.Platform.InstellaRegistryValueKind kind, object! value, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.PlatformResult!>!
+Instella.Core.Platform.PlatformResult
+Instella.Core.Platform.PlatformResult.<Clone>$() -> Instella.Core.Platform.PlatformResult!
+Instella.Core.Platform.PlatformResult.Deconstruct(out bool Success, out string? Error) -> void
+Instella.Core.Platform.PlatformResult.Equals(Instella.Core.Platform.PlatformResult? other) -> bool
+Instella.Core.Platform.PlatformResult.Error.get -> string?
+Instella.Core.Platform.PlatformResult.Error.init -> void
+Instella.Core.Platform.PlatformResult.PlatformResult(bool Success, string? Error = null) -> void
+Instella.Core.Platform.PlatformResult.Success.get -> bool
+Instella.Core.Platform.PlatformResult.Success.init -> void
+Instella.Core.Platform.RegistryHive
+Instella.Core.Platform.RegistryHive.AutoFromScope = 0 -> Instella.Core.Platform.RegistryHive
+Instella.Core.Platform.RegistryHive.CurrentUser = 1 -> Instella.Core.Platform.RegistryHive
+Instella.Core.Platform.RegistryHive.LocalMachine = 2 -> Instella.Core.Platform.RegistryHive
+Instella.Core.Platform.RegistryValueData
+Instella.Core.Platform.RegistryValueData.<Clone>$() -> Instella.Core.Platform.RegistryValueData!
+Instella.Core.Platform.RegistryValueData.Deconstruct(out Instella.Core.Platform.InstellaRegistryValueKind Kind, out object! Value) -> void
+Instella.Core.Platform.RegistryValueData.Equals(Instella.Core.Platform.RegistryValueData? other) -> bool
+Instella.Core.Platform.RegistryValueData.Kind.get -> Instella.Core.Platform.InstellaRegistryValueKind
+Instella.Core.Platform.RegistryValueData.Kind.init -> void
+Instella.Core.Platform.RegistryValueData.RegistryValueData(Instella.Core.Platform.InstellaRegistryValueKind Kind, object! Value) -> void
+Instella.Core.Platform.RegistryValueData.Value.get -> object!
+Instella.Core.Platform.RegistryValueData.Value.init -> void
+Instella.Core.Platform.ShortcutInfo
+Instella.Core.Platform.ShortcutInfo.<Clone>$() -> Instella.Core.Platform.ShortcutInfo!
+Instella.Core.Platform.ShortcutInfo.Arguments.get -> string?
+Instella.Core.Platform.ShortcutInfo.Arguments.init -> void
+Instella.Core.Platform.ShortcutInfo.Deconstruct(out string! Name, out string! TargetPath, out string? IconPath, out string? Arguments, out Instella.Core.Platform.ShortcutLocation Location, out string? WorkingDirectory, out string? Description, out bool PerUser) -> void
+Instella.Core.Platform.ShortcutInfo.Description.get -> string?
+Instella.Core.Platform.ShortcutInfo.Description.init -> void
+Instella.Core.Platform.ShortcutInfo.Equals(Instella.Core.Platform.ShortcutInfo? other) -> bool
+Instella.Core.Platform.ShortcutInfo.IconPath.get -> string?
+Instella.Core.Platform.ShortcutInfo.IconPath.init -> void
+Instella.Core.Platform.ShortcutInfo.Location.get -> Instella.Core.Platform.ShortcutLocation
+Instella.Core.Platform.ShortcutInfo.Location.init -> void
+Instella.Core.Platform.ShortcutInfo.Name.get -> string!
+Instella.Core.Platform.ShortcutInfo.Name.init -> void
+Instella.Core.Platform.ShortcutInfo.PerUser.get -> bool
+Instella.Core.Platform.ShortcutInfo.PerUser.init -> void
+Instella.Core.Platform.ShortcutInfo.ShortcutInfo(string! Name, string! TargetPath, string? IconPath, string? Arguments, Instella.Core.Platform.ShortcutLocation Location, string? WorkingDirectory = null, string? Description = null, bool PerUser = true) -> void
+Instella.Core.Platform.ShortcutInfo.TargetPath.get -> string!
+Instella.Core.Platform.ShortcutInfo.TargetPath.init -> void
+Instella.Core.Platform.ShortcutInfo.WorkingDirectory.get -> string?
+Instella.Core.Platform.ShortcutInfo.WorkingDirectory.init -> void
+Instella.Core.Platform.ShortcutLocation
+Instella.Core.Platform.ShortcutLocation.Desktop = 1 -> Instella.Core.Platform.ShortcutLocation
+Instella.Core.Platform.ShortcutLocation.StartMenu = 2 -> Instella.Core.Platform.ShortcutLocation
+Instella.Core.Platform.TargetPlatform
+Instella.Core.Platform.TargetPlatform.Linux = 2 -> Instella.Core.Platform.TargetPlatform
+Instella.Core.Platform.TargetPlatform.MacOS = 3 -> Instella.Core.Platform.TargetPlatform
+Instella.Core.Platform.TargetPlatform.Windows = 1 -> Instella.Core.Platform.TargetPlatform
+Instella.Core.Platform.UninstallEntryInfo
+Instella.Core.Platform.UninstallEntryInfo.<Clone>$() -> Instella.Core.Platform.UninstallEntryInfo!
+Instella.Core.Platform.UninstallEntryInfo.AppId.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.AppId.init -> void
+Instella.Core.Platform.UninstallEntryInfo.Deconstruct(out string! AppId, out string! DisplayName, out string! DisplayVersion, out string! Publisher, out string! InstallLocation, out string! DisplayIcon, out string! UninstallCommand, out string? UrlInfoAbout, out int EstimatedSizeKb, out bool PerUser) -> void
+Instella.Core.Platform.UninstallEntryInfo.DisplayIcon.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.DisplayIcon.init -> void
+Instella.Core.Platform.UninstallEntryInfo.DisplayName.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.DisplayName.init -> void
+Instella.Core.Platform.UninstallEntryInfo.DisplayVersion.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.DisplayVersion.init -> void
+Instella.Core.Platform.UninstallEntryInfo.Equals(Instella.Core.Platform.UninstallEntryInfo? other) -> bool
+Instella.Core.Platform.UninstallEntryInfo.EstimatedSizeKb.get -> int
+Instella.Core.Platform.UninstallEntryInfo.EstimatedSizeKb.init -> void
+Instella.Core.Platform.UninstallEntryInfo.InstallLocation.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.InstallLocation.init -> void
+Instella.Core.Platform.UninstallEntryInfo.PerUser.get -> bool
+Instella.Core.Platform.UninstallEntryInfo.PerUser.init -> void
+Instella.Core.Platform.UninstallEntryInfo.Publisher.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.Publisher.init -> void
+Instella.Core.Platform.UninstallEntryInfo.UninstallCommand.get -> string!
+Instella.Core.Platform.UninstallEntryInfo.UninstallCommand.init -> void
+Instella.Core.Platform.UninstallEntryInfo.UninstallEntryInfo(string! AppId, string! DisplayName, string! DisplayVersion, string! Publisher, string! InstallLocation, string! DisplayIcon, string! UninstallCommand, string? UrlInfoAbout, int EstimatedSizeKb, bool PerUser) -> void
+Instella.Core.Platform.UninstallEntryInfo.UrlInfoAbout.get -> string?
+Instella.Core.Platform.UninstallEntryInfo.UrlInfoAbout.init -> void
+Instella.Core.Trust.KeyIds
+Instella.Core.Trust.PublisherKey
+Instella.Core.Trust.PublisherKey.<Clone>$() -> Instella.Core.Trust.PublisherKey!
+Instella.Core.Trust.PublisherKey.Deconstruct(out string! KeyId, out string! PublicKey) -> void
+Instella.Core.Trust.PublisherKey.Equals(Instella.Core.Trust.PublisherKey? other) -> bool
+Instella.Core.Trust.PublisherKey.KeyId.get -> string!
+Instella.Core.Trust.PublisherKey.KeyId.init -> void
+Instella.Core.Trust.PublisherKey.PublicKey.get -> string!
+Instella.Core.Trust.PublisherKey.PublicKey.init -> void
+Instella.Core.Trust.PublisherKey.PublisherKey(string! KeyId, string! PublicKey) -> void
+Instella.Core.Trust.ReleaseFile
+Instella.Core.Trust.ReleaseFile.<Clone>$() -> Instella.Core.Trust.ReleaseFile!
+Instella.Core.Trust.ReleaseFile.Deconstruct(out string! Path, out long Size, out string! Sha256, out bool Executable) -> void
+Instella.Core.Trust.ReleaseFile.Equals(Instella.Core.Trust.ReleaseFile? other) -> bool
+Instella.Core.Trust.ReleaseFile.Executable.get -> bool
+Instella.Core.Trust.ReleaseFile.Executable.init -> void
+Instella.Core.Trust.ReleaseFile.Path.get -> string!
+Instella.Core.Trust.ReleaseFile.Path.init -> void
+Instella.Core.Trust.ReleaseFile.ReleaseFile(string! Path, long Size, string! Sha256, bool Executable = false) -> void
+Instella.Core.Trust.ReleaseFile.Sha256.get -> string!
+Instella.Core.Trust.ReleaseFile.Sha256.init -> void
+Instella.Core.Trust.ReleaseFile.Size.get -> long
+Instella.Core.Trust.ReleaseFile.Size.init -> void
+Instella.Core.Trust.ReleaseInstaller
+Instella.Core.Trust.ReleaseInstaller.<Clone>$() -> Instella.Core.Trust.ReleaseInstaller!
+Instella.Core.Trust.ReleaseInstaller.Deconstruct(out string! Kind, out string! FileName, out long Size, out string! Sha256) -> void
+Instella.Core.Trust.ReleaseInstaller.Equals(Instella.Core.Trust.ReleaseInstaller? other) -> bool
+Instella.Core.Trust.ReleaseInstaller.FileName.get -> string!
+Instella.Core.Trust.ReleaseInstaller.FileName.init -> void
+Instella.Core.Trust.ReleaseInstaller.Kind.get -> string!
+Instella.Core.Trust.ReleaseInstaller.Kind.init -> void
+Instella.Core.Trust.ReleaseInstaller.ReleaseInstaller(string! Kind, string! FileName, long Size, string! Sha256) -> void
+Instella.Core.Trust.ReleaseInstaller.Sha256.get -> string!
+Instella.Core.Trust.ReleaseInstaller.Sha256.init -> void
+Instella.Core.Trust.ReleaseInstaller.Size.get -> long
+Instella.Core.Trust.ReleaseInstaller.Size.init -> void
+Instella.Core.Trust.ReleaseKeys
+Instella.Core.Trust.ReleaseManifest
+Instella.Core.Trust.ReleaseManifest.<Clone>$() -> Instella.Core.Trust.ReleaseManifest!
+Instella.Core.Trust.ReleaseManifest.AppId.get -> string!
+Instella.Core.Trust.ReleaseManifest.AppId.init -> void
+Instella.Core.Trust.ReleaseManifest.Arch.get -> string!
+Instella.Core.Trust.ReleaseManifest.Arch.init -> void
+Instella.Core.Trust.ReleaseManifest.Channel.get -> string!
+Instella.Core.Trust.ReleaseManifest.Channel.init -> void
+Instella.Core.Trust.ReleaseManifest.CreatedAt.get -> System.DateTimeOffset
+Instella.Core.Trust.ReleaseManifest.CreatedAt.init -> void
+Instella.Core.Trust.ReleaseManifest.Equals(Instella.Core.Trust.ReleaseManifest? other) -> bool
+Instella.Core.Trust.ReleaseManifest.Files.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.ReleaseFile!>!
+Instella.Core.Trust.ReleaseManifest.Files.init -> void
+Instella.Core.Trust.ReleaseManifest.FormatVersion.get -> int
+Instella.Core.Trust.ReleaseManifest.FormatVersion.init -> void
+Instella.Core.Trust.ReleaseManifest.Installers.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.ReleaseInstaller!>?
+Instella.Core.Trust.ReleaseManifest.Installers.init -> void
+Instella.Core.Trust.ReleaseManifest.Os.get -> string!
+Instella.Core.Trust.ReleaseManifest.Os.init -> void
+Instella.Core.Trust.ReleaseManifest.ReleaseManifest() -> void
+Instella.Core.Trust.ReleaseManifest.TrustedKeys.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>?
+Instella.Core.Trust.ReleaseManifest.TrustedKeys.init -> void
+Instella.Core.Trust.ReleaseManifest.Version.get -> System.Version!
+Instella.Core.Trust.ReleaseManifest.Version.init -> void
+Instella.Core.Trust.ReleaseSigner
+Instella.Core.Trust.ReleaseVerifier
+Instella.Core.Trust.SignedRelease
+Instella.Core.Trust.SignedRelease.<Clone>$() -> Instella.Core.Trust.SignedRelease!
+Instella.Core.Trust.SignedRelease.Deconstruct(out string! Manifest, out string! Signature, out string! KeyId) -> void
+Instella.Core.Trust.SignedRelease.Equals(Instella.Core.Trust.SignedRelease? other) -> bool
+Instella.Core.Trust.SignedRelease.KeyId.get -> string!
+Instella.Core.Trust.SignedRelease.KeyId.init -> void
+Instella.Core.Trust.SignedRelease.Manifest.get -> string!
+Instella.Core.Trust.SignedRelease.Manifest.init -> void
+Instella.Core.Trust.SignedRelease.Signature.get -> string!
+Instella.Core.Trust.SignedRelease.Signature.init -> void
+Instella.Core.Trust.SignedRelease.SignedRelease(string! Manifest, string! Signature, string! KeyId) -> void
+Instella.Core.Trust.TrustPolicy
+Instella.Core.Trust.TrustPolicy.<Clone>$() -> Instella.Core.Trust.TrustPolicy!
+Instella.Core.Trust.TrustPolicy.AppId.get -> string!
+Instella.Core.Trust.TrustPolicy.AppId.init -> void
+Instella.Core.Trust.TrustPolicy.Arch.get -> string!
+Instella.Core.Trust.TrustPolicy.Arch.init -> void
+Instella.Core.Trust.TrustPolicy.Channel.get -> string?
+Instella.Core.Trust.TrustPolicy.Channel.init -> void
+Instella.Core.Trust.TrustPolicy.Deconstruct(out System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>! TrustedKeys, out string! AppId, out string! Os, out string! Arch, out System.Version? MustBeNewerThan, out System.Version? MustEqual) -> void
+Instella.Core.Trust.TrustPolicy.Equals(Instella.Core.Trust.TrustPolicy? other) -> bool
+Instella.Core.Trust.TrustPolicy.MustBeNewerThan.get -> System.Version?
+Instella.Core.Trust.TrustPolicy.MustBeNewerThan.init -> void
+Instella.Core.Trust.TrustPolicy.MustEqual.get -> System.Version?
+Instella.Core.Trust.TrustPolicy.MustEqual.init -> void
+Instella.Core.Trust.TrustPolicy.Os.get -> string!
+Instella.Core.Trust.TrustPolicy.Os.init -> void
+Instella.Core.Trust.TrustPolicy.TrustedKeys.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>!
+Instella.Core.Trust.TrustPolicy.TrustedKeys.init -> void
+Instella.Core.Trust.TrustPolicy.TrustPolicy(System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>! TrustedKeys, string! AppId, string! Os, string! Arch, System.Version? MustBeNewerThan, System.Version? MustEqual) -> void
+Instella.Core.Trust.UpdateTrustException
+Instella.Core.Trust.UpdateTrustException.UpdateTrustException(string! message) -> void
+Instella.Core.Update.UpdateCheckResult
+Instella.Core.Update.UpdateCheckResult.<Clone>$() -> Instella.Core.Update.UpdateCheckResult!
+Instella.Core.Update.UpdateCheckResult.Deconstruct(out Instella.Core.Update.UpdateCheckStatus Status, out Instella.Core.Update.UpdateInfo? Update, out string? Error) -> void
+Instella.Core.Update.UpdateCheckResult.Equals(Instella.Core.Update.UpdateCheckResult? other) -> bool
+Instella.Core.Update.UpdateCheckResult.Error.get -> string?
+Instella.Core.Update.UpdateCheckResult.Error.init -> void
+Instella.Core.Update.UpdateCheckResult.Status.get -> Instella.Core.Update.UpdateCheckStatus
+Instella.Core.Update.UpdateCheckResult.Status.init -> void
+Instella.Core.Update.UpdateCheckResult.Success.get -> bool
+Instella.Core.Update.UpdateCheckResult.Update.get -> Instella.Core.Update.UpdateInfo?
+Instella.Core.Update.UpdateCheckResult.Update.init -> void
+Instella.Core.Update.UpdateCheckResult.UpdateAvailable.get -> bool
+Instella.Core.Update.UpdateCheckResult.UpdateCheckResult(Instella.Core.Update.UpdateCheckStatus Status, Instella.Core.Update.UpdateInfo? Update, string? Error) -> void
+Instella.Core.Update.UpdateCheckStatus
+Instella.Core.Update.UpdateCheckStatus.Failed = 3 -> Instella.Core.Update.UpdateCheckStatus
+Instella.Core.Update.UpdateCheckStatus.NotInstalled = 2 -> Instella.Core.Update.UpdateCheckStatus
+Instella.Core.Update.UpdateCheckStatus.UpdateAvailable = 1 -> Instella.Core.Update.UpdateCheckStatus
+Instella.Core.Update.UpdateCheckStatus.UpToDate = 0 -> Instella.Core.Update.UpdateCheckStatus
+Instella.Core.Update.UpdateInfo
+Instella.Core.Update.UpdateInfo.<Clone>$() -> Instella.Core.Update.UpdateInfo!
+Instella.Core.Update.UpdateInfo.Changelog.get -> string!
+Instella.Core.Update.UpdateInfo.Changelog.init -> void
+Instella.Core.Update.UpdateInfo.Channel.get -> string!
+Instella.Core.Update.UpdateInfo.Channel.init -> void
+Instella.Core.Update.UpdateInfo.Equals(Instella.Core.Update.UpdateInfo? other) -> bool
+Instella.Core.Update.UpdateInfo.FullSize.get -> long
+Instella.Core.Update.UpdateInfo.FullSize.init -> void
+Instella.Core.Update.UpdateInfo.Mandatory.get -> bool
+Instella.Core.Update.UpdateInfo.Mandatory.init -> void
+Instella.Core.Update.UpdateInfo.PatchAvailable.get -> bool
+Instella.Core.Update.UpdateInfo.PatchAvailable.init -> void
+Instella.Core.Update.UpdateInfo.PatchSha256.get -> string?
+Instella.Core.Update.UpdateInfo.PatchSha256.init -> void
+Instella.Core.Update.UpdateInfo.PatchSize.get -> long?
+Instella.Core.Update.UpdateInfo.PatchSize.init -> void
+Instella.Core.Update.UpdateInfo.UpdateInfo() -> void
+Instella.Core.Update.UpdateInfo.Version.get -> System.Version!
+Instella.Core.Update.UpdateInfo.Version.init -> void
+Instella.Core.Wire.ApiError
+Instella.Core.Wire.ApiError.<Clone>$() -> Instella.Core.Wire.ApiError!
+Instella.Core.Wire.ApiError.ApiError() -> void
+Instella.Core.Wire.ApiError.Equals(Instella.Core.Wire.ApiError? other) -> bool
+Instella.Core.Wire.ApiError.Error.get -> string?
+Instella.Core.Wire.ApiError.Error.init -> void
+Instella.Core.Wire.ApiRoutes
+Instella.Core.Wire.BuildSummary
+Instella.Core.Wire.BuildSummary.<Clone>$() -> Instella.Core.Wire.BuildSummary!
+Instella.Core.Wire.BuildSummary.Arch.get -> string!
+Instella.Core.Wire.BuildSummary.Arch.init -> void
+Instella.Core.Wire.BuildSummary.BuildSummary() -> void
+Instella.Core.Wire.BuildSummary.Equals(Instella.Core.Wire.BuildSummary? other) -> bool
+Instella.Core.Wire.BuildSummary.FileCount.get -> int
+Instella.Core.Wire.BuildSummary.FileCount.init -> void
+Instella.Core.Wire.BuildSummary.FileSize.get -> long
+Instella.Core.Wire.BuildSummary.FileSize.init -> void
+Instella.Core.Wire.BuildSummary.Installers.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Wire.InstallerSummary!>!
+Instella.Core.Wire.BuildSummary.Installers.init -> void
+Instella.Core.Wire.BuildSummary.Os.get -> string!
+Instella.Core.Wire.BuildSummary.Os.init -> void
+Instella.Core.Wire.ChannelNames
+Instella.Core.Wire.CheckUpdateResponse
+Instella.Core.Wire.CheckUpdateResponse.<Clone>$() -> Instella.Core.Wire.CheckUpdateResponse!
+Instella.Core.Wire.CheckUpdateResponse.Changelog.get -> string?
+Instella.Core.Wire.CheckUpdateResponse.Changelog.init -> void
+Instella.Core.Wire.CheckUpdateResponse.CheckUpdateResponse() -> void
+Instella.Core.Wire.CheckUpdateResponse.Equals(Instella.Core.Wire.CheckUpdateResponse? other) -> bool
+Instella.Core.Wire.CheckUpdateResponse.FullSize.get -> long?
+Instella.Core.Wire.CheckUpdateResponse.FullSize.init -> void
+Instella.Core.Wire.CheckUpdateResponse.Mandatory.get -> bool
+Instella.Core.Wire.CheckUpdateResponse.Mandatory.init -> void
+Instella.Core.Wire.CheckUpdateResponse.PatchAvailable.get -> bool
+Instella.Core.Wire.CheckUpdateResponse.PatchAvailable.init -> void
+Instella.Core.Wire.CheckUpdateResponse.PatchSha256.get -> string?
+Instella.Core.Wire.CheckUpdateResponse.PatchSha256.init -> void
+Instella.Core.Wire.CheckUpdateResponse.PatchSize.get -> long?
+Instella.Core.Wire.CheckUpdateResponse.PatchSize.init -> void
+Instella.Core.Wire.CheckUpdateResponse.Release.get -> Instella.Core.Trust.SignedRelease?
+Instella.Core.Wire.CheckUpdateResponse.Release.init -> void
+Instella.Core.Wire.CheckUpdateResponse.UpdateAvailable.get -> bool
+Instella.Core.Wire.CheckUpdateResponse.UpdateAvailable.init -> void
+Instella.Core.Wire.CheckUpdateResponse.Version.get -> string?
+Instella.Core.Wire.CheckUpdateResponse.Version.init -> void
+Instella.Core.Wire.CompleteUploadRequest
+Instella.Core.Wire.CompleteUploadRequest.<Clone>$() -> Instella.Core.Wire.CompleteUploadRequest!
+Instella.Core.Wire.CompleteUploadRequest.Changelog.get -> string?
+Instella.Core.Wire.CompleteUploadRequest.Changelog.init -> void
+Instella.Core.Wire.CompleteUploadRequest.CompleteUploadRequest() -> void
+Instella.Core.Wire.CompleteUploadRequest.DraftManifest.get -> string?
+Instella.Core.Wire.CompleteUploadRequest.DraftManifest.init -> void
+Instella.Core.Wire.CompleteUploadRequest.Equals(Instella.Core.Wire.CompleteUploadRequest? other) -> bool
+Instella.Core.Wire.CompleteUploadRequest.Release.get -> Instella.Core.Trust.SignedRelease?
+Instella.Core.Wire.CompleteUploadRequest.Release.init -> void
+Instella.Core.Wire.CompleteUploadResponse
+Instella.Core.Wire.CompleteUploadResponse.<Clone>$() -> Instella.Core.Wire.CompleteUploadResponse!
+Instella.Core.Wire.CompleteUploadResponse.BuildId.get -> long
+Instella.Core.Wire.CompleteUploadResponse.BuildId.init -> void
+Instella.Core.Wire.CompleteUploadResponse.CompleteUploadResponse() -> void
+Instella.Core.Wire.CompleteUploadResponse.DeduplicatedCount.get -> int
+Instella.Core.Wire.CompleteUploadResponse.DeduplicatedCount.init -> void
+Instella.Core.Wire.CompleteUploadResponse.Equals(Instella.Core.Wire.CompleteUploadResponse? other) -> bool
+Instella.Core.Wire.CompleteUploadResponse.FileCount.get -> int
+Instella.Core.Wire.CompleteUploadResponse.FileCount.init -> void
+Instella.Core.Wire.CompleteUploadResponse.Success.get -> bool
+Instella.Core.Wire.CompleteUploadResponse.Success.init -> void
+Instella.Core.Wire.CompleteUploadResponse.TotalSize.get -> long
+Instella.Core.Wire.CompleteUploadResponse.TotalSize.init -> void
+Instella.Core.Wire.CompleteUploadResponse.VersionId.get -> long
+Instella.Core.Wire.CompleteUploadResponse.VersionId.init -> void
+Instella.Core.Wire.DraftResponse
+Instella.Core.Wire.DraftResponse.<Clone>$() -> Instella.Core.Wire.DraftResponse!
+Instella.Core.Wire.DraftResponse.Changelog.get -> string?
+Instella.Core.Wire.DraftResponse.Changelog.init -> void
+Instella.Core.Wire.DraftResponse.DraftResponse() -> void
+Instella.Core.Wire.DraftResponse.Equals(Instella.Core.Wire.DraftResponse? other) -> bool
+Instella.Core.Wire.DraftResponse.Manifest.get -> string!
+Instella.Core.Wire.DraftResponse.Manifest.init -> void
+Instella.Core.Wire.DraftResponse.UploadedAt.get -> System.DateTime
+Instella.Core.Wire.DraftResponse.UploadedAt.init -> void
+Instella.Core.Wire.InstallerKinds
+Instella.Core.Wire.InstallerSummary
+Instella.Core.Wire.InstallerSummary.<Clone>$() -> Instella.Core.Wire.InstallerSummary!
+Instella.Core.Wire.InstallerSummary.Equals(Instella.Core.Wire.InstallerSummary? other) -> bool
+Instella.Core.Wire.InstallerSummary.FileName.get -> string!
+Instella.Core.Wire.InstallerSummary.FileName.init -> void
+Instella.Core.Wire.InstallerSummary.InstallerSummary() -> void
+Instella.Core.Wire.InstallerSummary.Kind.get -> string!
+Instella.Core.Wire.InstallerSummary.Kind.init -> void
+Instella.Core.Wire.InstallerSummary.Size.get -> long
+Instella.Core.Wire.InstallerSummary.Size.init -> void
+Instella.Core.Wire.MessageResponse
+Instella.Core.Wire.MessageResponse.<Clone>$() -> Instella.Core.Wire.MessageResponse!
+Instella.Core.Wire.MessageResponse.Equals(Instella.Core.Wire.MessageResponse? other) -> bool
+Instella.Core.Wire.MessageResponse.Message.get -> string?
+Instella.Core.Wire.MessageResponse.Message.init -> void
+Instella.Core.Wire.MessageResponse.MessageResponse() -> void
+Instella.Core.Wire.PackageSummary
+Instella.Core.Wire.PackageSummary.<Clone>$() -> Instella.Core.Wire.PackageSummary!
+Instella.Core.Wire.PackageSummary.Description.get -> string?
+Instella.Core.Wire.PackageSummary.Description.init -> void
+Instella.Core.Wire.PackageSummary.DisplayName.get -> string?
+Instella.Core.Wire.PackageSummary.DisplayName.init -> void
+Instella.Core.Wire.PackageSummary.Equals(Instella.Core.Wire.PackageSummary? other) -> bool
+Instella.Core.Wire.PackageSummary.LatestVersion.get -> string?
+Instella.Core.Wire.PackageSummary.LatestVersion.init -> void
+Instella.Core.Wire.PackageSummary.PackageId.get -> string!
+Instella.Core.Wire.PackageSummary.PackageId.init -> void
+Instella.Core.Wire.PackageSummary.PackageSummary() -> void
+Instella.Core.Wire.PackageSummary.VersionCount.get -> int
+Instella.Core.Wire.PackageSummary.VersionCount.init -> void
+Instella.Core.Wire.PlatformStrings
+Instella.Core.Wire.ServerUrlPolicy
+Instella.Core.Wire.StartUploadRequest
+Instella.Core.Wire.StartUploadRequest.<Clone>$() -> Instella.Core.Wire.StartUploadRequest!
+Instella.Core.Wire.StartUploadRequest.Arch.get -> string?
+Instella.Core.Wire.StartUploadRequest.Arch.init -> void
+Instella.Core.Wire.StartUploadRequest.Channel.get -> string?
+Instella.Core.Wire.StartUploadRequest.Channel.init -> void
+Instella.Core.Wire.StartUploadRequest.Equals(Instella.Core.Wire.StartUploadRequest? other) -> bool
+Instella.Core.Wire.StartUploadRequest.Os.get -> string?
+Instella.Core.Wire.StartUploadRequest.Os.init -> void
+Instella.Core.Wire.StartUploadRequest.PackageId.get -> string!
+Instella.Core.Wire.StartUploadRequest.PackageId.init -> void
+Instella.Core.Wire.StartUploadRequest.StartUploadRequest() -> void
+Instella.Core.Wire.StartUploadRequest.Version.get -> string!
+Instella.Core.Wire.StartUploadRequest.Version.init -> void
+Instella.Core.Wire.StartUploadResponse
+Instella.Core.Wire.StartUploadResponse.<Clone>$() -> Instella.Core.Wire.StartUploadResponse!
+Instella.Core.Wire.StartUploadResponse.Arch.get -> string?
+Instella.Core.Wire.StartUploadResponse.Arch.init -> void
+Instella.Core.Wire.StartUploadResponse.Equals(Instella.Core.Wire.StartUploadResponse? other) -> bool
+Instella.Core.Wire.StartUploadResponse.Os.get -> string?
+Instella.Core.Wire.StartUploadResponse.Os.init -> void
+Instella.Core.Wire.StartUploadResponse.PackageId.get -> string?
+Instella.Core.Wire.StartUploadResponse.PackageId.init -> void
+Instella.Core.Wire.StartUploadResponse.SessionId.get -> System.Guid
+Instella.Core.Wire.StartUploadResponse.SessionId.init -> void
+Instella.Core.Wire.StartUploadResponse.StartUploadResponse() -> void
+Instella.Core.Wire.StartUploadResponse.Version.get -> string?
+Instella.Core.Wire.StartUploadResponse.Version.init -> void
+Instella.Core.Wire.UpdateVersionRequest
+Instella.Core.Wire.UpdateVersionRequest.<Clone>$() -> Instella.Core.Wire.UpdateVersionRequest!
+Instella.Core.Wire.UpdateVersionRequest.Changelog.get -> string?
+Instella.Core.Wire.UpdateVersionRequest.Changelog.init -> void
+Instella.Core.Wire.UpdateVersionRequest.Equals(Instella.Core.Wire.UpdateVersionRequest? other) -> bool
+Instella.Core.Wire.UpdateVersionRequest.IsDeprecated.get -> bool?
+Instella.Core.Wire.UpdateVersionRequest.IsDeprecated.init -> void
+Instella.Core.Wire.UpdateVersionRequest.UpdateVersionRequest() -> void
+Instella.Core.Wire.UploadFileResponse
+Instella.Core.Wire.UploadFileResponse.<Clone>$() -> Instella.Core.Wire.UploadFileResponse!
+Instella.Core.Wire.UploadFileResponse.Deduplicated.get -> bool
+Instella.Core.Wire.UploadFileResponse.Deduplicated.init -> void
+Instella.Core.Wire.UploadFileResponse.Equals(Instella.Core.Wire.UploadFileResponse? other) -> bool
+Instella.Core.Wire.UploadFileResponse.Hash.get -> string?
+Instella.Core.Wire.UploadFileResponse.Hash.init -> void
+Instella.Core.Wire.UploadFileResponse.Path.get -> string?
+Instella.Core.Wire.UploadFileResponse.Path.init -> void
+Instella.Core.Wire.UploadFileResponse.Size.get -> long
+Instella.Core.Wire.UploadFileResponse.Size.init -> void
+Instella.Core.Wire.UploadFileResponse.Stored.get -> bool
+Instella.Core.Wire.UploadFileResponse.Stored.init -> void
+Instella.Core.Wire.UploadFileResponse.UploadFileResponse() -> void
+Instella.Core.Wire.VersionSummary
+Instella.Core.Wire.VersionSummary.<Clone>$() -> Instella.Core.Wire.VersionSummary!
+Instella.Core.Wire.VersionSummary.Builds.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Wire.BuildSummary!>!
+Instella.Core.Wire.VersionSummary.Builds.init -> void
+Instella.Core.Wire.VersionSummary.Changelog.get -> string?
+Instella.Core.Wire.VersionSummary.Changelog.init -> void
+Instella.Core.Wire.VersionSummary.Channel.get -> string?
+Instella.Core.Wire.VersionSummary.Channel.init -> void
+Instella.Core.Wire.VersionSummary.DownloadCount.get -> long
+Instella.Core.Wire.VersionSummary.DownloadCount.init -> void
+Instella.Core.Wire.VersionSummary.Equals(Instella.Core.Wire.VersionSummary? other) -> bool
+Instella.Core.Wire.VersionSummary.IsDeprecated.get -> bool
+Instella.Core.Wire.VersionSummary.IsDeprecated.init -> void
+Instella.Core.Wire.VersionSummary.ReleasedAt.get -> System.DateTime
+Instella.Core.Wire.VersionSummary.ReleasedAt.init -> void
+Instella.Core.Wire.VersionSummary.VersionString.get -> string!
+Instella.Core.Wire.VersionSummary.VersionString.init -> void
+Instella.Core.Wire.VersionSummary.VersionSummary() -> void
+override Instella.Core.FileSystem.FileSystemError.Equals(object? obj) -> bool
+override Instella.Core.FileSystem.FileSystemError.GetHashCode() -> int
+override Instella.Core.FileSystem.FileSystemError.ToString() -> string!
+override Instella.Core.Installation.InstalledFile.Equals(object? obj) -> bool
+override Instella.Core.Installation.InstalledFile.GetHashCode() -> int
+override Instella.Core.Installation.InstalledFile.ToString() -> string!
+override Instella.Core.Installation.InstalledManifest.Equals(object? obj) -> bool
+override Instella.Core.Installation.InstalledManifest.GetHashCode() -> int
+override Instella.Core.Installation.InstalledManifest.ToString() -> string!
+override Instella.Core.Installation.ManifestCliFlag.Equals(object? obj) -> bool
+override Instella.Core.Installation.ManifestCliFlag.GetHashCode() -> int
+override Instella.Core.Installation.ManifestCliFlag.ToString() -> string!
+override Instella.Core.Installation.ManifestLoggingConfig.Equals(object? obj) -> bool
+override Instella.Core.Installation.ManifestLoggingConfig.GetHashCode() -> int
+override Instella.Core.Installation.ManifestLoggingConfig.ToString() -> string!
+override Instella.Core.Installation.ManifestRegistryEntry.Equals(object? obj) -> bool
+override Instella.Core.Installation.ManifestRegistryEntry.GetHashCode() -> int
+override Instella.Core.Installation.ManifestRegistryEntry.ToString() -> string!
+override Instella.Core.Installation.ManifestTrackedItem.Equals(object? obj) -> bool
+override Instella.Core.Installation.ManifestTrackedItem.GetHashCode() -> int
+override Instella.Core.Installation.ManifestTrackedItem.ToString() -> string!
+override Instella.Core.Installation.StepResult.GetHashCode() -> int
+override Instella.Core.Logging.InstellaLogEntry.GetHashCode() -> int
+override Instella.Core.Manifest.FileAssociation.Equals(object? obj) -> bool
+override Instella.Core.Manifest.FileAssociation.GetHashCode() -> int
+override Instella.Core.Manifest.FileAssociation.ToString() -> string!
+override Instella.Core.Manifest.InstellaManifest.Equals(object? obj) -> bool
+override Instella.Core.Manifest.InstellaManifest.GetHashCode() -> int
+override Instella.Core.Manifest.InstellaManifest.ToString() -> string!
+override Instella.Core.Manifest.PayloadFilter.Equals(object? obj) -> bool
+override Instella.Core.Manifest.PayloadFilter.GetHashCode() -> int
+override Instella.Core.Manifest.PayloadFilter.ToString() -> string!
+override Instella.Core.Manifest.ShortcutConfig.Equals(object? obj) -> bool
+override Instella.Core.Manifest.ShortcutConfig.GetHashCode() -> int
+override Instella.Core.Manifest.ShortcutConfig.ToString() -> string!
+override Instella.Core.Platform.AutoStartInfo.Equals(object? obj) -> bool
+override Instella.Core.Platform.AutoStartInfo.GetHashCode() -> int
+override Instella.Core.Platform.AutoStartInfo.ToString() -> string!
+override Instella.Core.Platform.FileAssociationInfo.Equals(object? obj) -> bool
+override Instella.Core.Platform.FileAssociationInfo.GetHashCode() -> int
+override Instella.Core.Platform.FileAssociationInfo.ToString() -> string!
+override Instella.Core.Platform.PlatformResult.Equals(object? obj) -> bool
+override Instella.Core.Platform.PlatformResult.GetHashCode() -> int
+override Instella.Core.Platform.PlatformResult.ToString() -> string!
+override Instella.Core.Platform.RegistryValueData.Equals(object? obj) -> bool
+override Instella.Core.Platform.RegistryValueData.GetHashCode() -> int
+override Instella.Core.Platform.RegistryValueData.ToString() -> string!
+override Instella.Core.Platform.ShortcutInfo.Equals(object? obj) -> bool
+override Instella.Core.Platform.ShortcutInfo.GetHashCode() -> int
+override Instella.Core.Platform.ShortcutInfo.ToString() -> string!
+override Instella.Core.Platform.UninstallEntryInfo.Equals(object? obj) -> bool
+override Instella.Core.Platform.UninstallEntryInfo.GetHashCode() -> int
+override Instella.Core.Platform.UninstallEntryInfo.ToString() -> string!
+override Instella.Core.Trust.PublisherKey.Equals(object? obj) -> bool
+override Instella.Core.Trust.PublisherKey.GetHashCode() -> int
+override Instella.Core.Trust.PublisherKey.ToString() -> string!
+override Instella.Core.Trust.ReleaseFile.Equals(object? obj) -> bool
+override Instella.Core.Trust.ReleaseFile.GetHashCode() -> int
+override Instella.Core.Trust.ReleaseFile.ToString() -> string!
+override Instella.Core.Trust.ReleaseInstaller.Equals(object? obj) -> bool
+override Instella.Core.Trust.ReleaseInstaller.GetHashCode() -> int
+override Instella.Core.Trust.ReleaseInstaller.ToString() -> string!
+override Instella.Core.Trust.ReleaseManifest.Equals(object? obj) -> bool
+override Instella.Core.Trust.ReleaseManifest.GetHashCode() -> int
+override Instella.Core.Trust.ReleaseManifest.ToString() -> string!
+override Instella.Core.Trust.SignedRelease.Equals(object? obj) -> bool
+override Instella.Core.Trust.SignedRelease.GetHashCode() -> int
+override Instella.Core.Trust.SignedRelease.ToString() -> string!
+override Instella.Core.Trust.TrustPolicy.Equals(object? obj) -> bool
+override Instella.Core.Trust.TrustPolicy.GetHashCode() -> int
+override Instella.Core.Trust.TrustPolicy.ToString() -> string!
+override Instella.Core.Update.UpdateCheckResult.Equals(object? obj) -> bool
+override Instella.Core.Update.UpdateCheckResult.GetHashCode() -> int
+override Instella.Core.Update.UpdateCheckResult.ToString() -> string!
+override Instella.Core.Update.UpdateInfo.Equals(object? obj) -> bool
+override Instella.Core.Update.UpdateInfo.GetHashCode() -> int
+override Instella.Core.Update.UpdateInfo.ToString() -> string!
+override Instella.Core.Wire.ApiError.Equals(object? obj) -> bool
+override Instella.Core.Wire.ApiError.GetHashCode() -> int
+override Instella.Core.Wire.ApiError.ToString() -> string!
+override Instella.Core.Wire.BuildSummary.Equals(object? obj) -> bool
+override Instella.Core.Wire.BuildSummary.GetHashCode() -> int
+override Instella.Core.Wire.BuildSummary.ToString() -> string!
+override Instella.Core.Wire.CheckUpdateResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.CheckUpdateResponse.GetHashCode() -> int
+override Instella.Core.Wire.CheckUpdateResponse.ToString() -> string!
+override Instella.Core.Wire.CompleteUploadRequest.Equals(object? obj) -> bool
+override Instella.Core.Wire.CompleteUploadRequest.GetHashCode() -> int
+override Instella.Core.Wire.CompleteUploadRequest.ToString() -> string!
+override Instella.Core.Wire.CompleteUploadResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.CompleteUploadResponse.GetHashCode() -> int
+override Instella.Core.Wire.CompleteUploadResponse.ToString() -> string!
+override Instella.Core.Wire.DraftResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.DraftResponse.GetHashCode() -> int
+override Instella.Core.Wire.DraftResponse.ToString() -> string!
+override Instella.Core.Wire.InstallerSummary.Equals(object? obj) -> bool
+override Instella.Core.Wire.InstallerSummary.GetHashCode() -> int
+override Instella.Core.Wire.InstallerSummary.ToString() -> string!
+override Instella.Core.Wire.MessageResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.MessageResponse.GetHashCode() -> int
+override Instella.Core.Wire.MessageResponse.ToString() -> string!
+override Instella.Core.Wire.PackageSummary.Equals(object? obj) -> bool
+override Instella.Core.Wire.PackageSummary.GetHashCode() -> int
+override Instella.Core.Wire.PackageSummary.ToString() -> string!
+override Instella.Core.Wire.StartUploadRequest.Equals(object? obj) -> bool
+override Instella.Core.Wire.StartUploadRequest.GetHashCode() -> int
+override Instella.Core.Wire.StartUploadRequest.ToString() -> string!
+override Instella.Core.Wire.StartUploadResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.StartUploadResponse.GetHashCode() -> int
+override Instella.Core.Wire.StartUploadResponse.ToString() -> string!
+override Instella.Core.Wire.UpdateVersionRequest.Equals(object? obj) -> bool
+override Instella.Core.Wire.UpdateVersionRequest.GetHashCode() -> int
+override Instella.Core.Wire.UpdateVersionRequest.ToString() -> string!
+override Instella.Core.Wire.UploadFileResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.UploadFileResponse.GetHashCode() -> int
+override Instella.Core.Wire.UploadFileResponse.ToString() -> string!
+override Instella.Core.Wire.VersionSummary.Equals(object? obj) -> bool
+override Instella.Core.Wire.VersionSummary.GetHashCode() -> int
+override Instella.Core.Wire.VersionSummary.ToString() -> string!
+static Instella.Core.FileSystem.FileSystemError.operator !=(Instella.Core.FileSystem.FileSystemError? left, Instella.Core.FileSystem.FileSystemError? right) -> bool
+static Instella.Core.FileSystem.FileSystemError.operator ==(Instella.Core.FileSystem.FileSystemError? left, Instella.Core.FileSystem.FileSystemError? right) -> bool
+static Instella.Core.FileSystem.FileSystemResult.Fail(Instella.Core.FileSystem.FileSystemError! error) -> Instella.Core.FileSystem.FileSystemResult
+static Instella.Core.FileSystem.FileSystemResult.FromException(System.Exception! ex) -> Instella.Core.FileSystem.FileSystemResult
+static Instella.Core.FileSystem.FileSystemResult.implicit operator Instella.Core.FileSystem.FileSystemResult(Instella.Core.FileSystem.FileSystemError! error) -> Instella.Core.FileSystem.FileSystemResult
+static Instella.Core.FileSystem.FileSystemResult.Ok() -> Instella.Core.FileSystem.FileSystemResult
+static Instella.Core.FileSystem.FileSystemResult<T>.Fail(Instella.Core.FileSystem.FileSystemError! error) -> Instella.Core.FileSystem.FileSystemResult<T>
+static Instella.Core.FileSystem.FileSystemResult<T>.FromException(System.Exception! ex) -> Instella.Core.FileSystem.FileSystemResult<T>
+static Instella.Core.FileSystem.FileSystemResult<T>.implicit operator Instella.Core.FileSystem.FileSystemResult<T>(Instella.Core.FileSystem.FileSystemError! error) -> Instella.Core.FileSystem.FileSystemResult<T>
+static Instella.Core.FileSystem.FileSystemResult<T>.Ok(T value) -> Instella.Core.FileSystem.FileSystemResult<T>
+static Instella.Core.Installation.InstalledFile.operator !=(Instella.Core.Installation.InstalledFile? left, Instella.Core.Installation.InstalledFile? right) -> bool
+static Instella.Core.Installation.InstalledFile.operator ==(Instella.Core.Installation.InstalledFile? left, Instella.Core.Installation.InstalledFile? right) -> bool
+static Instella.Core.Installation.InstalledManifest.operator !=(Instella.Core.Installation.InstalledManifest? left, Instella.Core.Installation.InstalledManifest? right) -> bool
+static Instella.Core.Installation.InstalledManifest.operator ==(Instella.Core.Installation.InstalledManifest? left, Instella.Core.Installation.InstalledManifest? right) -> bool
+static Instella.Core.Installation.ManifestCliFlag.operator !=(Instella.Core.Installation.ManifestCliFlag? left, Instella.Core.Installation.ManifestCliFlag? right) -> bool
+static Instella.Core.Installation.ManifestCliFlag.operator ==(Instella.Core.Installation.ManifestCliFlag? left, Instella.Core.Installation.ManifestCliFlag? right) -> bool
+static Instella.Core.Installation.ManifestLoggingConfig.operator !=(Instella.Core.Installation.ManifestLoggingConfig? left, Instella.Core.Installation.ManifestLoggingConfig? right) -> bool
+static Instella.Core.Installation.ManifestLoggingConfig.operator ==(Instella.Core.Installation.ManifestLoggingConfig? left, Instella.Core.Installation.ManifestLoggingConfig? right) -> bool
+static Instella.Core.Installation.ManifestRegistryEntry.operator !=(Instella.Core.Installation.ManifestRegistryEntry? left, Instella.Core.Installation.ManifestRegistryEntry? right) -> bool
+static Instella.Core.Installation.ManifestRegistryEntry.operator ==(Instella.Core.Installation.ManifestRegistryEntry? left, Instella.Core.Installation.ManifestRegistryEntry? right) -> bool
+static Instella.Core.Installation.ManifestTrackedItem.operator !=(Instella.Core.Installation.ManifestTrackedItem? left, Instella.Core.Installation.ManifestTrackedItem? right) -> bool
+static Instella.Core.Installation.ManifestTrackedItem.operator ==(Instella.Core.Installation.ManifestTrackedItem? left, Instella.Core.Installation.ManifestTrackedItem? right) -> bool
+static Instella.Core.Installation.StepResult.Fail(string! error) -> Instella.Core.Installation.StepResult
+static Instella.Core.Installation.StepResult.Ok.get -> Instella.Core.Installation.StepResult
+static Instella.Core.Installation.StepResult.OkWithWarnings(System.Collections.Generic.IReadOnlyList<string!>! warnings) -> Instella.Core.Installation.StepResult
+static Instella.Core.Installation.StepResult.operator !=(Instella.Core.Installation.StepResult left, Instella.Core.Installation.StepResult right) -> bool
+static Instella.Core.Installation.StepResult.operator ==(Instella.Core.Installation.StepResult left, Instella.Core.Installation.StepResult right) -> bool
+static Instella.Core.Logging.InstellaLogEntry.operator !=(Instella.Core.Logging.InstellaLogEntry left, Instella.Core.Logging.InstellaLogEntry right) -> bool
+static Instella.Core.Logging.InstellaLogEntry.operator ==(Instella.Core.Logging.InstellaLogEntry left, Instella.Core.Logging.InstellaLogEntry right) -> bool
+static Instella.Core.Manifest.FileAssociation.operator !=(Instella.Core.Manifest.FileAssociation? left, Instella.Core.Manifest.FileAssociation? right) -> bool
+static Instella.Core.Manifest.FileAssociation.operator ==(Instella.Core.Manifest.FileAssociation? left, Instella.Core.Manifest.FileAssociation? right) -> bool
+static Instella.Core.Manifest.InstellaManifest.operator !=(Instella.Core.Manifest.InstellaManifest? left, Instella.Core.Manifest.InstellaManifest? right) -> bool
+static Instella.Core.Manifest.InstellaManifest.operator ==(Instella.Core.Manifest.InstellaManifest? left, Instella.Core.Manifest.InstellaManifest? right) -> bool
+static Instella.Core.Manifest.PayloadFilter.operator !=(Instella.Core.Manifest.PayloadFilter? left, Instella.Core.Manifest.PayloadFilter? right) -> bool
+static Instella.Core.Manifest.PayloadFilter.operator ==(Instella.Core.Manifest.PayloadFilter? left, Instella.Core.Manifest.PayloadFilter? right) -> bool
+static Instella.Core.Manifest.ShortcutConfig.operator !=(Instella.Core.Manifest.ShortcutConfig? left, Instella.Core.Manifest.ShortcutConfig? right) -> bool
+static Instella.Core.Manifest.ShortcutConfig.operator ==(Instella.Core.Manifest.ShortcutConfig? left, Instella.Core.Manifest.ShortcutConfig? right) -> bool
+static Instella.Core.Platform.ArchitectureExtensions.Current.get -> Instella.Core.Platform.Architecture
+static Instella.Core.Platform.ArchitectureExtensions.GetName(this Instella.Core.Platform.Architecture arch) -> string!
+static Instella.Core.Platform.ArchitectureExtensions.Parse(string! archName) -> Instella.Core.Platform.Architecture
+static Instella.Core.Platform.AutoStartInfo.operator !=(Instella.Core.Platform.AutoStartInfo? left, Instella.Core.Platform.AutoStartInfo? right) -> bool
+static Instella.Core.Platform.AutoStartInfo.operator ==(Instella.Core.Platform.AutoStartInfo? left, Instella.Core.Platform.AutoStartInfo? right) -> bool
+static Instella.Core.Platform.FileAssociationInfo.operator !=(Instella.Core.Platform.FileAssociationInfo? left, Instella.Core.Platform.FileAssociationInfo? right) -> bool
+static Instella.Core.Platform.FileAssociationInfo.operator ==(Instella.Core.Platform.FileAssociationInfo? left, Instella.Core.Platform.FileAssociationInfo? right) -> bool
+static Instella.Core.Platform.PlatformResult.Fail(string! error) -> Instella.Core.Platform.PlatformResult!
+static Instella.Core.Platform.PlatformResult.Ok.get -> Instella.Core.Platform.PlatformResult!
+static Instella.Core.Platform.PlatformResult.operator !=(Instella.Core.Platform.PlatformResult? left, Instella.Core.Platform.PlatformResult? right) -> bool
+static Instella.Core.Platform.PlatformResult.operator ==(Instella.Core.Platform.PlatformResult? left, Instella.Core.Platform.PlatformResult? right) -> bool
+static Instella.Core.Platform.RegistryValueData.operator !=(Instella.Core.Platform.RegistryValueData? left, Instella.Core.Platform.RegistryValueData? right) -> bool
+static Instella.Core.Platform.RegistryValueData.operator ==(Instella.Core.Platform.RegistryValueData? left, Instella.Core.Platform.RegistryValueData? right) -> bool
+static Instella.Core.Platform.ShortcutInfo.operator !=(Instella.Core.Platform.ShortcutInfo? left, Instella.Core.Platform.ShortcutInfo? right) -> bool
+static Instella.Core.Platform.ShortcutInfo.operator ==(Instella.Core.Platform.ShortcutInfo? left, Instella.Core.Platform.ShortcutInfo? right) -> bool
+static Instella.Core.Platform.UninstallEntryInfo.operator !=(Instella.Core.Platform.UninstallEntryInfo? left, Instella.Core.Platform.UninstallEntryInfo? right) -> bool
+static Instella.Core.Platform.UninstallEntryInfo.operator ==(Instella.Core.Platform.UninstallEntryInfo? left, Instella.Core.Platform.UninstallEntryInfo? right) -> bool
+static Instella.Core.Trust.KeyIds.Compute(System.ReadOnlySpan<byte> subjectPublicKeyInfo) -> string!
+static Instella.Core.Trust.KeyIds.FromPublicKey(string! publicKeyBase64) -> Instella.Core.Trust.PublisherKey!
+static Instella.Core.Trust.PublisherKey.operator !=(Instella.Core.Trust.PublisherKey? left, Instella.Core.Trust.PublisherKey? right) -> bool
+static Instella.Core.Trust.PublisherKey.operator ==(Instella.Core.Trust.PublisherKey? left, Instella.Core.Trust.PublisherKey? right) -> bool
+static Instella.Core.Trust.ReleaseFile.operator !=(Instella.Core.Trust.ReleaseFile? left, Instella.Core.Trust.ReleaseFile? right) -> bool
+static Instella.Core.Trust.ReleaseFile.operator ==(Instella.Core.Trust.ReleaseFile? left, Instella.Core.Trust.ReleaseFile? right) -> bool
+static Instella.Core.Trust.ReleaseInstaller.operator !=(Instella.Core.Trust.ReleaseInstaller? left, Instella.Core.Trust.ReleaseInstaller? right) -> bool
+static Instella.Core.Trust.ReleaseInstaller.operator ==(Instella.Core.Trust.ReleaseInstaller? left, Instella.Core.Trust.ReleaseInstaller? right) -> bool
+static Instella.Core.Trust.ReleaseKeys.ExportPrivateKeyPem(System.Security.Cryptography.ECDsa! key, string? password) -> string!
+static Instella.Core.Trust.ReleaseKeys.Generate() -> System.Security.Cryptography.ECDsa!
+static Instella.Core.Trust.ReleaseKeys.ImportPrivateKeyPem(string! pem, string? password) -> System.Security.Cryptography.ECDsa!
+static Instella.Core.Trust.ReleaseKeys.PublicKeyOf(System.Security.Cryptography.ECDsa! key) -> Instella.Core.Trust.PublisherKey!
+static Instella.Core.Trust.ReleaseManifest.operator !=(Instella.Core.Trust.ReleaseManifest? left, Instella.Core.Trust.ReleaseManifest? right) -> bool
+static Instella.Core.Trust.ReleaseManifest.operator ==(Instella.Core.Trust.ReleaseManifest? left, Instella.Core.Trust.ReleaseManifest? right) -> bool
+static Instella.Core.Trust.ReleaseSigner.Sign(Instella.Core.Trust.ReleaseManifest! manifest, System.Security.Cryptography.ECDsa! privateKey) -> Instella.Core.Trust.SignedRelease!
+static Instella.Core.Trust.ReleaseSigner.Sign(System.ReadOnlySpan<byte> manifestUtf8, System.Security.Cryptography.ECDsa! privateKey) -> Instella.Core.Trust.SignedRelease!
+static Instella.Core.Trust.ReleaseVerifier.KeysAfter(Instella.Core.Trust.ReleaseManifest! release, System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>! current) -> System.Collections.Generic.IReadOnlyList<Instella.Core.Trust.PublisherKey!>!
+static Instella.Core.Trust.ReleaseVerifier.Verify(Instella.Core.Trust.SignedRelease! signed, Instella.Core.Trust.TrustPolicy! policy) -> Instella.Core.Trust.ReleaseManifest!
+static Instella.Core.Trust.SignedRelease.operator !=(Instella.Core.Trust.SignedRelease? left, Instella.Core.Trust.SignedRelease? right) -> bool
+static Instella.Core.Trust.SignedRelease.operator ==(Instella.Core.Trust.SignedRelease? left, Instella.Core.Trust.SignedRelease? right) -> bool
+static Instella.Core.Trust.TrustPolicy.operator !=(Instella.Core.Trust.TrustPolicy? left, Instella.Core.Trust.TrustPolicy? right) -> bool
+static Instella.Core.Trust.TrustPolicy.operator ==(Instella.Core.Trust.TrustPolicy? left, Instella.Core.Trust.TrustPolicy? right) -> bool
+static Instella.Core.Update.UpdateCheckResult.Available(Instella.Core.Update.UpdateInfo! update) -> Instella.Core.Update.UpdateCheckResult!
+static Instella.Core.Update.UpdateCheckResult.Failed(string! error) -> Instella.Core.Update.UpdateCheckResult!
+static Instella.Core.Update.UpdateCheckResult.NotInstalled(string! reason) -> Instella.Core.Update.UpdateCheckResult!
+static Instella.Core.Update.UpdateCheckResult.NoUpdate() -> Instella.Core.Update.UpdateCheckResult!
+static Instella.Core.Update.UpdateCheckResult.operator !=(Instella.Core.Update.UpdateCheckResult? left, Instella.Core.Update.UpdateCheckResult? right) -> bool
+static Instella.Core.Update.UpdateCheckResult.operator ==(Instella.Core.Update.UpdateCheckResult? left, Instella.Core.Update.UpdateCheckResult? right) -> bool
+static Instella.Core.Update.UpdateInfo.operator !=(Instella.Core.Update.UpdateInfo? left, Instella.Core.Update.UpdateInfo? right) -> bool
+static Instella.Core.Update.UpdateInfo.operator ==(Instella.Core.Update.UpdateInfo? left, Instella.Core.Update.UpdateInfo? right) -> bool
+static Instella.Core.Wire.ApiError.operator !=(Instella.Core.Wire.ApiError? left, Instella.Core.Wire.ApiError? right) -> bool
+static Instella.Core.Wire.ApiError.operator ==(Instella.Core.Wire.ApiError? left, Instella.Core.Wire.ApiError? right) -> bool
+static Instella.Core.Wire.ApiRoutes.ForCheckUpdate(System.Uri! server, string! packageId, System.Version! current, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch, string! channel) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForDownloadBuild(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForDownloadFile(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch, string! relativePath) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForDownloadInstaller(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch, string! kind) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForDraft(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForLatestInstaller(System.Uri! server, string! packageId, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch, string! kind, string? channel = null) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPackage(System.Uri! server, string! packageId) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPackages(System.Uri! server) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPackageVersion(System.Uri! server, string! packageId, string! version) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPackageVersions(System.Uri! server, string! packageId) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPatch(System.Uri! server, string! packageId, System.Version! from, System.Version! to, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPatchManifest(System.Uri! server, string! packageId, System.Version! from, System.Version! to, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForPublishDraft(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForRelease(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForUploadCancel(System.Uri! server, System.Guid sessionId) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForUploadComplete(System.Uri! server, System.Guid sessionId) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForUploadFile(System.Uri! server, System.Guid sessionId, string! relativePath, string! sha256) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForUploadInstaller(System.Uri! server, System.Guid sessionId, string! kind, string! fileName, string! sha256) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForUploadStart(System.Uri! server) -> System.Uri!
+static Instella.Core.Wire.BuildSummary.operator !=(Instella.Core.Wire.BuildSummary? left, Instella.Core.Wire.BuildSummary? right) -> bool
+static Instella.Core.Wire.BuildSummary.operator ==(Instella.Core.Wire.BuildSummary? left, Instella.Core.Wire.BuildSummary? right) -> bool
+static Instella.Core.Wire.ChannelNames.IsValid(string? value) -> bool
+static Instella.Core.Wire.ChannelNames.TryNormalize(string? value, out string? channel) -> bool
+static Instella.Core.Wire.CheckUpdateResponse.operator !=(Instella.Core.Wire.CheckUpdateResponse? left, Instella.Core.Wire.CheckUpdateResponse? right) -> bool
+static Instella.Core.Wire.CheckUpdateResponse.operator ==(Instella.Core.Wire.CheckUpdateResponse? left, Instella.Core.Wire.CheckUpdateResponse? right) -> bool
+static Instella.Core.Wire.CompleteUploadRequest.operator !=(Instella.Core.Wire.CompleteUploadRequest? left, Instella.Core.Wire.CompleteUploadRequest? right) -> bool
+static Instella.Core.Wire.CompleteUploadRequest.operator ==(Instella.Core.Wire.CompleteUploadRequest? left, Instella.Core.Wire.CompleteUploadRequest? right) -> bool
+static Instella.Core.Wire.CompleteUploadResponse.operator !=(Instella.Core.Wire.CompleteUploadResponse? left, Instella.Core.Wire.CompleteUploadResponse? right) -> bool
+static Instella.Core.Wire.CompleteUploadResponse.operator ==(Instella.Core.Wire.CompleteUploadResponse? left, Instella.Core.Wire.CompleteUploadResponse? right) -> bool
+static Instella.Core.Wire.DraftResponse.operator !=(Instella.Core.Wire.DraftResponse? left, Instella.Core.Wire.DraftResponse? right) -> bool
+static Instella.Core.Wire.DraftResponse.operator ==(Instella.Core.Wire.DraftResponse? left, Instella.Core.Wire.DraftResponse? right) -> bool
+static Instella.Core.Wire.InstallerKinds.IsValid(string? kind) -> bool
+static Instella.Core.Wire.InstallerKinds.IsValidFileName(string? fileName) -> bool
+static Instella.Core.Wire.InstallerSummary.operator !=(Instella.Core.Wire.InstallerSummary? left, Instella.Core.Wire.InstallerSummary? right) -> bool
+static Instella.Core.Wire.InstallerSummary.operator ==(Instella.Core.Wire.InstallerSummary? left, Instella.Core.Wire.InstallerSummary? right) -> bool
+static Instella.Core.Wire.MessageResponse.operator !=(Instella.Core.Wire.MessageResponse? left, Instella.Core.Wire.MessageResponse? right) -> bool
+static Instella.Core.Wire.MessageResponse.operator ==(Instella.Core.Wire.MessageResponse? left, Instella.Core.Wire.MessageResponse? right) -> bool
+static Instella.Core.Wire.PackageSummary.operator !=(Instella.Core.Wire.PackageSummary? left, Instella.Core.Wire.PackageSummary? right) -> bool
+static Instella.Core.Wire.PackageSummary.operator ==(Instella.Core.Wire.PackageSummary? left, Instella.Core.Wire.PackageSummary? right) -> bool
+static Instella.Core.Wire.PlatformStrings.Arch(Instella.Core.Platform.Architecture architecture) -> string!
+static Instella.Core.Wire.PlatformStrings.ArchNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Instella.Core.Wire.PlatformStrings.Current() -> Instella.Core.Platform.Architecture
+static Instella.Core.Wire.PlatformStrings.Os(Instella.Core.Platform.TargetPlatform platform) -> string!
+static Instella.Core.Wire.PlatformStrings.OsNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+static Instella.Core.Wire.PlatformStrings.TryParseArch(string? value, out Instella.Core.Platform.Architecture architecture) -> bool
+static Instella.Core.Wire.PlatformStrings.TryParseOs(string? value, out Instella.Core.Platform.TargetPlatform platform) -> bool
+static Instella.Core.Wire.ServerUrlPolicy.Check(string? url, bool allowInsecure) -> string?
+static Instella.Core.Wire.ServerUrlPolicy.IsInsecure(string? url) -> bool
+static Instella.Core.Wire.StartUploadRequest.operator !=(Instella.Core.Wire.StartUploadRequest? left, Instella.Core.Wire.StartUploadRequest? right) -> bool
+static Instella.Core.Wire.StartUploadRequest.operator ==(Instella.Core.Wire.StartUploadRequest? left, Instella.Core.Wire.StartUploadRequest? right) -> bool
+static Instella.Core.Wire.StartUploadResponse.operator !=(Instella.Core.Wire.StartUploadResponse? left, Instella.Core.Wire.StartUploadResponse? right) -> bool
+static Instella.Core.Wire.StartUploadResponse.operator ==(Instella.Core.Wire.StartUploadResponse? left, Instella.Core.Wire.StartUploadResponse? right) -> bool
+static Instella.Core.Wire.UpdateVersionRequest.operator !=(Instella.Core.Wire.UpdateVersionRequest? left, Instella.Core.Wire.UpdateVersionRequest? right) -> bool
+static Instella.Core.Wire.UpdateVersionRequest.operator ==(Instella.Core.Wire.UpdateVersionRequest? left, Instella.Core.Wire.UpdateVersionRequest? right) -> bool
+static Instella.Core.Wire.UploadFileResponse.operator !=(Instella.Core.Wire.UploadFileResponse? left, Instella.Core.Wire.UploadFileResponse? right) -> bool
+static Instella.Core.Wire.UploadFileResponse.operator ==(Instella.Core.Wire.UploadFileResponse? left, Instella.Core.Wire.UploadFileResponse? right) -> bool
+static Instella.Core.Wire.VersionSummary.operator !=(Instella.Core.Wire.VersionSummary? left, Instella.Core.Wire.VersionSummary? right) -> bool
+static Instella.Core.Wire.VersionSummary.operator ==(Instella.Core.Wire.VersionSummary? left, Instella.Core.Wire.VersionSummary? right) -> bool
+~override Instella.Core.Installation.StepResult.Equals(object obj) -> bool
+~override Instella.Core.Installation.StepResult.ToString() -> string
+~override Instella.Core.Logging.InstellaLogEntry.Equals(object obj) -> bool
+~override Instella.Core.Logging.InstellaLogEntry.ToString() -> string

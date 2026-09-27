@@ -1,0 +1,395 @@
+@page "/api-keys"
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+@inject PackageService PackageService
+@inject AuthService AuthService
+
+<PageTitle>API Keys - Instella Server</PageTitle>
+
+<h1>API Keys</h1>
+
+@if (_newKey != null)
+{
+    <div class="new-key-banner">
+        <strong>New API Key Created!</strong>
+        <p>Copy this key now - it won't be shown again:</p>
+        <div class="key-display">@_newKey</div>
+        <button class="btn-secondary" @onclick="DismissNewKey">Dismiss</button>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">
+        <h2>Create New Key</h2>
+    </div>
+    <div class="card-body">
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="error">@_error</div>
+        }
+
+        <EditForm Model="_model" OnValidSubmit="HandleCreate">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Name</label>
+                    <InputText @bind-Value="_model.Name" class="form-control" placeholder="e.g., CI/CD Pipeline" />
+                </div>
+
+                <div class="form-group">
+                    <label>Scope</label>
+                    <InputSelect @bind-Value="_model.Scope" class="form-control">
+                        <option value="Admin">Admin (Full Access)</option>
+                        <option value="Package">Package-Specific</option>
+                    </InputSelect>
+                </div>
+
+                @if (_model.Scope == "Package")
+                {
+                    <div class="form-group">
+                        <label>Package</label>
+                        <InputSelect @bind-Value="_model.PackageId" class="form-control">
+                            <option value="">Select a package...</option>
+                            @foreach (var pkg in _packages)
+                            {
+                                <option value="@pkg.Id">@pkg.DisplayName</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+
+                <div class="form-group permissions-group">
+                    <label>Permissions</label>
+                    <div class="checkbox-row">
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_model.CanUpload" />
+                            Can Upload
+                        </label>
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_model.CanDownload" />
+                            Can Download
+                        </label>
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_model.CanManageVersions" />
+                            Manage versions (edit, deprecate, delete)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group button-group">
+                    <button type="submit" class="btn-primary" disabled="@_isCreating">
+                        @(_isCreating ? "Creating..." : "Create Key")
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Existing Keys</h2>
+    </div>
+    <div class="card-body">
+        @if (_keys == null)
+        {
+            <p>Loading...</p>
+        }
+        else if (_keys.Count == 0)
+        {
+            <p class="empty-message">No API keys yet.</p>
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Scope</th>
+                        <th>Permissions</th>
+                        <th>Created</th>
+                        <th>Last Used</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var key in _keys)
+                    {
+                        <tr class="@(key.IsRevoked ? "revoked" : "")">
+                            <td>@key.Name</td>
+                            <td>
+                                @if (key.Scope == ApiKeyScope.Admin)
+                                {
+                                    <span class="badge admin">Admin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge package">@(key.Package?.DisplayName ?? "Unknown")</span>
+                                }
+                            </td>
+                            <td>
+                                @if (key.CanUpload)
+                                {
+                                    <span class="badge permission upload">Upload</span>
+                                }
+                                @if (key.CanDownload)
+                                {
+                                    <span class="badge permission download">Download</span>
+                                }
+                                @if (key.CanManageVersions)
+                                {
+                                    <span class="badge permission manage">Manage versions</span>
+                                }
+                                @if (!key.CanUpload && !key.CanDownload && !key.CanManageVersions)
+                                {
+                                    <span class="no-permissions">None</span>
+                                }
+                            </td>
+                            <td>@key.CreatedAt.ToString("g")</td>
+                            <td>@(key.LastUsedAt?.ToString("g") ?? "Never")</td>
+                            <td>
+                                @if (key.IsRevoked)
+                                {
+                                    <span class="status revoked">Revoked</span>
+                                }
+                                else
+                                {
+                                    <span class="status active">Active</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!key.IsRevoked)
+                                {
+                                    <button class="btn-small btn-danger" @onclick="() => RevokeKey(key.Id)">Revoke</button>
+                                }
+                                <button class="btn-small btn-secondary" @onclick="() => DeleteKey(key.Id)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<style>
+    h1 {
+        margin-bottom: 20px;
+    }
+    .card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .card-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #eee;
+    }
+    .card-header h2 {
+        margin: 0;
+        font-size: 16px;
+    }
+    .card-body {
+        padding: 20px;
+    }
+    .form-row {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    .form-group {
+        flex: 1;
+        min-width: 150px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .button-group {
+        flex: 0;
+    }
+    .btn-primary, .btn-secondary, .btn-danger {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-primary { background: #0078d4; color: #fff; }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-danger { background: #d32f2f; color: #fff; }
+    .btn-small {
+        padding: 4px 8px;
+        font-size: 12px;
+        margin-right: 5px;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .data-table th, .data-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    .data-table th { font-weight: 600; }
+    .data-table tr.revoked { opacity: 0.6; }
+    .badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+    .badge.admin { background: #9c27b0; color: #fff; }
+    .badge.package { background: #2196f3; color: #fff; }
+    .badge.permission { margin-right: 4px; }
+    .badge.permission.upload { background: #ff9800; color: #fff; }
+    .badge.permission.download { background: #4caf50; color: #fff; }
+    .badge.permission.manage { background: #d32f2f; color: #fff; }
+    .no-permissions { color: #999; font-style: italic; }
+    .permissions-group { min-width: 200px; }
+    .checkbox-row {
+        display: flex;
+        gap: 15px;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-weight: normal;
+    }
+    .status {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+    .status.active { background: #4caf50; color: #fff; }
+    .status.revoked { background: #f44336; color: #fff; }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .empty-message { color: #888; }
+    .new-key-banner {
+        background: #e8f5e9;
+        border: 1px solid #4caf50;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .key-display {
+        background: #fff;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: monospace;
+        margin: 10px 0;
+        word-break: break-all;
+    }
+</style>
+
+@code {
+    private List<ApiKey>? _keys;
+    private List<Package> _packages = [];
+    private CreateKeyModel _model = new();
+    private string? _error;
+    private bool _isCreating;
+    private string? _newKey;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadKeys();
+        _packages = await PackageService.GetAllPackagesAsync();
+    }
+
+    private async Task LoadKeys()
+    {
+        _keys = await AuthService.GetApiKeysAsync();
+    }
+
+    private async Task HandleCreate()
+    {
+        _error = null;
+        _isCreating = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_model.Name))
+            {
+                _error = "Name is required";
+                return;
+            }
+
+            var scope = Enum.Parse<ApiKeyScope>(_model.Scope);
+            long? packageId = null;
+
+            if (scope == ApiKeyScope.Package)
+            {
+                if (string.IsNullOrEmpty(_model.PackageId))
+                {
+                    _error = "Please select a package";
+                    return;
+                }
+                packageId = long.Parse(_model.PackageId);
+            }
+
+            var (key, plainKey) = await AuthService.CreateApiKeyAsync(
+                _model.Name,
+                scope,
+                _model.CanUpload,
+                _model.CanDownload,
+                packageId,
+                _model.CanManageVersions);
+            _newKey = plainKey;
+            _model = new CreateKeyModel();
+            await LoadKeys();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to create key: " + ex.Message;
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private async Task RevokeKey(long id)
+    {
+        await AuthService.RevokeApiKeyAsync(id);
+        await LoadKeys();
+    }
+
+    private async Task DeleteKey(long id)
+    {
+        await AuthService.DeleteApiKeyAsync(id);
+        await LoadKeys();
+    }
+
+    private void DismissNewKey()
+    {
+        _newKey = null;
+    }
+
+    private class CreateKeyModel
+    {
+        public string Name { get; set; } = "";
+        public string Scope { get; set; } = "Admin";
+        public string? PackageId { get; set; }
+        public bool CanUpload { get; set; } = true;
+        public bool CanDownload { get; set; } = false;
+        public bool CanManageVersions { get; set; }
+    }
+}

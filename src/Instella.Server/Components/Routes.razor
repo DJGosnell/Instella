@@ -1,0 +1,12 @@
+@* Route-level authorization: every page requires the Admin policy unless it opts
+   out with [AllowAnonymous] (see Pages/_Imports.razor), so a new page is protected by default. *@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

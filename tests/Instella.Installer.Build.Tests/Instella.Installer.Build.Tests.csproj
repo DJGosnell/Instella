@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+
+    <!-- Testing an MSBuild task means implementing IBuildEngine and asserting on
+         BuildEventArgs, so these are needed directly. Instella.Installer.Build
+         marks them PrivateAssets="all" (consumers must not inherit MSBuild), so
+         they do not flow here through the project reference. -->
+    <PackageReference Include="Microsoft.Build.Framework" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Instella.Installer.Build\Instella.Installer.Build.csproj" />
+  </ItemGroup>
+
+</Project>

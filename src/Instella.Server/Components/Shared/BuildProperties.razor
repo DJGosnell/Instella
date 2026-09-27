@@ -1,0 +1,277 @@
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+@using Instella.Server.Data
+@using Microsoft.EntityFrameworkCore
+@inject PackageService PackageService
+@inject AppDbContext Db
+@inject NavigationManager Navigation
+
+<div class="properties">
+    <h3>@Build.OS / @Build.Architecture</h3>
+
+    @if (Build.IsDraft)
+    {
+        <div class="info-notice">
+            <strong>Draft.</strong> Uploaded with <code>instella upload --draft</code> and not visible to installers or apps
+            until someone with the publisher key runs <code>instella publish</code> for it.
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="error">@_error</div>
+    }
+
+    <div class="info-group">
+        <label>Total Size</label>
+        <div class="info-value">@FormatSize(Build.TotalSize)</div>
+    </div>
+
+    <div class="info-group">
+        <label>File Count</label>
+        <div class="info-value">@Build.Files.Count files</div>
+    </div>
+
+    <div class="info-group">
+        <label>Manifest Hash</label>
+        <div class="info-value mono">@Build.ManifestHash</div>
+    </div>
+
+    <div class="info-group">
+        <label>Uploaded At</label>
+        <div class="info-value">@Build.UploadedAt.ToString("g")</div>
+    </div>
+
+    @if (_patchInfo != null)
+    {
+        <h4>Patch Info</h4>
+
+        <div class="info-group">
+            <label>Patch Size</label>
+            <div class="info-value">@FormatSize(_patchInfo.PatchSize) (@FormatPercent())</div>
+        </div>
+
+        <div class="info-group">
+            <label>Patch Hash</label>
+            <div class="info-value mono">@_patchInfo.PatchHash</div>
+        </div>
+    }
+    else
+    {
+        <div class="info-notice">
+            No patch available for this build.
+        </div>
+    }
+
+    <h4>Statistics</h4>
+
+    <div class="info-group">
+        <label>Full Downloads</label>
+        <div class="info-value">@Build.DownloadCount</div>
+    </div>
+
+    <div class="info-group">
+        <label>Patch Downloads</label>
+        <div class="info-value">@Build.PatchDownloadCount</div>
+    </div>
+
+    <h4>Installers</h4>
+    @if (_installers.Count == 0)
+    {
+        <div class="info-notice">No installers were published with this build (<code>instella upload --installer</code>).</div>
+    }
+    @foreach (var installer in _installers)
+    {
+        <div class="info-group">
+            <label>@(installer.Kind == Instella.Core.Wire.InstallerKinds.Online ? "Online installer" : "Offline installer")</label>
+            <div class="info-value">
+                <a href="@Instella.Server.Api.SiteLinks.Installer(Package.PackageId, Version.VersionString, Build.OS, Build.Architecture, installer.Kind)"
+                   target="_blank">@installer.FileName</a> (@FormatSize(installer.Size), @installer.DownloadCount downloads)
+            </div>
+        </div>
+    }
+
+    <h4>Files (@Build.Files.Count)</h4>
+    <div class="file-list">
+        @foreach (var file in Build.Files.OrderBy(f => f.RelativePath).Take(20))
+        {
+            <div class="file-item">
+                <span class="file-path">@file.RelativePath</span>
+                <span class="file-size">@FormatSize(file.Size)</span>
+            </div>
+        }
+        @if (Build.Files.Count > 20)
+        {
+            <div class="file-more">... and @(Build.Files.Count - 20) more files</div>
+        }
+    </div>
+
+    <div class="button-group">
+        <a href="@GetDownloadUrl()" class="btn-secondary" target="_blank">Download ZIP</a>
+        @if (_patchInfo != null)
+        {
+            <a href="@GetPatchDownloadUrl()" class="btn-secondary" target="_blank">Download Patch</a>
+        }
+        <button type="button" class="btn-danger" @onclick="HandleDelete">Delete</button>
+    </div>
+</div>
+
+<style>
+    .properties h3 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+    .properties h4 {
+        margin-top: 25px;
+        margin-bottom: 15px;
+        font-size: 14px;
+        color: #666;
+    }
+    .info-group {
+        margin-bottom: 15px;
+    }
+    .info-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+        font-size: 12px;
+        color: #666;
+        text-transform: uppercase;
+    }
+    .info-value {
+        padding: 8px;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+    .info-value.mono {
+        font-family: monospace;
+        font-size: 12px;
+        word-break: break-all;
+    }
+    .info-notice {
+        padding: 15px;
+        background: #fff3e0;
+        border-radius: 4px;
+        color: #e65100;
+        margin: 20px 0;
+    }
+    .file-list {
+        max-height: 300px;
+        overflow-y: auto;
+        background: #f5f5f5;
+        border-radius: 4px;
+        padding: 8px;
+    }
+    .file-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-family: monospace;
+    }
+    .file-item:hover {
+        background: #e8e8e8;
+    }
+    .file-path {
+        word-break: break-all;
+    }
+    .file-size {
+        color: #666;
+        white-space: nowrap;
+        margin-left: 10px;
+    }
+    .file-more {
+        padding: 8px;
+        text-align: center;
+        color: #666;
+        font-size: 12px;
+    }
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn-secondary, .btn-danger {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-secondary { background: #eee; color: #333; }
+    .btn-danger { background: #d32f2f; color: #fff; }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+</style>
+
+@code {
+    [Parameter] public required VersionBuild Build { get; set; }
+    [Parameter] public required PackageVersion Version { get; set; }
+    [Parameter] public required Package Package { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private string? _error;
+    private BuildPatch? _patchInfo;
+    private List<BuildInstaller> _installers = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Check if there's a patch to this build
+        _patchInfo = await Db.BuildPatches.FirstOrDefaultAsync(p => p.ToBuildId == Build.Id);
+        _installers = await Db.BuildInstallers.AsNoTracking().Where(i => i.BuildId == Build.Id).OrderBy(i => i.Kind).ToListAsync();
+    }
+
+    private async Task HandleDelete()
+    {
+        try
+        {
+            await PackageService.DeleteBuildAsync(Build.Id);
+            await OnDelete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to delete: " + ex.Message;
+        }
+    }
+
+    private string GetDownloadUrl()
+    {
+        return Instella.Server.Api.SiteLinks.DownloadBuild(Package.PackageId, Version.VersionString, Build.OS, Build.Architecture);
+    }
+
+    private string GetPatchDownloadUrl()
+    {
+        if (_patchInfo == null) return "";
+        var fromBuild = Db.VersionBuilds.Include(b => b.Version).FirstOrDefault(b => b.Id == _patchInfo.FromBuildId);
+        if (fromBuild == null) return "";
+        return Instella.Server.Api.SiteLinks.Patch(Package.PackageId, fromBuild.Version.VersionString, Version.VersionString, Build.OS, Build.Architecture);
+    }
+
+    private string FormatPercent()
+    {
+        if (_patchInfo == null || Build.TotalSize == 0) return "N/A";
+        var percent = (double)_patchInfo.PatchSize / Build.TotalSize * 100;
+        return $"{percent:F1}% of full";
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        var units = new[] { "B", "KB", "MB", "GB" };
+        double size = bytes;
+        int unit = 0;
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+        return $"{size:F1} {units[unit]}";
+    }
+}

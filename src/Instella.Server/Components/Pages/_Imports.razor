@@ -1,0 +1,3 @@
+@using Microsoft.AspNetCore.Authorization
+@* Default-deny: every page needs a signed-in admin unless it declares [AllowAnonymous]. *@
+@attribute [Authorize(Policy = "Admin")]

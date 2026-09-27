@@ -1,0 +1,61 @@
+<Project>
+
+  <!--
+    Imported after the project body, unlike Directory.Build.props, so
+    $(IsPackable) reflects whatever the project actually set. Guarding the
+    readme pack item in Directory.Build.props would not work: at that point
+    IsPackable is still unset for every project.
+
+    PackageReadmeFile names README.md, and NuGet fails the pack with NU5039
+    unless a matching file is packed to the package root — so the two have to
+    travel together. The same holds for PackageIcon and assets/icon.png.
+    Each package ships its own README.md from its project directory; the
+    repository README is the fallback.
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+    <PackageIcon>icon.png</PackageIcon>
+    <_InstellaPackageReadme Condition="Exists('$(MSBuildProjectDirectory)\README.md')">$(MSBuildProjectDirectory)\README.md</_InstellaPackageReadme>
+    <_InstellaPackageReadme Condition="'$(_InstellaPackageReadme)' == ''">$(MSBuildThisFileDirectory)README.md</_InstellaPackageReadme>
+  </PropertyGroup>
+  <!-- The README is packed from obj/, with {{DocsUrl}} and {{RepositoryUrl}} replaced by the
+       properties in Directory.Build.props, so its links follow the repository's location. -->
+  <PropertyGroup Condition="'$(IsPackable)' != 'false'">
+    <_InstellaExpandedReadme>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'instella-readme', 'README.md'))</_InstellaExpandedReadme>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Remove="$(_InstellaPackageReadme)" />
+    <None Include="$(_InstellaExpandedReadme)"
+          Pack="true"
+          PackagePath="\"
+          Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)assets\icon.png"
+          Pack="true"
+          PackagePath="\"
+          Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_InstellaExpandReadme" BeforeTargets="_GetPackageFiles;GenerateNuspec" Condition="'$(IsPackable)' != 'false'">
+    <PropertyGroup>
+      <!-- Escaped, so the whole text is one line item: semicolons and blank lines survive. -->
+      <_InstellaReadmeText>$([System.IO.File]::ReadAllText('$(_InstellaPackageReadme)').Replace('{{DocsUrl}}', '$(InstellaDocsUrl)').Replace('{{RepositoryUrl}}', '$(InstellaRepositoryUrl)').TrimEnd())</_InstellaReadmeText>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_InstellaExpandedReadme)" Lines="$([MSBuild]::Escape('$(_InstellaReadmeText)'))" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <!--
+    Public API contract. For the projects Directory.Build.props marks with
+    InstellaPublicApi, every public symbol must be listed in PublicAPI.Shipped.txt /
+    PublicAPI.Unshipped.txt (RS0016/RS0017) and documented (CS1591); all three are build errors.
+  -->
+  <PropertyGroup Condition="'$(InstellaPublicApi)' == 'true'">
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591;RS0016;RS0017</WarningsAsErrors>
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(InstellaPublicApi)' == 'true'">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+</Project>

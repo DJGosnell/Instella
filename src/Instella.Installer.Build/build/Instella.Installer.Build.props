@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    =====================================================================
+    Instella.Installer.Build.props
+
+    Defaults for the fluent-builder installer flow. Imported
+    automatically when the Instella.Installer.Build NuGet package is
+    referenced. The installer is configured in Program.cs through the
+    fluent builder (InstellaInstaller.Create()...); the MSBuild
+    properties here are infrastructure only.
+    =====================================================================
+  -->
+
+  <PropertyGroup>
+    <!-- Enable/disable Instella build integration. Set to 'false' to
+         skip the payload+manifest append entirely (useful for debug
+         builds that just want 'dotnet run' and the JIT dev loop). -->
+    <InstellaEnabled Condition="'$(InstellaEnabled)' == ''">true</InstellaEnabled>
+
+    <!-- InstellaSignCommand: a command that signs one file, with {0} where the path goes,
+         for example: signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /n "Example Corp" "{0}"
+         When set, the stub the payload carries and the finished installer are both signed. -->
+  </PropertyGroup>
+
+  <!-- The payload is published on its own (InstellaPublishPayload), so the SDK's check that referenced
+       executables match this project's SelfContained setting (NETSDK1150) does not apply to
+       InstellaPayload references. An installer project has no other executable references. -->
+  <PropertyGroup>
+    <ValidateExecutableReferencesMatchSelfContained Condition="'$(ValidateExecutableReferencesMatchSelfContained)' == ''">false</ValidateExecutableReferencesMatchSelfContained>
+  </PropertyGroup>
+
+  <!-- Path to the Instella.Installer.Build task assembly. Default points
+       at the NuGet-package layout; project-reference dev overrides this
+       to bin/$(Configuration)/net10.0/Instella.Installer.Build.dll. -->
+  <PropertyGroup>
+    <InstellaBuildTasksAssembly Condition="'$(InstellaBuildTasksAssembly)' == ''">$(MSBuildThisFileDirectory)..\tasks\net10.0\Instella.Installer.Build.dll</InstellaBuildTasksAssembly>
+  </PropertyGroup>
+
+  <!-- InstellaGeneratedManifestPath: where the emitted manifest is written. The default,
+       $(IntermediateOutputPath)instella-manifest\instella.json, is resolved at target time. -->
+
+  <!-- Exe extension when no RuntimeIdentifier is set (the build host's). The targets file
+       derives it from the RID otherwise. Linux/macOS installers have no extension. -->
+  <PropertyGroup>
+    <_InstellaExeExtension Condition="'$(_InstellaExeExtension)' == '' AND '$(OS)' == 'Windows_NT'">.exe</_InstellaExeExtension>
+    <_InstellaExeExtension Condition="'$(_InstellaExeExtension)' == ''"></_InstellaExeExtension>
+  </PropertyGroup>
+
+  <!--
+    Default the Windows application manifest to the one shipped with this
+    package. The manifest declares common-controls v6 (themed buttons,
+    progress bars, etc. — without it, the installer UI reverts to the
+    Windows 98-era unthemed look), per-monitor DPI awareness v2, and
+    Windows 7-through-11 compat GUIDs. Users who need a custom manifest
+    (adding UAC requestedExecutionLevel, for example) set their own
+    <ApplicationManifest> which wins because of the null-coalesce guard.
+  -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <ApplicationManifest Condition="'$(ApplicationManifest)' == ''">$(MSBuildThisFileDirectory)Instella.Installer.App.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!--
+    Two authoring modes for payload content, evaluated together:
+
+      1. <ProjectReference InstellaPayload="true" /> — the installer build
+         publishes the referenced project into
+         $(IntermediateOutputPath)instella-payload\<project>\ (deleted first,
+         so stale files never reach the payload) and zips that directory.
+
+      2. <InstellaPayload Include="..\path\to\publish\dir" /> — a
+         pre-existing publish directory. Files are enumerated in place
+         and added to the zip directly; no copy.
+
+    Both populate the same @(InstellaCollectedPayloadFile) item group
+    that InstellaAppendPayload hands to the task.
+  -->
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <InstellaPayload>false</InstellaPayload>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
+  <Target Name="_InstellaCollectPayloadProjects"
+          BeforeTargets="InstellaPublishPayload;InstellaCollectPayloadPaths"
+          Condition="'$(InstellaEnabled)' == 'true'">
+    <ItemGroup>
+      <InstellaPayloadProject Include="@(ProjectReference)"
+                              Condition="'%(ProjectReference.InstellaPayload)' == 'true'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

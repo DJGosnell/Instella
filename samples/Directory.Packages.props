@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    The library solution has no UI-framework dependency; only the sample app
+    uses Avalonia. Its versions live here so the root package set stays the
+    set the shipped packages actually need.
+  -->
+  <Import Project="..\Directory.Packages.props" />
+  <ItemGroup>
+    <PackageVersion Include="Avalonia" Version="11.2.3" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+  </ItemGroup>
+</Project>

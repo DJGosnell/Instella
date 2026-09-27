@@ -1,0 +1,558 @@
+@page "/docs"
+@using Instella.Server.Services
+@using Microsoft.EntityFrameworkCore
+@inject Instella.Server.Data.AppDbContext Db
+@inject NavigationManager Navigation
+
+<PageTitle>Documentation - Instella Server</PageTitle>
+
+<h1>Integration Documentation</h1>
+
+<div class="docs-container">
+    <nav class="docs-nav">
+        <ul>
+            <li><a href="#getting-started">Getting Started</a></li>
+            <li><a href="#cli-installation">CLI Installation</a></li>
+            <li><a href="#signing-keys">Signing Keys</a></li>
+            <li><a href="#cli-commands">CLI Commands</a></li>
+            <li><a href="#ci-integration">CI/CD Integration</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ul>
+    </nav>
+
+    <div class="docs-content">
+        <section id="getting-started">
+            <h2>Getting Started</h2>
+            <p>Instella Server stores and serves the releases of applications built with the Instella installer framework.
+               Releases are uploaded with the <code>instella</code> CLI, usually from a CI pipeline.</p>
+
+            <h3>Server URL</h3>
+            <p>Your server is available at:</p>
+            <pre class="code-block">@_serverUrl</pre>
+            <p>The CLI requires <code>https</code>. Plain <code>http</code> is accepted only for a loopback host
+               (<code>localhost</code>, <code>127.0.0.1</code>) or with <code>--allow-insecure</code>.</p>
+
+            <h3>Before the first upload</h3>
+            <ol>
+                <li>Create the package on the <a href="/packages">Packages</a> page. Uploads to an unknown package ID are rejected.</li>
+                <li>Create an API key (below).</li>
+                <li>Generate a publisher signing key and register its public key on the package (see <a href="#signing-keys">Signing Keys</a>).</li>
+            </ol>
+
+            <h3>Creating API Keys</h3>
+            <ol>
+                <li>Navigate to <a href="/api-keys">API Keys</a> in the admin panel</li>
+                <li>Enter a name and choose the scope:
+                    <ul>
+                        <li><strong>Admin</strong> - all packages</li>
+                        <li><strong>Package</strong> - one package only</li>
+                    </ul>
+                </li>
+                <li>Tick <strong>Can Upload</strong> for keys that upload or delete versions. <strong>Can Download</strong> is only needed for packages whose download access requires a key.</li>
+                <li>Click "Create Key" and copy the key immediately (it won't be shown again)</li>
+                <li>Store the key in your CI/CD secrets</li>
+            </ol>
+        </section>
+
+        <section id="cli-installation">
+            <h2>CLI Installation</h2>
+            <p>The CLI is a .NET tool published as <code>instella-cli</code>. It requires the .NET 10 SDK.</p>
+            <pre class="code-block">dotnet tool install --global instella-cli
+instella --help</pre>
+            <p>To update an existing installation, use <code>dotnet tool update --global instella-cli</code>.</p>
+        </section>
+
+        <section id="signing-keys">
+            <h2>Publisher Signing Keys</h2>
+            <p>Every upload carries a release manifest signed with your publisher key (ECDSA P-256). Installed
+               applications only apply updates signed by a key compiled into their installer, so the server cannot
+               push content you did not sign.</p>
+
+            <h3>1. Generate a key</h3>
+            <pre class="code-block">instella keys generate --out publisher.key.pem --password-env INSTELLA_SIGNING_KEY_PASSWORD</pre>
+            <p>This writes the private key (PKCS#8 PEM) and prints the key id and public key. <code>--password-env</code>
+               names an environment variable whose value encrypts the key; omit it for an unencrypted key.
+               <code>--force</code> overwrites an existing file. Keep the private key out of the repository.
+               Generate a second key as an offline backup: if the only trusted key is lost, installations can no longer be updated.</p>
+            <p>To print the public key of an existing key again:</p>
+            <pre class="code-block">instella keys show --key publisher.key.pem --password-env INSTELLA_SIGNING_KEY_PASSWORD</pre>
+
+            <h3>2. Put the public key in the installer</h3>
+            <pre class="code-block">.WithPublisherKey("&lt;public key from instella keys show&gt;")</pre>
+            <p>Add one <code>.WithPublisherKey(...)</code> call per trusted key (for example, the primary and the backup key).</p>
+
+            <h3>3. Register the public key on the package</h3>
+            <p>Open the package on the <a href="/packages">Packages</a> page and add the public key under <strong>Publisher keys</strong>.
+               Once at least one key is registered, the server rejects uploads that are unsigned or signed by another key.
+               With no key registered, signed and unsigned uploads are both accepted, so register the key to catch misconfigured pipelines early.</p>
+        </section>
+
+        <section id="cli-commands">
+            <h2>CLI Commands Reference</h2>
+
+            <h3>upload</h3>
+            <p>Uploads a published directory as one build and signs its release manifest. Files are hashed (SHA-256)
+               automatically; files the server already stores are not sent again.</p>
+            <pre class="code-block">instella upload \
+  --server &lt;server-url&gt; \
+  --api-key &lt;key&gt; \
+  --package &lt;package-id&gt; \
+  --version &lt;version&gt; \
+  --path &lt;published-directory&gt; \
+  [--os &lt;windows|linux|macos&gt;] \
+  [--arch &lt;x64|x86|arm64|arm32&gt;] \
+  [--channel &lt;name&gt;] \
+  [--changelog &lt;text&gt;] \
+  --signing-key &lt;PEM text or file&gt;</pre>
+
+            <table class="options-table">
+                <thead>
+                    <tr><th>Option</th><th>Required</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>--server</code>, <code>-s</code></td><td>Yes</td><td>Server URL (e.g., https://packages.example.com)</td></tr>
+                    <tr><td><code>--api-key</code>, <code>-k</code></td><td>Yes</td><td>API key with Can Upload. Defaults to the <code>INSTELLA_API_KEY</code> environment variable.</td></tr>
+                    <tr><td><code>--package</code>, <code>-p</code></td><td>Yes</td><td>Package ID (the package must already exist)</td></tr>
+                    <tr><td><code>--version</code>, <code>-v</code></td><td>Yes</td><td>Numeric version (e.g., 1.2.0)</td></tr>
+                    <tr><td><code>--path</code></td><td>Yes</td><td>The published files directory (all files and subdirectories are uploaded)</td></tr>
+                    <tr><td><code>--os</code></td><td>No</td><td>Target OS: windows, linux or macos. Detected from a RID in <code>--path</code> (e.g. <code>publish/win-x64</code>) when omitted.</td></tr>
+                    <tr><td><code>--arch</code></td><td>No</td><td>Architecture: x64, x86, arm64 or arm32. Detected from a RID in <code>--path</code> when omitted.</td></tr>
+                    <tr><td><code>--channel</code>, <code>-c</code></td><td>No</td><td>Release channel (default: stable). Any name of 1-32 lowercase letters, digits and '-' that starts and ends with a letter or digit, for example <code>beta</code> or <code>rc</code>; the first upload to a name creates the channel. A version belongs to one channel.</td></tr>
+                    <tr><td><code>--changelog</code></td><td>No</td><td>Changelog text (Markdown supported)</td></tr>
+                    <tr><td><code>--signing-key</code></td><td>Yes*</td><td>Publisher private key as PEM text or a PEM file path. Defaults to the <code>INSTELLA_SIGNING_KEY</code> environment variable. An encrypted key's password is read from <code>INSTELLA_SIGNING_KEY_PASSWORD</code>.</td></tr>
+                    <tr><td><code>--unsigned</code></td><td>No</td><td>*Upload without a signature instead. Development only: installers will not accept the release.</td></tr>
+                    <tr><td><code>--allow-insecure</code></td><td>No</td><td>Allow a plain-http server URL on a non-loopback host</td></tr>
+                </tbody>
+            </table>
+
+            <h3>list</h3>
+            <p>Lists public packages, or the versions of a package. No API key is needed.</p>
+            <pre class="code-block"># List packages
+instella list packages --server &lt;server-url&gt;
+
+# List versions of a package
+instella list versions --server &lt;server-url&gt; --package &lt;package-id&gt;</pre>
+
+            <h3>delete</h3>
+            <p>Deletes a version, including all of its OS/architecture builds. Requires a key with Can Upload.
+               Without <code>--yes</code> the command asks for confirmation, and refuses when input is not interactive (CI).</p>
+            <pre class="code-block">instella delete \
+  --server &lt;server-url&gt; \
+  --api-key &lt;key&gt; \
+  --package &lt;package-id&gt; \
+  --version &lt;version&gt; \
+  [--yes]</pre>
+
+            <h3>Exit codes</h3>
+            <table class="options-table">
+                <thead>
+                    <tr><th>Code</th><th>Meaning</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>0</code></td><td>Success</td></tr>
+                    <tr><td><code>1</code></td><td>Invalid arguments, missing input, or operation refused (e.g. no signing key, http URL, delete not confirmed)</td></tr>
+                    <tr><td><code>2</code></td><td>The server returned an error or could not be reached</td></tr>
+                    <tr><td><code>3</code></td><td>The server rejected the API key (401/403)</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="ci-integration">
+            <h2>CI/CD Integration</h2>
+
+            <div class="snippet-controls">
+                <label>
+                    <input type="checkbox" @bind="_showPackageSpecific" />
+                    Show package-specific example
+                </label>
+                @if (_showPackageSpecific && _packages.Count > 0)
+                {
+                    <select @bind="_selectedPackageId" class="package-select">
+                        @foreach (var pkg in _packages)
+                        {
+                            <option value="@pkg.PackageId">@pkg.DisplayName (@pkg.PackageId)</option>
+                        }
+                    </select>
+                }
+            </div>
+
+            <p>The examples run on tags such as <code>v1.2.0</code>, publish for linux-x64 and upload the output.
+               For Windows, publish with <code>-r win-x64</code> and pass <code>--os windows</code>.</p>
+
+            <h3>GitHub Actions</h3>
+            <pre class="code-block">@GetGitHubActionsSnippet()</pre>
+            <button class="copy-btn" @onclick="() => CopyToClipboard(GetGitHubActionsSnippet())">Copy</button>
+
+            <h3>Gitea Actions</h3>
+            <pre class="code-block">@GetGiteaActionsSnippet()</pre>
+            <button class="copy-btn" @onclick="() => CopyToClipboard(GetGiteaActionsSnippet())">Copy</button>
+
+            <h3>Required Secrets</h3>
+            <p>Configure these secrets in your CI/CD platform:</p>
+            <table class="options-table">
+                <thead>
+                    <tr><th>Secret Name</th><th>Value</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>INSTELLA_SERVER</code></td><td>@_serverUrl</td></tr>
+                    <tr><td><code>INSTELLA_API_KEY</code></td><td>Your API key (from API Keys page), with Can Upload</td></tr>
+                    <tr><td><code>INSTELLA_SIGNING_KEY</code></td><td>The full PEM text of the private key from <code>instella keys generate</code></td></tr>
+                    <tr><td><code>INSTELLA_SIGNING_KEY_PASSWORD</code></td><td>The key's password (only if the key is encrypted)</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="troubleshooting">
+            <h2>Troubleshooting & FAQ</h2>
+
+            <h3>Common Errors</h3>
+
+            <div class="faq-item">
+                <h4>401 "A valid API key is required" (exit code 3)</h4>
+                <p><strong>Cause:</strong> No API key was sent, or the key is wrong, revoked or deleted.</p>
+                <p><strong>Solution:</strong> Check <code>--api-key</code> / <code>INSTELLA_API_KEY</code>. Create a new key if needed.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>403 "Key lacks Upload permission for this package" (exit code 3)</h4>
+                <p><strong>Cause:</strong> The key is scoped to a different package, or does not have Can Upload. Deleting a version needs Can Upload as well.</p>
+                <p><strong>Solution:</strong> Use an admin-scoped key, or a key scoped to this package with Can Upload ticked.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>404 "Package '...' not found"</h4>
+                <p><strong>Cause:</strong> The package ID doesn't exist on the server.</p>
+                <p><strong>Solution:</strong> Create the package on the Packages page before uploading. The ID must match exactly.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"Build already exists for ..."</h4>
+                <p><strong>Cause:</strong> This package already has a build for the same version and OS/architecture.</p>
+                <p><strong>Solution:</strong> Use a new version number, or delete the existing version first with <code>instella delete</code>.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"Package '...' requires releases signed by a registered publisher key; this upload is unsigned."</h4>
+                <p><strong>Cause:</strong> The package has a registered publisher key and the upload used <code>--unsigned</code>.</p>
+                <p><strong>Solution:</strong> Upload with <code>--signing-key</code> (or <code>INSTELLA_SIGNING_KEY</code>) set to the matching private key.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"Release rejected: release is signed by unknown key ..."</h4>
+                <p><strong>Cause:</strong> The upload was signed, but the key's public key is not registered on the package.</p>
+                <p><strong>Solution:</strong> Run <code>instella keys show</code> on the key used in CI and compare the key id with the package's Publisher keys.
+                   Register the key, or configure CI with the key that is registered.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"Error: no signing key ..." (exit code 1)</h4>
+                <p><strong>Cause:</strong> Neither <code>--signing-key</code> nor <code>INSTELLA_SIGNING_KEY</code> is set. In CI this usually means the secret is missing or not passed to the step.</p>
+                <p><strong>Solution:</strong> Provide the key. <code>--unsigned</code> exists for local development only.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"Signing key '...' is neither PEM text nor an existing file."</h4>
+                <p><strong>Cause:</strong> The signing key value is not PEM text and no file exists at that path, often because a secret was truncated or a relative path is wrong.</p>
+                <p><strong>Solution:</strong> Store the complete PEM text (including the <code>-----BEGIN</code> and <code>-----END</code> lines) in the secret, or pass an existing file path. For an encrypted key, also set <code>INSTELLA_SIGNING_KEY_PASSWORD</code>.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"server URL '...' uses plain http" (exit code 1)</h4>
+                <p><strong>Cause:</strong> The CLI refuses <code>http</code> URLs to non-loopback hosts, because the API key and packages would travel unencrypted.</p>
+                <p><strong>Solution:</strong> Use the server's <code>https</code> URL. On a trusted network only, pass <code>--allow-insecure</code>.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>"could not detect the target OS from --path. Pass --os."</h4>
+                <p><strong>Cause:</strong> <code>--os</code>/<code>--arch</code> were omitted and no path segment looks like a RID (e.g. <code>linux-x64</code>).</p>
+                <p><strong>Solution:</strong> Pass <code>--os</code> and <code>--arch</code>, or publish into a directory named after the RID.</p>
+            </div>
+
+            <h3>Best Practices</h3>
+            <ul>
+                <li><strong>Use package-scoped keys</strong> - Create separate API keys for each package in CI/CD to limit the damage if a key is compromised.</li>
+                <li><strong>Register the publisher key on the package</strong> - The server then rejects unsigned or wrongly signed uploads instead of publishing releases that installers will refuse.</li>
+                <li><strong>Keep a backup signing key</strong> - Generate it once, keep it offline, and add it to the installer with a second <code>.WithPublisherKey(...)</code>.</li>
+                <li><strong>Use increasing numeric versions</strong> - MAJOR.MINOR.PATCH (e.g. 1.2.0); each release must be newer than the installed one.</li>
+                <li><strong>Include changelogs</strong> - Users appreciate knowing what changed in each release.</li>
+                <li><strong>Use channels appropriately</strong> - <code>stable</code> for production, and names you choose (such as <code>beta</code>, <code>rc</code> or <code>nightly</code>) for everything else. An installed app follows one channel.</li>
+            </ul>
+
+            <h3>FAQ</h3>
+
+            <div class="faq-item">
+                <h4>How are delta patches generated?</h4>
+                <p>After an upload, the server generates binary patches from the previous build with the same OS/architecture in the same channel.
+                   If the patches together are 90% or more of the full build size, they are discarded and clients download the full files.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>What happens if I upload multiple architectures?</h4>
+                <p>Run <code>instella upload</code> once per OS/architecture with the same version. Each build is stored separately and clients request the one for their platform.</p>
+            </div>
+
+            <div class="faq-item">
+                <h4>Can I make packages private?</h4>
+                <p>Yes. On the Packages page, set "Download Access" to require an admin key or a package key. Clients then need an API key with Can Download.</p>
+            </div>
+        </section>
+    </div>
+</div>
+
+<style>
+    .docs-container {
+        display: flex;
+        gap: 30px;
+    }
+    .docs-nav {
+        position: sticky;
+        top: 20px;
+        width: 200px;
+        flex-shrink: 0;
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        height: fit-content;
+    }
+    .docs-nav ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .docs-nav li a {
+        display: block;
+        padding: 8px 0;
+        color: #333;
+        text-decoration: none;
+        border-bottom: 1px solid #eee;
+    }
+    .docs-nav li a:hover {
+        color: #0078d4;
+    }
+    .docs-nav li:last-child a {
+        border-bottom: none;
+    }
+    .docs-content {
+        flex: 1;
+        background: #fff;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .docs-content h2 {
+        margin-top: 0;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+    .docs-content h2:first-of-type {
+        border-top: none;
+        padding-top: 0;
+    }
+    .docs-content h3 {
+        margin-top: 25px;
+    }
+    .code-block {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 15px;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    .options-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+    }
+    .options-table th, .options-table td {
+        padding: 10px;
+        text-align: left;
+        border: 1px solid #ddd;
+    }
+    .options-table th {
+        background: #f5f5f5;
+    }
+    .options-table code {
+        background: #eee;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    .snippet-controls {
+        background: #f0f8ff;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .snippet-controls label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+    .package-select {
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    .copy-btn {
+        margin-top: 10px;
+        padding: 6px 15px;
+        background: #0078d4;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .copy-btn:hover {
+        background: #005a9e;
+    }
+    .faq-item {
+        margin: 20px 0;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 6px;
+        border-left: 4px solid #0078d4;
+    }
+    .faq-item h4 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+    .faq-item p {
+        margin: 5px 0;
+    }
+</style>
+
+@code {
+    private string _serverUrl = "";
+    private bool _showPackageSpecific;
+    private string _selectedPackageId = "";
+    private List<PackageInfo> _packages = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _serverUrl = Navigation.BaseUri.TrimEnd('/');
+
+        _packages = await Db.Packages
+            .OrderBy(p => p.DisplayName)
+            .Select(p => new PackageInfo { PackageId = p.PackageId, DisplayName = p.DisplayName })
+            .ToListAsync();
+
+        if (_packages.Count > 0)
+        {
+            _selectedPackageId = _packages[0].PackageId;
+        }
+    }
+
+    private string GetGitHubActionsSnippet()
+    {
+        var packageId = _showPackageSpecific && !string.IsNullOrEmpty(_selectedPackageId)
+            ? _selectedPackageId
+            : "<PACKAGE_ID>";
+
+        return $@"name: Release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Instella CLI
+        run: |
+          dotnet tool install --global instella-cli
+          echo ""$HOME/.dotnet/tools"" >> ""$GITHUB_PATH""
+
+      - name: Publish
+        run: dotnet publish -c Release -r linux-x64 -o ./publish
+
+      - name: Upload to Instella
+        env:
+          INSTELLA_API_KEY: ${{{{ secrets.INSTELLA_API_KEY }}}}
+          INSTELLA_SIGNING_KEY_PASSWORD: ${{{{ secrets.INSTELLA_SIGNING_KEY_PASSWORD }}}}
+        run: |
+          instella upload \
+            --server ${{{{ secrets.INSTELLA_SERVER }}}} \
+            --package {packageId} \
+            --version ""${{GITHUB_REF_NAME#v}}"" \
+            --os linux \
+            --arch x64 \
+            --path ./publish \
+            --channel stable \
+            --signing-key ""${{{{ secrets.INSTELLA_SIGNING_KEY }}}}""";
+    }
+
+    private string GetGiteaActionsSnippet()
+    {
+        var packageId = _showPackageSpecific && !string.IsNullOrEmpty(_selectedPackageId)
+            ? _selectedPackageId
+            : "<PACKAGE_ID>";
+
+        return $@"name: Release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Instella CLI
+        run: |
+          dotnet tool install --global instella-cli
+          echo ""$HOME/.dotnet/tools"" >> ""$GITHUB_PATH""
+
+      - name: Publish
+        run: dotnet publish -c Release -r linux-x64 -o ./publish
+
+      - name: Upload to Instella
+        env:
+          INSTELLA_API_KEY: ${{{{ secrets.INSTELLA_API_KEY }}}}
+          INSTELLA_SIGNING_KEY_PASSWORD: ${{{{ secrets.INSTELLA_SIGNING_KEY_PASSWORD }}}}
+        run: |
+          instella upload \
+            --server ${{{{ secrets.INSTELLA_SERVER }}}} \
+            --package {packageId} \
+            --version ""${{GITHUB_REF_NAME#v}}"" \
+            --os linux \
+            --arch x64 \
+            --path ./publish \
+            --channel stable \
+            --signing-key ""${{{{ secrets.INSTELLA_SIGNING_KEY }}}}""";
+    }
+
+    private Task CopyToClipboard(string text)
+    {
+        // Note: Clipboard API requires JavaScript interop
+        // This is a placeholder - in a real implementation you'd use JSRuntime
+        return Task.CompletedTask;
+    }
+
+    private class PackageInfo
+    {
+        public string PackageId { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+    }
+}

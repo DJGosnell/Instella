@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Trim and AOT analyzers on; TreatWarningsAsErrors makes their findings build errors. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Instella.Sdk</RootNamespace>
+    <AssemblyName>Instella.Sdk</AssemblyName>
+    <Description>Runtime SDK for Instella update checking and triggering. Windows x64/arm64/x86 supported; Linux and macOS experimental.</Description>
+    <PackageId>Instella.Sdk</PackageId>
+    <PackageTags>instella;installer;updater;sdk</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Instella.Core\Instella.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Instella.Sdk.Tests" />
+    <InternalsVisibleTo Include="Instella.Contract.Tests" />
+  </ItemGroup>
+</Project>

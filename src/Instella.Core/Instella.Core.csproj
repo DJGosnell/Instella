@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Trim and AOT analyzers on; TreatWarningsAsErrors makes their findings build errors. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Instella.Core</RootNamespace>
+    <AssemblyName>Instella.Core</AssemblyName>
+    <Description>Core types, interfaces, and utilities for Instella packaging system. Windows x64/arm64/x86 supported; Linux and macOS experimental.</Description>
+    <PackageId>Instella.Core</PackageId>
+    <PackageTags>instella;installer;updater;core</PackageTags>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Instella.Installer.Runtime" />
+    <InternalsVisibleTo Include="Instella.Sdk" />
+    <InternalsVisibleTo Include="Instella.Sdk.Tests" />
+    <InternalsVisibleTo Include="Instella.Contract.Tests" />
+    <InternalsVisibleTo Include="Instella.E2E.Tests" />
+    <InternalsVisibleTo Include="Instella.Installer.Build" />
+    <InternalsVisibleTo Include="Instella.Installer.Testing" />
+    <InternalsVisibleTo Include="Instella.CLI" />
+    <InternalsVisibleTo Include="Instella.Server" />
+    <InternalsVisibleTo Include="Instella.CLI.Tests" />
+    <InternalsVisibleTo Include="Instella.Server.Tests" />
+    <InternalsVisibleTo Include="Instella.Core.Tests" />
+    <InternalsVisibleTo Include="Instella.Installer.Runtime.Tests" />
+    <InternalsVisibleTo Include="Instella.Installer.Build.Tests" />
+  </ItemGroup>
+
+</Project>

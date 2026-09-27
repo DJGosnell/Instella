@@ -1,0 +1,578 @@
+@using Instella.Server.Services
+@using Instella.Server.Data.Entities
+@inject PackageService PackageService
+@inject DownloadTokenService DownloadTokens
+@inject IJSRuntime JS
+
+<div class="properties">
+    <h3>@(IsNew ? "New Package" : Package?.DisplayName)</h3>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="error">@_error</div>
+    }
+
+    <EditForm Model="_model" OnValidSubmit="HandleSave">
+        <div class="form-group">
+            <label>Package ID</label>
+            <InputText @bind-Value="_model.PackageId" class="form-control" disabled="@(!IsNew)" />
+            <small>Unique identifier (cannot be changed after creation)</small>
+        </div>
+
+        <div class="form-group">
+            <label>Display Name</label>
+            <InputText @bind-Value="_model.DisplayName" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Description</label>
+            <InputTextArea @bind-Value="_model.Description" class="form-control" rows="3" />
+        </div>
+
+        <div class="form-group">
+            <label>Download Access</label>
+            <InputSelect @bind-Value="_model.DownloadAccessMode" class="form-control">
+                <option value="Open">Open (No authentication required)</option>
+                <option value="MasterKeyRequired">Master Key Required (Admin key only)</option>
+                <option value="PackageKeyRequired">Package Key Required (Admin or package-specific key)</option>
+            </InputSelect>
+            <small>Controls who can download this package</small>
+        </div>
+
+        <div class="button-group">
+            <button type="submit" class="btn-primary" disabled="@_isSaving">
+                @(_isSaving ? "Saving..." : "Save")
+            </button>
+            @if (IsNew)
+            {
+                <button type="button" class="btn-secondary" @onclick="HandleCancel">Cancel</button>
+            }
+            else
+            {
+                <button type="button" class="btn-secondary" @onclick="HandleNewVersion">Add Version</button>
+                <button type="button" class="btn-danger" @onclick="HandleDelete">Delete</button>
+            }
+        </div>
+    </EditForm>
+
+    @if (!IsNew && Package != null)
+    {
+        <div class="info-section">
+            <h4>Info</h4>
+            <p><strong>Created:</strong> @Package.CreatedAt.ToString("g")</p>
+            <p><strong>Versions:</strong> @Package.Versions.Count</p>
+            <p><strong>Total Downloads:</strong> @Package.Versions.SelectMany(v => v.Builds).Sum(b => b.DownloadCount)</p>
+            @if (Package.DownloadAccessMode == DownloadAccessMode.Open)
+            {
+                <p><strong>Public download page:</strong> <a href="/download/@Uri.EscapeDataString(Package.PackageId)" target="_blank">/download/@Package.PackageId</a></p>
+            }
+            else
+            {
+                <p><small>Private packages have no public download page; the installer links need an API key.</small></p>
+            }
+        </div>
+
+        <div class="info-section">
+            <h4>Channels</h4>
+            <small>
+                Latest is the highest published version on a channel. Cap it to hold a release back
+                (a staged rollout): apps then update only up to the cap, and nothing is deleted.
+            </small>
+            @if (!string.IsNullOrEmpty(_channelError))
+            {
+                <div class="error">@_channelError</div>
+            }
+            @if (_channels.Count == 0)
+            {
+                <p>No versions uploaded yet.</p>
+            }
+            else
+            {
+                <table class="keys channels">
+                    <thead><tr><th>Channel</th><th>Latest</th><th>Latest is capped at</th></tr></thead>
+                    <tbody>
+                        @foreach (var channel in _channels)
+                        {
+                            <tr>
+                                <td><span class="channel-badge channel-@channel.Name">@channel.Name</span></td>
+                                <td>@(_latest.GetValueOrDefault(channel.Name) ?? "-")</td>
+                                <td>
+                                    <select class="form-control" value="@(channel.PinnedVersion?.VersionString ?? "")"
+                                            @onchange="e => HandlePinChanged(channel.Name, e.Value as string)">
+                                        <option value="">no cap</option>
+                                        @foreach (var v in PublishedVersions(channel.Name))
+                                        {
+                                            <option value="@v">@v</option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        @if (Package.DownloadAccessMode == DownloadAccessMode.PackageKeyRequired || _tokens.Count > 0)
+        {
+            <div class="info-section">
+                <h4>Download tokens</h4>
+                <small>
+                    Download-only credentials for this package, for installers and installed apps
+                    (<code>.WithDownloadToken(...)</code>). They work while the package requires a package key.
+                </small>
+                @if (!string.IsNullOrEmpty(_tokenError))
+                {
+                    <div class="error">@_tokenError</div>
+                }
+                @if (_newToken is not null)
+                {
+                    <div class="new-token">
+                        <p><strong>Copy the token now; it is not shown again.</strong></p>
+                        <input class="form-control" readonly value="@_newToken" />
+                        <button type="button" class="btn-secondary" @onclick="CopyToken">Copy</button>
+                        <p><small>Compile it into your installer with .WithDownloadToken(...). Anyone with the installer can read it.</small></p>
+                    </div>
+                }
+                @if (_tokens.Count > 0)
+                {
+                    <table class="keys">
+                        <thead><tr><th>Name</th><th>Token</th><th>Created</th><th>Last used</th><th>Expires</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var token in _tokens)
+                            {
+                                <tr class="@(token.IsRevoked ? "revoked" : "")">
+                                    <td>@token.Name</td>
+                                    <td><code>idt_@(token.DisplayPrefix)…</code></td>
+                                    <td>@token.CreatedAt.ToString("g")</td>
+                                    <td>@(token.LastUsedAt?.ToString("g") ?? "never")</td>
+                                    <td>@(token.ExpiresAt?.ToString("d") ?? "never")</td>
+                                    <td>
+                                        @if (token.IsRevoked)
+                                        {
+                                            <span>revoked</span>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn-danger" @onclick="() => HandleRevokeToken(token)">Revoke</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                <div class="form-group">
+                    <label>Name</label>
+                    <InputText @bind-Value="_newTokenName" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>Expires</label>
+                    <select class="form-control" @bind="_newTokenExpiry">
+                        <option value="never">never</option>
+                        <option value="90">in 90 days</option>
+                        <option value="365">in 1 year</option>
+                        <option value="date">on a date</option>
+                    </select>
+                    @if (_newTokenExpiry == "date")
+                    {
+                        <input type="date" class="form-control" @bind="_newTokenDate" />
+                    }
+                </div>
+                <button type="button" class="btn-secondary" @onclick="HandleCreateToken">Create token</button>
+            </div>
+        }
+
+        <div class="info-section">
+            <h4>Publisher keys</h4>
+            <small>
+                When at least one key is registered, uploads must be signed by one of them. This catches
+                misconfigured publishing early; installers verify releases against their own compiled-in keys.
+            </small>
+
+            @if (!string.IsNullOrEmpty(_keyError))
+            {
+                <div class="error">@_keyError</div>
+            }
+
+            @if (_keys.Count == 0)
+            {
+                <p>No keys registered — signed and unsigned uploads are both accepted.</p>
+            }
+            else
+            {
+                <table class="keys">
+                    <thead><tr><th>Key id</th><th>Label</th><th>Added</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var key in _keys)
+                        {
+                            <tr>
+                                <td><code>@key.KeyId</code></td>
+                                <td>@key.Label</td>
+                                <td>@key.AddedAt.ToString("g")</td>
+                                <td><button type="button" class="btn-danger" @onclick="() => HandleRemoveKey(key)">Remove</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <div class="form-group">
+                <label>Public key (base64, from <code>instella keys show</code>)</label>
+                <InputTextArea @bind-Value="_newKey" class="form-control" rows="2" />
+            </div>
+            <div class="form-group">
+                <label>Label (optional)</label>
+                <InputText @bind-Value="_newKeyLabel" class="form-control" />
+            </div>
+            <button type="button" class="btn-secondary" @onclick="HandleAddKey">Add key</button>
+        </div>
+    }
+</div>
+
+<style>
+    .properties h3 {
+        margin-top: 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .form-control:disabled {
+        background: #f5f5f5;
+    }
+    small {
+        display: block;
+        color: #666;
+        margin-top: 3px;
+        font-size: 12px;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: normal !important;
+    }
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .btn-primary, .btn-secondary, .btn-danger {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .btn-primary {
+        background: #0078d4;
+        color: #fff;
+    }
+    .btn-secondary {
+        background: #eee;
+        color: #333;
+    }
+    .btn-danger {
+        background: #d32f2f;
+        color: #fff;
+    }
+    .error {
+        background: #fee;
+        color: #c00;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+    }
+    .info-section {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+    .info-section h4 {
+        margin-top: 0;
+    }
+    .info-section p {
+        margin: 8px 0;
+    }
+    table.keys {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0;
+    }
+    table.keys th, table.keys td {
+        text-align: left;
+        padding: 4px 6px;
+        border-bottom: 1px solid #eee;
+    }
+</style>
+
+@code {
+    [Parameter] public Package? Package { get; set; }
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public EventCallback<Package> OnSave { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public EventCallback OnNewVersion { get; set; }
+
+    private PackageModel _model = new();
+    private string? _error;
+    private bool _isSaving;
+
+    private List<PackagePublisherKey> _keys = [];
+    private List<PackageChannel> _channels = [];
+    private List<DownloadToken> _tokens = [];
+    private string? _newToken;
+    private string? _newTokenName;
+    private string _newTokenExpiry = "never";
+    private DateTime? _newTokenDate;
+    private string? _tokenError;
+    private Dictionary<string, string?> _latest = new();
+    private string? _channelError;
+    private string? _newKey;
+    private string? _newKeyLabel;
+    private string? _keyError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _keyError = null;
+        _keys = Package != null && !IsNew
+            ? await PackageService.GetPublisherKeysAsync(Package.Id)
+            : [];
+        await LoadChannelsAsync();
+        _tokenError = null;
+        _newToken = null;
+        _tokens = Package != null && !IsNew ? await DownloadTokens.ListAsync(Package.Id) : [];
+    }
+
+    private async Task HandleCreateToken()
+    {
+        _tokenError = null;
+        if (Package == null) return;
+        if (string.IsNullOrWhiteSpace(_newTokenName))
+        {
+            _tokenError = "Give the token a name";
+            return;
+        }
+        DateTime? expires = _newTokenExpiry switch
+        {
+            "90" => DateTime.UtcNow.AddDays(90),
+            "365" => DateTime.UtcNow.AddYears(1),
+            "date" => _newTokenDate?.ToUniversalTime(),
+            _ => null,
+        };
+        if (_newTokenExpiry == "date" && (expires is null || expires <= DateTime.UtcNow))
+        {
+            _tokenError = "Pick a date in the future";
+            return;
+        }
+        try
+        {
+            var (_, plain) = await DownloadTokens.CreateAsync(Package.Id, _newTokenName, expires);
+            _newToken = plain;
+            _newTokenName = null;
+            _tokens = await DownloadTokens.ListAsync(Package.Id);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            _tokenError = ex.Message;
+        }
+    }
+
+    private async Task HandleRevokeToken(DownloadToken token)
+    {
+        if (Package == null) return;
+        await DownloadTokens.RevokeAsync(token.Id);
+        _tokens = await DownloadTokens.ListAsync(Package.Id);
+    }
+
+    private async Task CopyToken()
+    {
+        if (_newToken is not null)
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newToken);
+    }
+
+    private async Task LoadChannelsAsync()
+    {
+        _channelError = null;
+        _channels = Package != null && !IsNew ? await PackageService.GetChannelsAsync(Package.Id) : [];
+        _latest = new();
+        foreach (var channel in _channels)
+            _latest[channel.Name] = (await PackageService.GetLatestVersionAsync(Package!.Id, channel.Name))?.VersionString;
+    }
+
+    /// <summary>The channel's versions with a published build, highest first: what a cap can be.</summary>
+    private IEnumerable<string> PublishedVersions(string channel) =>
+        (Package?.Versions ?? [])
+            .Where(v => v.Channel == channel && v.Builds.Any(b => !b.IsDraft))
+            .OrderByDescending(v => v.VersionKey, StringComparer.Ordinal)
+            .Select(v => v.VersionString);
+
+    private async Task HandlePinChanged(string channel, string? version)
+    {
+        if (Package == null) return;
+        try
+        {
+            await PackageService.SetChannelPinAsync(Package.Id, channel, string.IsNullOrEmpty(version) ? null : version);
+            await LoadChannelsAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _channelError = ex.Message;
+        }
+    }
+
+    private async Task HandleAddKey()
+    {
+        _keyError = null;
+        if (Package == null || string.IsNullOrWhiteSpace(_newKey))
+        {
+            _keyError = "Paste a public key first";
+            return;
+        }
+
+        try
+        {
+            await PackageService.AddPublisherKeyAsync(Package.Id, _newKey, _newKeyLabel);
+            _newKey = null;
+            _newKeyLabel = null;
+            _keys = await PackageService.GetPublisherKeysAsync(Package.Id);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            _keyError = ex.Message;
+        }
+    }
+
+    private async Task HandleRemoveKey(PackagePublisherKey key)
+    {
+        _keyError = null;
+        await PackageService.RemovePublisherKeyAsync(key.Id);
+        if (Package != null)
+            _keys = await PackageService.GetPublisherKeysAsync(Package.Id);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Package != null && !IsNew)
+        {
+            _model = new PackageModel
+            {
+                PackageId = Package.PackageId,
+                DisplayName = Package.DisplayName,
+                Description = Package.Description,
+                DownloadAccessMode = Package.DownloadAccessMode.ToString()
+            };
+        }
+        else
+        {
+            _model = new PackageModel { DownloadAccessMode = "Open" };
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        _error = null;
+        _isSaving = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_model.PackageId))
+            {
+                _error = "Package ID is required";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_model.DisplayName))
+            {
+                _error = "Display name is required";
+                return;
+            }
+
+            var accessMode = Enum.Parse<DownloadAccessMode>(_model.DownloadAccessMode);
+
+            Package result;
+            if (IsNew)
+            {
+                result = await PackageService.CreatePackageAsync(
+                    _model.PackageId.Trim(),
+                    _model.DisplayName.Trim(),
+                    _model.Description?.Trim() ?? "",
+                    accessMode);
+            }
+            else
+            {
+                result = (await PackageService.UpdatePackageAsync(
+                    Package!.Id,
+                    _model.DisplayName.Trim(),
+                    _model.Description?.Trim(),
+                    accessMode))!;
+            }
+
+            await OnSave.InvokeAsync(result);
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to save: " + ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (Package == null) return;
+
+        if (!await ConfirmDelete())
+            return;
+
+        try
+        {
+            await PackageService.DeletePackageAsync(Package.Id);
+            await OnDelete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to delete: " + ex.Message;
+        }
+    }
+
+    private Task<bool> ConfirmDelete()
+    {
+        // In a real app, you'd use a proper confirmation dialog
+        return Task.FromResult(true);
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+
+    private async Task HandleNewVersion()
+    {
+        await OnNewVersion.InvokeAsync();
+    }
+
+    private class PackageModel
+    {
+        public string PackageId { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string? Description { get; set; }
+        public string DownloadAccessMode { get; set; } = "Open";
+    }
+}

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Instella.CLI</RootNamespace>
+    <AssemblyName>Instella.CLI</AssemblyName>
+    <Description>CLI tool for project scaffolding and uploading packages to Instella server</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>instella</ToolCommandName>
+    <PackageId>instella-cli</PackageId>
+    <PackageTags>instella;installer;updater;cli;dotnet-tool;ci</PackageTags>
+    <!-- The assemblies live under tools/, not lib/, so a symbol package would put
+         PDBs where nuget.org's symbol validation does not look. The PDBs are
+         already shipped inside the tool package itself. -->
+    <IncludeSymbols>false</IncludeSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Instella.Core\Instella.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Read by Services/InstellaDocs.cs for the links in help, templates and workflows. -->
+    <AssemblyMetadata Include="InstellaDocsUrl" Value="$(InstellaDocsUrl)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Instella.CLI.Tests" />
+    <InternalsVisibleTo Include="Instella.Contract.Tests" />
+  </ItemGroup>
+</Project>
