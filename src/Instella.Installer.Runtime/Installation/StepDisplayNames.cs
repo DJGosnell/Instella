@@ -29,6 +29,7 @@ internal static class StepDisplayNames
     /// <summary>The display name of <paramref name="step"/>.</summary>
     public static string For(IInstallStep step) =>
         step is Builders.StepSpec { DisplayName: { } own } ? own
+        : step is Migrations.MigrationStep migration ? migration.DisplayName
         : BuiltIn.TryGetValue(step.Name, out var builtIn) ? builtIn
         : step.Name;
 

@@ -56,6 +56,15 @@ internal sealed class StepExecutor
         for (var i = 0; i < _steps.Count; i++)
         {
             var step = _steps[i];
+            var bestEffort = step is Migrations.IBestEffortStep { IsBestEffort: true };
+
+            if (cancellationToken.IsCancellationRequested && bestEffort)
+            {
+                // After the commit: cancelling skips what is left, it never undoes the install.
+                context.Log.Info($"step[{step.Stage}] {step.Name}: skipped (cancelled; the install is complete)");
+                audit.Add(new StepExecutionRecord(step.Name, step.Stage, StepOutcome.Skipped, Error: "cancelled"));
+                continue;
+            }
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -98,11 +107,22 @@ internal sealed class StepExecutor
                         context.Ledger.RecordingUserStep = false;
                     }
                 }
+                catch (OperationCanceledException) when (bestEffort)
+                {
+                    audit.Add(new StepExecutionRecord(step.Name, step.Stage, StepOutcome.Skipped, Error: "cancelled"));
+                    continue;
+                }
                 catch (OperationCanceledException)
                 {
                     audit.Add(new StepExecutionRecord(step.Name, step.Stage, StepOutcome.Skipped, Error: "cancelled"));
                     await RollbackWithOwnTokenAsync(context, completed, warnings, ponrCompletedIndex, ponrLedgerIndex);
                     return ExecutionResult.Fail("Installation cancelled", audit, warnings);
+                }
+                catch (Exception ex) when (bestEffort)
+                {
+                    context.Log.Warn($"step[{step.Stage}] {step.Name}: threw {ex.GetType().Name}: {ex.Message}; the install is kept");
+                    audit.Add(new StepExecutionRecord(step.Name, step.Stage, StepOutcome.SucceededWithWarnings, Warnings: [ex.Message]));
+                    continue;
                 }
                 catch (Exception ex)
                 {
@@ -111,6 +131,13 @@ internal sealed class StepExecutor
                     await RollbackWithOwnTokenAsync(context, completed, warnings, ponrCompletedIndex, ponrLedgerIndex);
                     return ExecutionResult.Fail(ex.Message, audit, warnings);
                 }
+            }
+
+            if (!result.Success && bestEffort)
+            {
+                context.Log.Warn($"step[{step.Stage}] {step.Name}: failed ({result.Error}); the install is kept");
+                audit.Add(new StepExecutionRecord(step.Name, step.Stage, StepOutcome.SucceededWithWarnings, Warnings: [result.Error ?? "failed"]));
+                continue;
             }
 
             if (!result.Success)
@@ -144,10 +171,31 @@ internal sealed class StepExecutor
         // backup folder. Until this point a failure could still roll the commit back.
         if (context.Transaction is { } txn)
         {
-            // Custom Finalize steps run after the commit; record what they tracked.
-            await BuiltIn.WriteManifestStep.AmendTrackedItemsAsync(context, cancellationToken);
+            // Custom Finalize steps and AfterCommit migrations run after the commit; record what
+            // they tracked, completed and adopted. The install is complete either way.
+            try
+            {
+                await BuiltIn.WriteManifestStep.AmendManifestAsync(context, CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                context.Log.Warn($"could not update the installed manifest after the commit: {ex.Message}");
+            }
             await txn.CompleteAsync();
         }
+
+        foreach (var completion in context.CompletionActions)
+        {
+            try
+            {
+                await completion();
+            }
+            catch (Exception ex)
+            {
+                context.Log.Warn($"clean-up after the install: {ex.Message}");
+            }
+        }
+        LogMigrationSummary(context);
 
         return ExecutionResult.Ok(audit, warnings);
     }
@@ -167,6 +215,17 @@ internal sealed class StepExecutor
     {
         using var rollbackCts = new CancellationTokenSource(RollbackTimeout);
         await RollbackCompletedAsync(context, completed, warnings, ponrCompletedIndex, ponrLedgerIndex, rollbackCts.Token);
+    }
+
+    /// <summary>One line naming what each migration did, e.g. <c>migrations: 1 completed (a), 1 skipped (b)</c>.</summary>
+    private static void LogMigrationSummary(InstallContext context)
+    {
+        var records = context.Migrations.Records;
+        if (records.Count == 0) return;
+        var parts = records
+            .GroupBy(r => r.Outcome)
+            .Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()} ({string.Join(", ", g.Select(r => r.Id))})");
+        context.Log.Info($"migrations: {string.Join(", ", parts)}");
     }
 
     /// <summary>Upper bound on a whole rollback.</summary>

@@ -121,6 +121,9 @@ public sealed class InstallContext
     /// <summary>Set when a step (e.g. a prerequisite returning 3010) needs a reboot; the finish page shows it.</summary>
     public bool RebootRequired { get; set; }
 
+    /// <summary>The <c>WithAppManagedAutoStart</c> Run value names, recorded as adopted items in the manifest.</summary>
+    internal IReadOnlyList<string> AppManagedRunValues { get; init; } = [];
+
     /// <summary>Install migrations: the seams they reach the machine through, and what they did in this run.</summary>
     internal Migrations.MigrationRuntime Migrations { get; set; } = new();
 

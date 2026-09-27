@@ -28,8 +28,16 @@ internal static class StepOrdering
     /// <summary>
     /// Merge built-in steps with user <see cref="StepSpec"/>s in a single
     /// linear order suitable for <see cref="StepExecutor"/>. Built-ins are
-    /// defined by <see cref="OfflineInstallRunner.BuildDefaultSteps"/>.
+    /// defined by <see cref="OfflineInstallRunner.BuildDefaultSteps"/>. Install migrations are
+    /// then placed by <see cref="Migrations.MigrationPipeline.Insert"/>.
     /// </summary>
+    public static IReadOnlyList<IInstallStepExecution> BuildOrderedSteps(
+        IReadOnlyList<IInstallStepExecution> builtIn,
+        IReadOnlyList<StepSpec> userSteps,
+        IReadOnlyList<Migrations.InstallMigration> migrations) =>
+        Migrations.MigrationPipeline.Insert(BuildOrderedSteps(builtIn, userSteps), migrations);
+
+    /// <summary>Built-in and user steps only (no migrations).</summary>
     public static IReadOnlyList<IInstallStepExecution> BuildOrderedSteps(
         IReadOnlyList<IInstallStepExecution> builtIn,
         IReadOnlyList<StepSpec> userSteps)

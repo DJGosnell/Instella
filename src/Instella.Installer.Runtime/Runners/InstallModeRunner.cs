@@ -175,7 +175,13 @@ internal sealed class InstallModeRunner
                 builtIns.Add(new WriteRegistrySpecsStep(_config.RegistryWrites));
             }
 
-            var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps);
+            var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
+            // Silent: migrations close programs only with --force-close, as the upgrade gate does.
+            context.Migrations = new Migrations.MigrationRuntime
+            {
+                ProcessFinder = ProcessFinder ?? Services?.ProcessFinder ?? DefaultLockingProcessFinder.Instance,
+                ForceClose = dispatch.ForceClose,
+            };
 
             var executor = new StepExecutor(steps);
             var result = await executor.ExecuteAsync(context, progress: null, ct);

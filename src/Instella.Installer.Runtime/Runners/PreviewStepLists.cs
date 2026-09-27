@@ -37,7 +37,7 @@ internal static class PreviewStepLists
         var list = new List<IInstallStepExecution>(OfflineInstallRunner.BuildDefaultSteps());
         foreach (var user in config.UserSteps)
             list.Add(user);
-        return list;
+        return Migrations.MigrationPipeline.Insert(list, config.MigrationsOrEmpty);
     }
 
     private static IReadOnlyList<IInstallStepExecution> BuildUpdateSteps() => new IInstallStepExecution[]
