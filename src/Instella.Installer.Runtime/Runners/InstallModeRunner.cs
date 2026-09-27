@@ -179,7 +179,9 @@ internal sealed class InstallModeRunner
             // Silent: migrations close programs only with --force-close, as the upgrade gate does.
             context.Migrations = new Migrations.MigrationRuntime
             {
+                Folders = Services?.KnownFolders ?? Migrations.KnownFolderResolver.Host,
                 ProcessFinder = ProcessFinder ?? Services?.ProcessFinder ?? DefaultLockingProcessFinder.Instance,
+                ProcessCloser = Services?.ProcessCloser,
                 ForceClose = dispatch.ForceClose,
             };
 

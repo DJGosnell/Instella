@@ -1,1 +1,72 @@
 #nullable enable
+Instella.Installer.Testing.InstellaTestHarness.Builder.WithPayload(System.Collections.Generic.IReadOnlyDictionary<string!, string!>! files) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
+Instella.Installer.Testing.InstellaTestHarness.IsProcessRunning(string! exePath) -> bool
+Instella.Installer.Testing.InstellaTestHarness.KnownFolderPath(Instella.Installer.Runtime.Migrations.KnownFolder folder, Instella.Core.Installation.InstallationScope scope = Instella.Core.Installation.InstallationScope.PerUser) -> string!
+Instella.Installer.Testing.InstellaTestHarness.RunFullWithArgsAsync(System.Collections.Generic.IReadOnlyList<string!>! args, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<int>!
+Instella.Installer.Testing.InstellaTestHarness.StartProcess(string! exePath, bool closes = true) -> void
+Instella.Installer.Testing.MigrationHarness
+Instella.Installer.Testing.MigrationHarness.AlreadyCompleted() -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.Elevated(bool elevated = true) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.FailLaterStep() -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.ForceClose(bool forceClose = true) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.InstallPath(string! path) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.Mode(Instella.Core.Installation.InstallerMode mode) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.PathOf(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> string!
+Instella.Installer.Testing.MigrationHarness.Preview() -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.PreviousVersion(string! version) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.ProgramExitCode(int exitCode) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.RunAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Instella.Installer.Testing.MigrationResult!>!
+Instella.Installer.Testing.MigrationHarness.Scope(Instella.Core.Installation.InstallationScope scope) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithApp(string! name, string! appId, string! executableName, string! version = "2.0.0") -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithFile(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative, string! content = "") -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithFolder(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithInstellaInstallation(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithRegistryValue(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, string! value) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithRunValue(string! name, string! command) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.WithRunningProcess(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relativeExe, bool closes = true) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationOutcome.AlreadyCompleted = 2 -> Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationOutcome.Completed = 0 -> Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationOutcome.Failed = 3 -> Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationOutcome.RolledBack = 4 -> Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationOutcome.Skipped = 1 -> Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationRegistryChange
+Instella.Installer.Testing.MigrationRegistryChange.<Clone>$() -> Instella.Installer.Testing.MigrationRegistryChange!
+Instella.Installer.Testing.MigrationRegistryChange.After.get -> string?
+Instella.Installer.Testing.MigrationRegistryChange.After.init -> void
+Instella.Installer.Testing.MigrationRegistryChange.Before.get -> string?
+Instella.Installer.Testing.MigrationRegistryChange.Before.init -> void
+Instella.Installer.Testing.MigrationRegistryChange.Deconstruct(out Instella.Core.Platform.RegistryHive Hive, out string! KeyPath, out string! Name, out string? Before, out string? After) -> void
+Instella.Installer.Testing.MigrationRegistryChange.Equals(Instella.Installer.Testing.MigrationRegistryChange? other) -> bool
+Instella.Installer.Testing.MigrationRegistryChange.Hive.get -> Instella.Core.Platform.RegistryHive
+Instella.Installer.Testing.MigrationRegistryChange.Hive.init -> void
+Instella.Installer.Testing.MigrationRegistryChange.KeyPath.get -> string!
+Instella.Installer.Testing.MigrationRegistryChange.KeyPath.init -> void
+Instella.Installer.Testing.MigrationRegistryChange.MigrationRegistryChange(Instella.Core.Platform.RegistryHive Hive, string! KeyPath, string! Name, string? Before, string? After) -> void
+Instella.Installer.Testing.MigrationRegistryChange.Name.get -> string!
+Instella.Installer.Testing.MigrationRegistryChange.Name.init -> void
+Instella.Installer.Testing.MigrationResult
+Instella.Installer.Testing.MigrationResult.Actions.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.MigrationResult.AdoptedItems.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestAdoptedItem!>!
+Instella.Installer.Testing.MigrationResult.DeletedFiles.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.MigrationResult.Error.get -> string?
+Instella.Installer.Testing.MigrationResult.FileExists(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> bool
+Instella.Installer.Testing.MigrationResult.FolderExists(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> bool
+Instella.Installer.Testing.MigrationResult.LogLines.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.MigrationResult.Outcome.get -> Instella.Installer.Testing.MigrationOutcome
+Instella.Installer.Testing.MigrationResult.PathOf(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> string!
+Instella.Installer.Testing.MigrationResult.PlannedActions.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.MigrationResult.ProgramsRun.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.MigrationResult.Ran.get -> bool
+Instella.Installer.Testing.MigrationResult.RecordedAsCompleted.get -> bool
+Instella.Installer.Testing.MigrationResult.RegistryChanges.get -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Testing.MigrationRegistryChange!>!
+Instella.Installer.Testing.MigrationResult.RunValue(string! name) -> string?
+Instella.Installer.Testing.MigrationResult.SkipReason.get -> string?
+Instella.Installer.Testing.MigrationResult.StoppedProcesses.get -> System.Collections.Generic.IReadOnlyList<string!>!
+override Instella.Installer.Testing.MigrationRegistryChange.Equals(object? obj) -> bool
+override Instella.Installer.Testing.MigrationRegistryChange.GetHashCode() -> int
+override Instella.Installer.Testing.MigrationRegistryChange.ToString() -> string!
+static Instella.Installer.Testing.MigrationHarness.For(Instella.Installer.Runtime.Migrations.InstallMigration! migration) -> Instella.Installer.Testing.MigrationHarness!
+static Instella.Installer.Testing.MigrationHarness.For<T>() -> Instella.Installer.Testing.MigrationHarness!
+static Instella.Installer.Testing.MigrationRegistryChange.operator !=(Instella.Installer.Testing.MigrationRegistryChange? left, Instella.Installer.Testing.MigrationRegistryChange? right) -> bool
+static Instella.Installer.Testing.MigrationRegistryChange.operator ==(Instella.Installer.Testing.MigrationRegistryChange? left, Instella.Installer.Testing.MigrationRegistryChange? right) -> bool

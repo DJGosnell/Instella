@@ -22,6 +22,8 @@ namespace Instella.Installer.Runtime.Builders;
 /// <param name="ScopePrompt">Asks "for me or for everyone"; null shows the scope window.</param>
 /// <param name="StubDirectory">The folder the running stub is in; null uses the process's own folder.</param>
 /// <param name="ManagerUi">The Modify / Repair / Uninstall window; null shows the Win32 one.</param>
+/// <param name="KnownFolders">Where install migrations find the known folders; null uses the host's.</param>
+/// <param name="ProcessCloser">Closes programs for install migrations; null asks them through the platform.</param>
 internal sealed record InstallerServices(
     IPlatformServices Platform,
     IFileSystem FileSystem,
@@ -34,7 +36,9 @@ internal sealed record InstallerServices(
     Core.Processes.IAppLauncher? AppLauncher = null,
     Runners.ScopePrompt? ScopePrompt = null,
     System.Func<string?>? StubDirectory = null,
-    Runners.ManagerUiLauncher? ManagerUi = null)
+    Runners.ManagerUiLauncher? ManagerUi = null,
+    Migrations.KnownFolderResolver? KnownFolders = null,
+    Core.Processes.IProcessCloser? ProcessCloser = null)
 {
     /// <summary><see cref="StubDirectory"/>, or the folder of the running process.</summary>
     public string? StubDirectoryOrDefault() => (StubDirectory ?? Runners.InstallPaths.StubDirectory)();

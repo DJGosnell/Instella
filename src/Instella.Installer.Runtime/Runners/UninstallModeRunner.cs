@@ -162,6 +162,12 @@ internal sealed class UninstallModeRunner
     /// <summary>Test hook: the seams uninstall migrations use (known folders, processes, programs); null uses the host's.</summary>
     internal Migrations.MigrationRuntime? MigrationRuntime { get; init; }
 
+    /// <summary>Test hook: where uninstall migrations find the known folders; null uses the host's.</summary>
+    internal Migrations.KnownFolderResolver? KnownFolders { get; init; }
+
+    /// <summary>Test hook: closes programs for uninstall migrations; null asks them through the platform.</summary>
+    internal IProcessCloser? ProcessCloser { get; init; }
+
     /// <summary>Test hook: asks about programs using the app's files; null shows a message box.</summary>
     internal AppRunningPrompt? AppRunningPrompt { get; init; }
 
@@ -345,7 +351,9 @@ internal sealed class UninstallModeRunner
             existing: manifest, cli: dispatch.CliOrEmpty);
         context.Migrations = MigrationRuntime ?? new Migrations.MigrationRuntime
         {
+            Folders = KnownFolders ?? Migrations.KnownFolderResolver.Host,
             ProcessFinder = ProcessFinder ?? DefaultLockingProcessFinder.Instance,
+            ProcessCloser = ProcessCloser,
             Prompt = prompt,
             ForceClose = dispatch.ForceClose,
         };
