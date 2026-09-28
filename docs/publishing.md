@@ -42,8 +42,8 @@ is any name of 1-32 lowercase letters, digits and hyphens (`beta`, `nightly`, `i
 server creates it with the first upload to it. An installer or app follows the channel it was
 built with (`WithChannel(...)`), and a version number belongs to exactly one channel.
 
-**"Latest"** on a channel is the highest version number that is published (not a draft) and not
-deprecated. The release date plays no part, so a hotfix for an older line (`1.2.5` after `1.3.0`)
+**"Latest"** on a channel is the highest version number that is published (not a draft, and not
+pending [release approval](#publishing-tiers-and-release-approval)) and not deprecated. The release date plays no part, so a hotfix for an older line (`1.2.5` after `1.3.0`)
 never becomes latest. Update checks, the `latest` installer links, the download page and patch
 generation all use this one definition. Versions are compared canonically: `1.3` and `1.3.0` are
 the same version, and the server refuses a second spelling of a version it already has.
@@ -134,6 +134,71 @@ instella ci init --host github --signing kms-aws \
 It writes `.github/workflows/instella-release.yml` (or `.gitea/workflows/instella-release.yml`) and
 prints the secrets and variables to create. `--rid` changes the platform (default `win-x64`),
 `--name` the name used in the installer file names, and `--force` overwrites an existing workflow.
+`--no-environment` is for GitHub repositories without deployment environments (see
+[GitHub Actions](#github-actions)).
+
+### Publishing tiers and release approval
+
+Two independent settings decide how a tag becomes a release:
+
+| Setting | Where it lives | Values | Protects against |
+|---|---|---|---|
+| **Signer** | the CI workflow and the installer build | `secret`, `kms-azure`, `kms-aws`, `kms-gcp`, `manual` | a compromised server, API key or storage |
+| **Release approval** | the package on the server | `Automatic`, `Delayed`, `Required` | a compromised CI or account |
+
+The signer decides what installations accept: they verify every release against the publisher
+keys compiled into their installer, whatever the server says. Release approval can only **hold a
+correctly signed release back**; it never changes what installations check, so a compromised
+server cannot use it to weaken verification.
+
+Together they give three tiers:
+
+| Tier | Signer | Release approval | What happens after the tag |
+|---|---|---|---|
+| **Automatic** | a CI signer | `Automatic` or `Delayed` | The release goes live at once, or after the delay unless someone rejects it. No manual step. |
+| **Approved** | a CI signer | `Required` | The release is uploaded signed and waits until someone approves it. |
+| **Hand-signed** | `manual` | any | CI uploads an unsigned draft; a person signs it with `instella publish`. After signing, release approval applies (with `Required` it still waits for Approve). |
+
+**Setting release approval.** In the admin UI, open **Packages**, select the package, and use the
+**Release approval** section: `Automatic` (the default), `Delayed` with a delay from 1 hour to 7
+days, or `Required`. `Delayed` and `Required` need at least one
+[registered publisher key](signing-and-keys.md#registering-publisher-keys-on-the-server), so every
+held release has a signature the server has verified. Every change is written to the security log.
+A change never publishes anything by itself: releases already pending keep their terms, except that
+switching to `Required` cancels running delays, so those releases wait for approval.
+
+**Pending releases.** A held release is invisible to installers, apps, the download page and
+`latest` until it is published. `instella upload` succeeds (exit 0) and prints that the release is
+pending, and when it publishes automatically. Patches are generated at upload, so approval takes
+effect immediately. Approve or reject in the admin UI (the **Awaiting a decision** list in the
+package pane, or the build's **Approve** and **Reject** buttons) or from a person's machine:
+
+```bash
+instella pending --server https://updates.example.com --package com.example.quicknotes
+instella approve --server https://updates.example.com --package com.example.quicknotes \
+    --version 1.3.0 --os windows --arch x64 --path <the run's app artifact>
+instella reject  --server https://updates.example.com --package com.example.quicknotes \
+    --version 1.3.0 --os windows --arch x64 --reason "unexpected tag"
+```
+
+These need an API key with the **Approve releases** permission. A key cannot have both Upload and
+Approve releases, and an API key never approves its own upload: keep the approve key on a person's
+machine, never in CI (a CI holding both keys would approve its own releases). `approve` shows the
+release, compares it with `--path`, `--installer` and `--offline-installer` when given, asks for
+confirmation (`--yes` skips it), and approves exactly the manifest it showed; if the release was
+replaced in the meantime, the server refuses. Approval also re-checks the signature against the
+package's registered keys, so a release signed by a key you have since removed can only be
+rejected. **Reject** deletes the build (and the version, if it has no other build); the same
+version number can then be uploaded again, and it is held again.
+
+**Delayed.** The server stores when each delayed release goes live and publishes it within about
+30 seconds of that time. If the server was down, it publishes overdue releases right after it
+starts: a restart can make a release late, never early.
+
+**Patches and late approvals.** A release's patch is built when it is uploaded, from the highest
+version published at that moment. If you approve an older pending version after a newer one was
+published, the newer version has no patch from it, so installations on the approved version
+download the changed files in full for that one update.
 
 ### Tags, versions and channels
 
@@ -156,23 +221,46 @@ four-part betas such as `v1.4.0.1-beta` and `v1.4.0.2-beta` followed by `v1.4.1`
 ### Choosing how CI signs
 
 A pipeline that publishes automatically will always be able to cause a signature. The goal is that
-it can *use* the key only while an approved run is going, cannot copy the key, and leaves a record.
+it can *use* the key only while a release run is going, cannot copy the key, and leaves a record.
+Whichever signer you choose, the server's [release approval](#publishing-tiers-and-release-approval)
+can add a person (or a delay) before installations see the release.
 
 | `--signing` | The key lives | CI can | Choose it when |
 |---|---|---|---|
-| `kms-azure`, `kms-aws`, `kms-gcp` (recommended) | in a cloud key service, created non-exportable | ask for signatures while the run's short-lived identity is valid | you want releases fully automated |
-| `draft` | only with a maintainer | upload an unsigned draft that nobody sees until a maintainer publishes it | no pipeline may sign at all |
-| `secret` | in a CI secret (PEM text) | read the key | you have no key service; limit who can run the job |
+| `secret` | in a CI secret (PEM text), with an offline backup key that never goes to CI | read the key | the default for a solo maintainer; no key service needed |
+| `kms-azure`, `kms-aws`, `kms-gcp` | in a cloud key service, created non-exportable | ask for signatures while the run's short-lived identity is valid | you want the key to be impossible to copy |
+| `manual` | only with a maintainer | upload an unsigned draft that nobody sees until a maintainer signs it | no pipeline may sign at all |
+
+`draft` is the old name of `manual`. It still works in this release with a warning, and will be
+removed in the next one.
+
+**Why automatic signing keeps you safe.** Installations trust only the publisher keys compiled
+into their installer, so a compromised server, API key or storage still cannot deliver anything you
+did not sign. A person signing each release by hand adds protection only against a compromised CI or
+repository account, and even then only checks that the draft matches the CI output, not that the
+code is safe. Release approval `Delayed` or `Required` covers that case without a manual signing step.
+
+**Secret with an offline backup key (the solo-maintainer default).** The PEM text goes into
+`INSTELLA_SIGNING_KEY` (and its password into `INSTELLA_SIGNING_KEY_PASSWORD`). Before the first
+release, also generate a backup key that never goes to CI, keep it offline, and compile **both**
+public keys into the installer (`WithPublisherKey` twice). If the CI key ever leaks, one release
+signed with the backup key and `--trusted-key` makes installations stop trusting the leaked key,
+without reinstalling ([signing-and-keys.md](signing-and-keys.md#two-keys-an-online-key-and-an-offline-backup-key)).
+This must be in place before the first release: installations trust only the keys compiled into
+the installer they came from. Anyone who can change a workflow that runs with the secret can read
+the key, so protect the `v*` tags, limit who can push workflows, and on GitHub use a protected
+environment when your plan has one.
 
 **KMS.** Create an ECDSA P-256 signing key in the key service, marked non-exportable, and allow
 the pipeline's identity to *sign* with it, nothing else. `instella upload --sign-command` sends
 only the SHA-256 digest of the manifest to the key service and checks the returned signature
 against `--signing-public-key` before it uploads anything. Put the same public key in the installer
-with `.WithPublisherKey(...)`. The commands for each service are in
-[signing-and-keys.md](signing-and-keys.md#signing-with-a-key-that-never-leaves-a-kms-or-hsm---sign-command).
+with `.WithPublisherKey(...)`, together with an offline backup key. The commands for each service
+are in [signing-and-keys.md](signing-and-keys.md#signing-with-a-key-that-never-leaves-a-kms-or-hsm---sign-command).
 
-**Draft.** CI uploads with `--draft`: files and installers are stored, but installers, apps and the
-download page do not see the version. A maintainer then runs, on their own machine:
+**Manual (Hand-signed).** CI uploads with `--draft`: files and installers are stored, but
+installers, apps and the download page do not see the version. A maintainer then runs, on their own
+machine:
 
 ```bash
 instella publish --server https://updates.example.com --package com.example.quicknotes \
@@ -183,32 +271,39 @@ instella publish --server https://updates.example.com --package com.example.quic
 
 `publish` compares the draft with the files you pass and refuses to sign when anything differs,
 shows what it will sign, asks for confirmation, and signs exactly the draft's manifest. Download
-the run's artifact from the CI run page to have something to compare against.
-
-**Secret.** The PEM text goes into `INSTELLA_SIGNING_KEY` (and its password into
-`INSTELLA_SIGNING_KEY_PASSWORD`). Anyone who can change a workflow that runs with these secrets can
-read the key, so keep them in a protected environment (GitHub) and prefer a KMS.
+the run's artifact from the CI run page to have something to compare against. Once signed, the
+release follows the package's release approval: with `Required`, `publish` prints that it is
+pending and it still waits for Approve.
 
 ### GitHub Actions
 
-- **Environment.** The publish job runs in the `release` environment. In Settings > Environments,
-  add required reviewers and limit the environment to `v*` tags. Nothing is signed until someone
-  approves the run.
+- **Environment (optional).** By default the publish job runs in the `release` environment. In
+  Settings > Environments, add required reviewers and limit the environment to `v*` tags; nothing is
+  signed until someone approves the run. Repositories without deployment environments (private
+  repositories on the free plan) use `instella ci init --no-environment`: the workflow has no
+  `environment:` line, and release approval on the server (`Delayed` or `Required`) is where a
+  person can stop a release. Protect the `v*` tags (Settings > Rules) either way.
 - **OIDC for the key services.** The publish job has `id-token: write` and signs in without a
-  stored cloud secret:
-  - *Azure*: an app registration with a federated credential for
-    `repo:<owner>/<repo>:environment:release`; give it the "Key Vault Crypto User" role on the one
-    key (or `sign` in an access policy). Variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
-    `INSTELLA_KEY_VAULT_KEY_ID` (the key's URL) and `INSTELLA_SIGNING_PUBLIC_KEY`.
+  stored cloud secret. The trust policy matches the job's OIDC subject: with the environment,
+  `repo:<owner>/<repo>:environment:release`; without one, the tag ref,
+  `repo:<owner>/<repo>:ref:refs/tags/v*`.
+  - *Azure*: an app registration with a federated credential for that subject (for the tag ref,
+    a flexible federated credential whose expression matches `refs/tags/v*`; a plain credential names
+    a single tag); give it the "Key Vault Crypto User" role on the one key (or `sign` in an access
+    policy). Variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `INSTELLA_KEY_VAULT_KEY_ID` (the key's
+    URL) and `INSTELLA_SIGNING_PUBLIC_KEY`.
   - *AWS*: an IAM role whose trust policy accepts `token.actions.githubusercontent.com` with
-    `sub` = `repo:<owner>/<repo>:environment:release`, allowed only `kms:Sign` on the key.
-    Variables `AWS_ROLE_ARN`, `AWS_REGION`, `INSTELLA_KMS_KEY_ID` and `INSTELLA_SIGNING_PUBLIC_KEY`.
-  - *Google Cloud*: workload identity federation for the repository and a service account with
+    `sub` equal to the environment subject, or `StringLike` the tag-ref subject, allowed only
+    `kms:Sign` on the key. Variables `AWS_ROLE_ARN`, `AWS_REGION`, `INSTELLA_KMS_KEY_ID` and
+    `INSTELLA_SIGNING_PUBLIC_KEY`.
+  - *Google Cloud*: workload identity federation for the repository (without an environment, add an
+    attribute condition that the ref starts with `refs/tags/v`) and a service account with
     `roles/cloudkms.signer` on the key. Variables `GCP_WORKLOAD_IDENTITY_PROVIDER`,
     `GCP_SERVICE_ACCOUNT`, `GCP_KMS_LOCATION`, `GCP_KMS_KEYRING`, `GCP_KMS_KEY`,
     `GCP_KMS_KEY_VERSION` and `INSTELLA_SIGNING_PUBLIC_KEY`.
 - **`INSTELLA_API_KEY`** is a secret: a server API key limited to the package, with upload
-  permission.
+  permission. It can never also have the Approve releases permission (the server refuses the
+  combination).
 - **Pin actions.** Replace each `uses: owner/action@v4` with the full commit SHA of the version you
   reviewed (`@<40-hex-sha> # v4.x.y`). A tag can be moved; a SHA cannot.
 - **Never on pull requests.** The workflow runs on tags only; do not add `pull_request` triggers to a
@@ -229,7 +324,8 @@ The generated workflow uses the same steps with these differences:
   else, so a leak can only sign releases, which the key service logs. The runner image needs the
   key service's CLI.
 - **No environments.** Protect the `v*` tags (Settings > Tags) so only maintainers can start the
-  workflow; there is no approval step, so consider `draft` for a person to approve each release.
+  workflow. Gitea has no approval step of its own, so use release approval `Delayed` or `Required`
+  on the server for a person to see each release before installations do.
 - **Artifacts.** The workflow uses `actions/upload-artifact@v3` and `download-artifact@v3`, which
   Gitea supports; use v4 only if your Gitea version supports it.
 
@@ -259,3 +355,7 @@ users download.
 - Rotate the publisher key with `instella upload --trusted-key` (see
   [signing-and-keys.md](signing-and-keys.md#rotation)); older installers keep offering only versions
   signed by keys they trust.
+- A release held by release approval is not published yet: approve or reject it in the admin UI
+  (the package's **Awaiting a decision** list) or with `instella approve` / `instella reject` (see
+  [Publishing tiers and release approval](#publishing-tiers-and-release-approval)). A rejected
+  release is deleted, and the same version number can be uploaded again.

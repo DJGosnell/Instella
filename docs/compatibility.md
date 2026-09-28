@@ -60,7 +60,11 @@ Before 1.0 a release may break any of these; the changelog says so when it does.
 - **Versions have one spelling.** `1.3`, `1.3.0` and `1.3.0.0` are the same version, `1.3.0`: three
   parts, plus a fourth only when the revision is greater than zero. Every comparison uses that form.
 - **The server schema starts from one baseline migration** (`InitialCreate`). Every later schema change is
-  a new migration, and a released migration is never edited.
+  a new migration, and a released migration is never edited. `ReleaseApproval` (after 0.1.0) is the first:
+  it keeps existing data (drafts stay drafts), so no empty database is needed.
+- **Wire additions are optional fields.** A newer server adds response fields that older clients
+  ignore (for example `CompleteUploadResponse.state`), and a newer CLI treats a missing field as
+  "the server did not say" (an older server has no `state`, so `upload` prints its old message).
 - **A breaking change is a major version.** Dropping support for a format version, or changing a
   format without bumping its version, requires Instella 2.0.
 
