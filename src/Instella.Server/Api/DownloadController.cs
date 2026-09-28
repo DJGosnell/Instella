@@ -306,7 +306,7 @@ public class DownloadController(
         var (allowed, error) = await ValidateDownloadAccessAsync(latestVersion.Package, ct, Ok(NoUpdate));
         if (!allowed) return error!;
 
-        var latestBuild = latestVersion.Builds.FirstOrDefault(b => b.OS == targetOs && b.Architecture == targetArch && !b.IsDraft);
+        var latestBuild = latestVersion.Builds.FirstOrDefault(b => b.OS == targetOs && b.Architecture == targetArch && b.State == BuildState.Published);
         if (latestBuild == null)
             return Ok(NoUpdate);
 

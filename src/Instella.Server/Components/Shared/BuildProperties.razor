@@ -9,7 +9,7 @@
 <div class="properties">
     <h3>@Build.OS / @Build.Architecture</h3>
 
-    @if (Build.IsDraft)
+    @if (Build.State == BuildState.Draft)
     {
         <div class="info-notice">
             <strong>Draft.</strong> Uploaded with <code>instella upload --draft</code> and not visible to installers or apps

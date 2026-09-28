@@ -66,4 +66,10 @@ public class ApiKey
     /// in a CI pipeline should not be able to delete releases.
     /// </summary>
     public bool CanManageVersions { get; set; }
+
+    /// <summary>
+    /// Whether this key can approve or reject releases held by the package's release approval. Never
+    /// together with <see cref="CanUpload"/>: an approve key belongs to a person, not to CI.
+    /// </summary>
+    public bool CanApproveReleases { get; set; }
 }

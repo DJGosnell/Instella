@@ -22,6 +22,22 @@ public enum DownloadAccessMode
 }
 
 /// <summary>
+/// Whether a signed upload goes live at once. The server can only hold a release back; clients still
+/// verify every release against the keys compiled into their installer.
+/// </summary>
+public enum ReleaseApproval
+{
+    /// <summary>A signed upload is published immediately.</summary>
+    Automatic = 0,
+
+    /// <summary>A signed upload is published after <see cref="Package.ReleaseDelayMinutes"/> unless rejected.</summary>
+    Delayed = 1,
+
+    /// <summary>A signed upload waits until an admin or an approve key approves it.</summary>
+    Required = 2,
+}
+
+/// <summary>
 /// Represents a distributable software package.
 /// </summary>
 public class Package
@@ -52,6 +68,12 @@ public class Package
     /// Specifies the download access mode for this package.
     /// </summary>
     public DownloadAccessMode DownloadAccessMode { get; set; } = DownloadAccessMode.Open;
+
+    /// <summary>Whether signed uploads go live at once, after a delay, or after approval.</summary>
+    public ReleaseApproval ReleaseApproval { get; set; } = ReleaseApproval.Automatic;
+
+    /// <summary>The hold of <see cref="ReleaseApproval.Delayed"/>, in minutes.</summary>
+    public int ReleaseDelayMinutes { get; set; } = 1440;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

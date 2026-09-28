@@ -155,11 +155,11 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
 
     /// <summary>
     /// The versions "latest" is chosen from: on <paramref name="channel"/>, not deprecated,
-    /// with a published (non-draft) build for <paramref name="os"/>/<paramref name="arch"/> when given.
+    /// with a published (not draft or pending) build for <paramref name="os"/>/<paramref name="arch"/> when given.
     /// </summary>
     private IQueryable<PackageVersion> Releasable(long packageDbId, string channel, TargetOS? os, Architecture? arch) =>
         db.PackageVersions.Where(v => v.PackageId == packageDbId && v.Channel == channel && !v.IsDeprecated
-            && v.Builds.Any(b => !b.IsDraft && (os == null || b.OS == os) && (arch == null || b.Architecture == arch)));
+            && v.Builds.Any(b => b.State == BuildState.Published && (os == null || b.OS == os) && (arch == null || b.Architecture == arch)));
 
     /// <summary>
     /// "Latest" on a channel: the highest version (by <see cref="PackageVersion.VersionKey"/>,
@@ -276,9 +276,9 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
     }
 
     // Build operations
-    /// <summary>One published build; a draft only with <paramref name="includeDrafts"/>.</summary>
+    /// <summary>One published build; a draft or pending one only with <paramref name="includeUnpublished"/>.</summary>
     public async Task<VersionBuild?> GetBuildAsync(string packageId, string versionString, TargetOS os, Architecture arch,
-        CancellationToken ct = default, bool includeDrafts = false)
+        CancellationToken ct = default, bool includeUnpublished = false)
     {
         return await db.VersionBuilds
             .Include(b => b.Version)
@@ -290,7 +290,7 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
                 b.Version.VersionString == versionString &&
                 b.OS == os &&
                 b.Architecture == arch &&
-                (includeDrafts || !b.IsDraft), ct);
+                (includeUnpublished || b.State == BuildState.Published), ct);
     }
 
     public async Task<VersionBuild?> GetBuildByIdAsync(long id, CancellationToken ct = default)
@@ -397,7 +397,7 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
         CancellationToken ct = default)
     {
         var builds = db.VersionBuilds.Where(b =>
-            b.Version.Package.PackageId == packageId && b.OS == os && b.Architecture == arch && !b.IsDraft);
+            b.Version.Package.PackageId == packageId && b.OS == os && b.Architecture == arch && b.State == BuildState.Published);
         if (versionString == ApiRoutes.LatestVersion)
         {
             // The same "latest" as check-update, including the channel's pin.

@@ -53,13 +53,13 @@ public class PackagesController(PackageService packageService, DownloadAccess do
         if (await downloadAccess.CheckAsync(HttpContext, package, ct) is { } denied)
             return (ActionResult)denied;
 
-        // Drafts are invisible to clients: a version shows only its published builds, and a
+        // Unpublished builds (drafts and pending) are invisible to clients: a version shows only its published builds, and a
         // version with none is not listed.
         var versions = (await packageService.GetVersionsAsync(packageId, ct))
-            .Where(v => v.Builds.Any(b => !b.IsDraft))
+            .Where(v => v.Builds.Any(b => b.State == BuildState.Published))
             .ToList();
         foreach (var v in versions)
-            v.Builds = v.Builds.Where(b => !b.IsDraft).ToList();
+            v.Builds = v.Builds.Where(b => b.State == BuildState.Published).ToList();
         return versions.Select(v => new VersionSummary
         {
             VersionString = v.VersionString,
@@ -91,7 +91,7 @@ public class PackagesController(PackageService packageService, DownloadAccess do
         PackageId = p.PackageId,
         DisplayName = p.DisplayName,
         Description = p.Description,
-        VersionCount = p.Versions.Count(v => v.Builds.Any(b => !b.IsDraft)),
+        VersionCount = p.Versions.Count(v => v.Builds.Any(b => b.State == BuildState.Published)),
         LatestVersion = (await packageService.GetLatestVersionAsync(p.Id, ChannelNames.Stable, ct: ct))?.VersionString,
     };
 }

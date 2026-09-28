@@ -417,7 +417,7 @@
     /// <summary>The channel's versions with a published build, highest first: what a cap can be.</summary>
     private IEnumerable<string> PublishedVersions(string channel) =>
         (Package?.Versions ?? [])
-            .Where(v => v.Channel == channel && v.Builds.Any(b => !b.IsDraft))
+            .Where(v => v.Channel == channel && v.Builds.Any(b => b.State == BuildState.Published))
             .OrderByDescending(v => v.VersionKey, StringComparer.Ordinal)
             .Select(v => v.VersionString);
 

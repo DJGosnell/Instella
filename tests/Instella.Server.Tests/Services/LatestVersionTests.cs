@@ -171,7 +171,7 @@ public sealed class LatestVersionTests
 
     private Task SetDraft(string version, bool draft) =>
         _fixture.Db.VersionBuilds.Where(b => b.Version.VersionString == version)
-            .ExecuteUpdateAsync(u => u.SetProperty(b => b.IsDraft, draft));
+            .ExecuteUpdateAsync(u => u.SetProperty(b => b.State, draft ? BuildState.Draft : BuildState.Published));
 
     /// <summary>64 KiB that differ in one place per <paramref name="variant"/>, so a patch is worth it.</summary>
     private static byte[] Content(int variant)

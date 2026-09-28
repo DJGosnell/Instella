@@ -285,16 +285,16 @@ public class DiffService(
                 v.Id != currentBuild.VersionId &&
                 string.Compare(v.VersionKey, currentBuild.Version.VersionKey) < 0 &&
                 !v.IsDeprecated &&
-                v.Builds.Any(b => !b.IsDraft && b.OS == currentBuild.OS && b.Architecture == currentBuild.Architecture))
+                v.Builds.Any(b => b.State == BuildState.Published && b.OS == currentBuild.OS && b.Architecture == currentBuild.Architecture))
             .OrderByDescending(v => v.VersionKey)
             .FirstOrDefaultAsync(ct);
 
         if (previousVersion == null)
             return null;
 
-        // Find a published build with the same OS/Architecture (nobody has a draft installed)
+        // Find a published build with the same OS/Architecture (nobody has a draft or pending build installed)
         return previousVersion.Builds.FirstOrDefault(b =>
-            !b.IsDraft &&
+            b.State == BuildState.Published &&
             b.OS == currentBuild.OS &&
             b.Architecture == currentBuild.Architecture);
     }

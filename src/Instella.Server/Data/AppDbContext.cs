@@ -36,6 +36,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.DisplayName).HasMaxLength(200);
             entity.Property(e => e.Description).HasMaxLength(2000);
             entity.Property(e => e.IconPath).HasMaxLength(500);
+            entity.Property(e => e.ReleaseDelayMinutes).HasDefaultValue(1440);
         });
 
         // PackageVersion
@@ -99,6 +100,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.ManifestHash).HasMaxLength(64);
             entity.Property(e => e.ReleaseSignature).HasMaxLength(200);
             entity.Property(e => e.ReleaseKeyId).HasMaxLength(16);
+            entity.Property(e => e.UploadedByKeyName).HasMaxLength(200);
+            // The delayed-release worker looks for pending builds whose hold has ended.
+            entity.HasIndex(e => new { e.State, e.PublishAfter });
         });
 
         // PackagePublisherKey

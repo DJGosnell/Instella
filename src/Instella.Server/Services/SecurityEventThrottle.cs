@@ -33,6 +33,9 @@ public sealed class SecurityEventThrottle
     /// </summary>
     public bool ShouldWrite(SecurityEventType type, string ip, string? packageId, out int suppressed)
     {
+        suppressed = 0;
+        if (IsNeverThrottled(type))
+            return true;
         var now = UtcNow();
         if (_entries.Count >= MaxKeys) Prune(now);
         var entry = _entries.GetOrAdd((type, ip, packageId), _ => new Entry { WrittenAt = DateTime.MinValue });
@@ -50,6 +53,16 @@ public sealed class SecurityEventThrottle
             return true;
         }
     }
+
+    /// <summary>
+    /// Events that record a release decision or a trust change. Each is written in full: approving
+    /// three platforms within a minute must leave three entries, not one "(+2 similar)".
+    /// </summary>
+    public static bool IsNeverThrottled(SecurityEventType type) => type is
+        SecurityEventType.ReleasePending or SecurityEventType.ReleaseApproved or SecurityEventType.ReleaseRejected
+        or SecurityEventType.ReleaseAutoPublished or SecurityEventType.ReleaseAutoPublishBlocked
+        or SecurityEventType.ReleaseApprovalChanged or SecurityEventType.PublisherKeyAdded
+        or SecurityEventType.PublisherKeyRemoved or SecurityEventType.DraftSigned;
 
     /// <summary>Drops keys idle for longer than the window.</summary>
     private void Prune(DateTime now)

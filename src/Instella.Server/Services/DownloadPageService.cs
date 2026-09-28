@@ -61,7 +61,7 @@ public sealed class DownloadPageService(AppDbContext db)
         foreach (var version in versions)
         {
             var installers = new List<DownloadPageInstaller>();
-            foreach (var build in version.Builds.Where(b => !b.IsDraft).OrderBy(b => b.OS).ThenBy(b => b.Architecture))
+            foreach (var build in version.Builds.Where(b => b.State == BuildState.Published).OrderBy(b => b.OS).ThenBy(b => b.Architecture))
             {
                 var isNewest = (ceiling is null || string.CompareOrdinal(version.VersionKey, ceiling) <= 0)
                                && newestPerPlatform.Add((build.OS, build.Architecture));

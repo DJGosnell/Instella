@@ -293,7 +293,7 @@ public class UploadService(
         version = Canonical(version);
         var build = await db.VersionBuilds
             .Include(b => b.Version).ThenInclude(v => v.Package)
-            .FirstOrDefaultAsync(b => b.IsDraft && b.Version.Package.PackageId == packageId
+            .FirstOrDefaultAsync(b => b.State == BuildState.Draft && b.Version.Package.PackageId == packageId
                                       && b.Version.VersionString == version && b.OS == os && b.Architecture == arch, ct);
         if (build is null) return false;
 
@@ -329,9 +329,9 @@ public class UploadService(
         }
 
         // The version is "released" when its first build is published, so "latest" follows publishing.
-        if (!await db.VersionBuilds.AnyAsync(b => b.VersionId == build.VersionId && b.Id != build.Id && !b.IsDraft, ct))
+        if (!await db.VersionBuilds.AnyAsync(b => b.VersionId == build.VersionId && b.Id != build.Id && b.State == BuildState.Published, ct))
             build.Version.ReleasedAt = DateTime.UtcNow;
-        build.IsDraft = false;
+        build.State = BuildState.Published;
         build.ReleaseSignature = release.Signature;
         build.ReleaseKeyId = release.KeyId;
         await db.SaveChangesAsync(ct);
@@ -346,7 +346,7 @@ public class UploadService(
         version = Canonical(version);
         return db.VersionBuilds.AsNoTracking()
             .Include(b => b.Version)
-            .FirstOrDefaultAsync(b => b.IsDraft && b.Version.Package.PackageId == packageId
+            .FirstOrDefaultAsync(b => b.State == BuildState.Draft && b.Version.Package.PackageId == packageId
                                       && b.Version.VersionString == version && b.OS == os && b.Architecture == arch, ct);
     }
 
@@ -413,7 +413,7 @@ public class UploadService(
             ReleaseManifestBytes = releaseBytes,
             ReleaseSignature = signature,
             ReleaseKeyId = keyId,
-            IsDraft = isDraft,
+            State = isDraft ? BuildState.Draft : BuildState.Published,
         };
         db.VersionBuilds.Add(build);
         await db.SaveChangesAsync(ct);
