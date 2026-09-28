@@ -15,6 +15,11 @@
     <ProjectReference Include="..\Instella.Core\Instella.Core.csproj" />
   </ItemGroup>
 
+  <!-- MSBuild assets (instella-upgrade.json generation), imported by consumers of the package. -->
+  <ItemGroup>
+    <None Include="build\**\*" Pack="true" PackagePath="build\" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Instella.Sdk.Tests" />
     <InternalsVisibleTo Include="Instella.Contract.Tests" />

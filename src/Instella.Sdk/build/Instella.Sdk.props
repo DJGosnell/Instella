@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    Instella.Sdk.props: defaults for the app upgrade program declaration. Imported automatically
+    by every project that references the Instella.Sdk package. (XML comments cannot hold two
+    hyphens in a row, so the switches below are written without their leading dashes.)
+
+    Set these in the APP's project (the one whose publish output is the release):
+
+      InstellaUpgradeProgram           The upgrade program, relative to the app's folder, for example
+                                       App.Upgrade. ".exe" is added on Windows when missing and dropped
+                                       elsewhere. Empty (the default): no declaration is generated.
+      InstellaUpgradeArguments         Extra arguments, separated by ';', passed after the launch
+                                       contract's own.
+      InstellaUpgradeTimeoutMinutes    Time limit, 1 to 1440 (default 30); the program's process tree
+                                       is ended when it is reached, and the operation rolls back.
+      InstellaUpgradeHandlesUninstall  true also runs the program with the instella-uninstall switch
+                                       before an uninstall (default false).
+
+    The build writes instella-upgrade.json to the output and publish folders; it ships as an
+    ordinary release file, signed with the app's other files.
+  -->
+  <PropertyGroup>
+    <InstellaUpgradeContractVersion Condition="'$(InstellaUpgradeContractVersion)' == ''">1</InstellaUpgradeContractVersion>
+  </PropertyGroup>
+</Project>
