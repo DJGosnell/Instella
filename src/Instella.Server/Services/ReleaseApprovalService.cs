@@ -248,6 +248,8 @@ public class ReleaseApprovalService(AppDbContext db, ContentStorageService conte
 
         if (await VerifyAsync(build, ct) is { } problem)
         {
+            // One transaction, so a cleared timer always has the audit entry that explains it.
+            await using var holdTx = await db.Database.BeginTransactionAsync(ct);
             var held = await db.VersionBuilds
                 .Where(b => b.Id == buildId && b.State == BuildState.Pending && b.PublishAfter != null)
                 .ExecuteUpdateAsync(u => u.SetProperty(b => b.PublishAfter, (DateTime?)null), ct);
@@ -255,6 +257,8 @@ public class ReleaseApprovalService(AppDbContext db, ContentStorageService conte
             {
                 Audit(SecurityEventType.ReleaseAutoPublishBlocked, ReleaseActor.Server, build, $"{name}: {problem}; waits for approval");
                 await db.SaveChangesAsync(ct);
+                await holdTx.CommitAsync(ct);
+                db.ChangeTracker.Clear();
                 logger.LogWarning("Did not publish delayed build {BuildId} ({Name}): {Problem}", buildId, name, problem);
             }
             return false;

@@ -357,6 +357,10 @@
             _confirm = null;
             await OnChanged.InvokeAsync();
         }
+        catch (Exception ex)
+        {
+            _error = "Failed to approve: " + ex.Message;
+        }
         finally
         {
             _busy = false;
@@ -379,6 +383,10 @@
             }
             _confirm = null;
             await OnDelete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to reject: " + ex.Message;
         }
         finally
         {
