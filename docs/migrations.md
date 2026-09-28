@@ -80,7 +80,7 @@ Conditions are protected methods of `InstallMigration`. Combine them with `&` (a
 | `RegistryValueExists(hive, "key", "name")` | The registry value exists. |
 | `ProcessRunningIn(folder)` | A program has files in the folder open (Explorer, services and critical processes excepted). |
 | `IsWindows()`, `IsPerUserInstall()`, `IsMachineInstall()` | Platform and scope. |
-| `Condition.From(ctx => …, "description")` | Your own test. It should only read. A predicate that throws counts as false and logs a warning. |
+| `Condition.From(ctx => …, "description")` | Your own test. It should only read. A predicate that throws skips the migration with a warning, even under `!`: a check that never completed is never read as true. |
 | `Condition.Always` | Always, typically for uninstall migrations. |
 
 **Version ranges.** Comparators separated by spaces, all of which must hold: `<`, `<=`, `>`, `>=`,
@@ -125,7 +125,7 @@ A refused or failed action throws `MigrationActionException`, which fails the mi
 - **Actions refuse** the folder being installed, anything inside it and any folder that contains it;
   volume roots; the well-known folders (the profile, Desktop, Documents, Program Files, Windows,
   AppData, ProgramData, the Start menu, Temp, each known folder's root, `LocalAppData\Programs`,
-  `LocalAppData\Microsoft`, …) and their ancestors; and any folder holding an Instella installation.
+  `LocalAppData\Microsoft`, …) and their ancestors; any folder that holds, contains or is inside an Instella installation; and a folder that cannot be listed to check.
 - **Deleting** is limited to the files you name and to empty folders.
 - **Processes**: only programs holding files in the validated folder, with the same prompt and
   `--force-close` rules as closing the app itself.
@@ -147,7 +147,8 @@ any install can meet a file or registry key it is not allowed to touch.
 - **A condition that cannot be evaluated at all** (it throws) skips the migration with a warning;
   it never fails the install.
 - **Undo that is denied** (the folder became read-only in the meantime) is logged as a warning; the
-  rest of the rollback continues.
+  rest of the rollback continues, and the files the migration deleted are kept in
+  `%TEMP%\Instella\migration-undo\…` (the log names the folder) instead of being lost.
 
 `MigrationHarness` simulates all of these: `DenyWrites(root, relative)`, `DenyReads(root, relative)`,
 `DenyRunKeyWrites()` and `DenyRunKeyReads()`. The fakes behind it, `InMemoryFileSystem.DenyWrites/

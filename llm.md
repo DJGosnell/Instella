@@ -443,7 +443,8 @@ outside a run, so `When()` may only compose conditions).
   InstellaInstallationAt(KnownFolder, relative)`, `RunValueExists(name)`, `RunValuePointsInto(name,
   MigrationFolder)`, `RegistryValueExists(hive, key, name)`, `ProcessRunningIn(MigrationFolder)`,
   `IsWindows()`, `IsPerUserInstall()`, `IsMachineInstall()`. A false condition logs the leaf that was
-  false. A throwing `From` delegate is false + warning; any other exception while evaluating (e.g. access
+  false. A throwing `From` delegate throws `ConditionEvaluationException` (never "false", so `!` cannot
+  turn it into "true"); any exception while evaluating (e.g. access
   denied) is a logged skip, never a failure. A denied read looks absent (as `File.Exists` does); a denied
   write/delete fails the action with the reason.
 - **Actions** (protected): `Folder(KnownFolder, relative)` → `MigrationFolder`;
@@ -459,7 +460,8 @@ outside a run, so `When()` may only compose conditions).
   `InstallFolder`, the install folder / inside it / an ancestor of it, volume roots, `PathGuards`
   protected folders (shared with `--cleanup`) and every known-folder root and `LocalAppData\{Programs,
   Microsoft,Packages,Temp}`, `RoamingAppData\Microsoft`, and any folder holding
-  `.instella-manifest.json`. Processes: `RunningAppGate` over the folder's files, same prompt /
+  `.instella-manifest.json` in it, in an ancestor, or anywhere beneath it (a tree that cannot be listed is
+  refused too). Processes: `RunningAppGate` over the folder's files, same prompt /
   `--force-close` rules. `Context.FileSystem`/`PlatformServices` bypass all of it.
 - **Pipeline**: steps `migration:<id>` (`MigrationStep`). `BeforeCommit` go just before
   `write-manifest` (after all Register steps); a failure undoes the migration's actions (journal;
