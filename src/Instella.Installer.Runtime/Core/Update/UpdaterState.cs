@@ -39,5 +39,8 @@ internal enum UpdaterState
     Cancelled,
 
     /// <summary>Restoring backup after failure.</summary>
-    RollingBack
+    RollingBack,
+
+    /// <summary>Running the app's upgrade program on the new files (the commit is held).</summary>
+    UpgradingData
 }

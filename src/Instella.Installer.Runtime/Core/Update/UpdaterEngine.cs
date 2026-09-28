@@ -10,6 +10,8 @@ using Instella.Core.Trust;
 using Instella.Core.Update;
 using Instella.Core.Utilities;
 using Instella.Core.Wire;
+using Instella.Installer.Runtime.AppUpgrade;
+using Instella.Installer.Runtime.Migrations;
 using Instella.Installer.Runtime.Core.Processes;
 using Instella.Installer.Runtime.Core.Transactions;
 
@@ -118,12 +120,14 @@ internal sealed class UpdaterEngine
                 token, retryDelays: _retryDelays);
             await StageAsync(txn, installed, release, plan, token);
 
-            // 7. Commit: from here on the operation ignores cancellation.
+            // 7. Commit: from here on the operation ignores cancellation. With an upgrade program the
+            // commit is held until it succeeds, so a crash while it runs rolls the files back.
             SetState(UpdaterState.Finalizing);
             _committing = true;
+            var declared = release.Files.Any(f => string.Equals(f.Path, AppUpgradeContract.DeclarationFileName, StringComparison.OrdinalIgnoreCase));
             try
             {
-                await txn.CommitAsync();
+                await txn.CommitAsync(hold: declared);
             }
             catch (Exception commitEx)
             {
@@ -143,6 +147,10 @@ internal sealed class UpdaterEngine
                         $"{commitEx.Message}. Rollback also failed: {rollbackEx.Message}. Run the installer with --recover.");
                 }
             }
+
+            // 7b. The app's upgrade program, on the new files, while the commit can still roll back.
+            if (declared && await UpgradeAppDataAsync(txn, installed, release) is { } upgradeFailure)
+                return upgradeFailure;
 
             // 8. Complete, then leave the post-update marker. The caller restarts the app (the
             // update window first shows the result), always without elevation.
@@ -376,6 +384,63 @@ internal sealed class UpdaterEngine
         }
     }
 
+    /// <summary>Starts the app's upgrade program; the real process runner unless a test replaces it.</summary>
+    internal IProgramRunner Programs { get; init; } = ProcessProgramRunner.Instance;
+
+    /// <summary>
+    /// Runs the app's upgrade program after a held commit. Success confirms the commit and returns
+    /// null. A failure rolls the files back and returns the failed result (exit 25), or a
+    /// rollback failure (exit 23) when the files cannot be put back.
+    /// </summary>
+    private async Task<UpdateResult?> UpgradeAppDataAsync(InstallTransaction txn, InstalledManifest installed, TargetRelease release)
+    {
+        SetState(UpdaterState.UpgradingData);
+        var runner = new AppUpgradeRunner(_fs, Programs, new EngineLog(this));
+        var result = await runner.RunAsync(new AppUpgradeRequest
+        {
+            Mode = _args.Repair ? AppUpgradeLaunchMode.Repair : AppUpgradeLaunchMode.Update,
+            From = installed.Version,
+            To = release.Version,
+            Scope = installed.InstalledPerUser ? InstallationScope.PerUser : InstallationScope.SystemWide,
+            InstallPath = _args.AppPath,
+            AppId = installed.AppId,
+            Platform = installed.Platform,
+            InstalledFiles = release.Files.Select(f => f.Path).ToList(),
+        }, new UpgradeProgress(this), CancellationToken.None);
+
+        if (result.Success)
+        {
+            await txn.ConfirmCommitAsync();
+            return null;
+        }
+
+        SetState(UpdaterState.RollingBack);
+        try
+        {
+            await txn.RollbackAsync();
+            await txn.CompleteAsync();
+            SetState(UpdaterState.Failed);
+            return Fail(UpdateFailure.AppUpgradeFailed, $"{result.Message} (rolled back)");
+        }
+        catch (Exception rollbackEx)
+        {
+            SetState(UpdaterState.Failed);
+            return Fail(UpdateFailure.RollbackFailed,
+                $"{result.Message}. Rollback also failed: {rollbackEx.Message}. Run the installer with --recover.");
+        }
+    }
+
+    private sealed class UpgradeProgress(UpdaterEngine engine) : IProgress<AppUpgradeProgress>
+    {
+        public void Report(AppUpgradeProgress value) =>
+            engine.ProgressChanged?.Invoke(engine, new UpdaterProgress
+            {
+                State = UpdaterState.UpgradingData,
+                Percentage = value.Fraction * 100,
+                StatusText = value.Text is { } text ? text + "…" : GetDefaultStatusText(UpdaterState.UpgradingData),
+            });
+    }
+
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }
 
@@ -565,6 +630,7 @@ internal sealed class UpdaterEngine
         UpdaterState.Failed => "Update failed",
         UpdaterState.Cancelled => "Update cancelled",
         UpdaterState.RollingBack => "Rolling back...",
+        UpdaterState.UpgradingData => "Upgrading your data…",
         _ => ""
     };
 
