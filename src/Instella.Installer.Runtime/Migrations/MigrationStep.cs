@@ -52,7 +52,19 @@ internal static class MigrationExecution
         migration.Bind(run);
         try
         {
-            var condition = await migration.GetCondition().EvaluateAsync(context, ct);
+            ConditionOutcome condition;
+            try
+            {
+                condition = await migration.GetCondition().EvaluateAsync(context, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Something the condition reads could not be read (access denied, an I/O error).
+                // Nothing was changed, so this is a skip, never a failed install; not recorded.
+                var reason = $"could not evaluate the condition ({ex.GetType().Name}: {ex.Message})";
+                log.Warn($"skipped: {reason}; it is tried again the next time an installer runs");
+                return Done(MigrationRunOutcome.Skipped, reason);
+            }
             if (!condition.Value)
             {
                 log.Info($"skipped: {condition.Reason}");

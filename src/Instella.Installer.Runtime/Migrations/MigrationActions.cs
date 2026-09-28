@@ -190,7 +190,15 @@ internal static class MigrationActions
         // In preview the files an earlier action would have deleted are still there.
         var pendingDeletes = run.Actions.Where(a => a.Preview && a.Kind == "delete-file").Select(a => a.Target)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var left = fs.EnumerateFiles(path, "*", recursive: true).Where(f => !pendingDeletes.Contains(f)).ToList();
+        List<string> left;
+        try
+        {
+            left = fs.EnumerateFiles(path, "*", recursive: true).Where(f => !pendingDeletes.Contains(f)).ToList();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            throw new MigrationActionException(action, $"could not list {folder}: {ex.Message}");
+        }
         if (left.Count > 0)
         {
             ctx.Log.Info($"{folder} still holds {left.Count} file(s); left in place");

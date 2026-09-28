@@ -1,4 +1,9 @@
 #nullable enable
+Instella.Installer.Testing.FakePlatformServices.DenyRegistryReads(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> void
+Instella.Installer.Testing.FakePlatformServices.DenyRegistryWrites(Instella.Core.Platform.RegistryHive hive, string! keyPath) -> void
+Instella.Installer.Testing.InMemoryFileSystem.AllowAll() -> void
+Instella.Installer.Testing.InMemoryFileSystem.DenyReads(string! path) -> void
+Instella.Installer.Testing.InMemoryFileSystem.DenyWrites(string! path) -> void
 Instella.Installer.Testing.InstellaTestHarness.Builder.WithPayload(System.Collections.Generic.IReadOnlyDictionary<string!, string!>! files) -> Instella.Installer.Testing.InstellaTestHarness.Builder!
 Instella.Installer.Testing.InstellaTestHarness.IsProcessRunning(string! exePath) -> bool
 Instella.Installer.Testing.InstellaTestHarness.KnownFolderPath(Instella.Installer.Runtime.Migrations.KnownFolder folder, Instella.Core.Installation.InstallationScope scope = Instella.Core.Installation.InstallationScope.PerUser) -> string!
@@ -6,6 +11,10 @@ Instella.Installer.Testing.InstellaTestHarness.RunFullWithArgsAsync(System.Colle
 Instella.Installer.Testing.InstellaTestHarness.StartProcess(string! exePath, bool closes = true) -> void
 Instella.Installer.Testing.MigrationHarness
 Instella.Installer.Testing.MigrationHarness.AlreadyCompleted() -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.DenyReads(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.DenyRunKeyReads() -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.DenyRunKeyWrites() -> Instella.Installer.Testing.MigrationHarness!
+Instella.Installer.Testing.MigrationHarness.DenyWrites(Instella.Installer.Runtime.Migrations.KnownFolder root, string! relative) -> Instella.Installer.Testing.MigrationHarness!
 Instella.Installer.Testing.MigrationHarness.Elevated(bool elevated = true) -> Instella.Installer.Testing.MigrationHarness!
 Instella.Installer.Testing.MigrationHarness.FailLaterStep() -> Instella.Installer.Testing.MigrationHarness!
 Instella.Installer.Testing.MigrationHarness.ForceClose(bool forceClose = true) -> Instella.Installer.Testing.MigrationHarness!

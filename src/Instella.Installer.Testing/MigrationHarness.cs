@@ -192,6 +192,42 @@ public sealed class MigrationHarness
         return this;
     }
 
+    /// <summary>
+    /// The installer may read <paramref name="relative"/> under <paramref name="root"/> (a file or a
+    /// folder, and everything in it) but not change it: deletes, moves and writes fail with access
+    /// denied, as for a per-user installer in Program Files. Use an empty <paramref name="relative"/>
+    /// for the known folder itself.
+    /// </summary>
+    public MigrationHarness DenyWrites(KnownFolder root, string relative)
+    {
+        _seeds.Add((fs, _, _) => fs.DenyWrites(PathOf(root, relative)));
+        return this;
+    }
+
+    /// <summary>
+    /// The installer may not read <paramref name="relative"/> under <paramref name="root"/>: it
+    /// looks absent (as <c>File.Exists</c> reports it), listing it fails, and writes fail.
+    /// </summary>
+    public MigrationHarness DenyReads(KnownFolder root, string relative)
+    {
+        _seeds.Add((fs, _, _) => fs.DenyReads(PathOf(root, relative)));
+        return this;
+    }
+
+    /// <summary>The scope's Run key can be read but not changed: repointing, deleting or restoring a Run value fails.</summary>
+    public MigrationHarness DenyRunKeyWrites()
+    {
+        _seeds.Add((_, platform, _) => platform.DenyRegistryWrites(RunHive, RunCommand.RunKey));
+        return this;
+    }
+
+    /// <summary>The scope's Run key cannot be read: every Run value looks absent.</summary>
+    public MigrationHarness DenyRunKeyReads()
+    {
+        _seeds.Add((_, platform, _) => platform.DenyRegistryReads(RunHive, RunCommand.RunKey));
+        return this;
+    }
+
     /// <summary>The exit code every program run with <c>RunProgramAsync</c> returns. Defaults to 0.</summary>
     public MigrationHarness ProgramExitCode(int exitCode)
     {

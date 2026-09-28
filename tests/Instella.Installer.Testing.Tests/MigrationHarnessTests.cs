@@ -248,6 +248,42 @@ public class MigrationHarnessTests
     }
 
     [Test]
+    public async Task DenyWrites_OnTheOldCopy_FailsTheMigration_AndKeepsIt()
+    {
+        var result = await OldCopyScenario().DenyWrites(KnownFolder.LocalAppData, "ExampleApp").RunAsync();
+        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Failed));
+        Assert.That(result.Error, Does.Contain("denied"));
+        Assert.That(result.FileExists(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.pdb"), Is.True);
+        Assert.That(result.RecordedAsCompleted, Is.False);
+    }
+
+    [Test]
+    public async Task DenyReads_MakesTheOldCopyLookAbsent()
+    {
+        var result = await OldCopyScenario().DenyReads(KnownFolder.LocalAppData, "ExampleApp").RunAsync();
+        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Skipped));
+        Assert.That(result.SkipReason, Does.Contain("FileExists"));
+    }
+
+    [Test]
+    public async Task DenyRunKeyWrites_FailsTheRepoint()
+    {
+        var result = await OldCopyScenario().DenyRunKeyWrites().RunAsync();
+        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Failed));
+        Assert.That(result.Error, Does.Contain("could not write Run value"));
+        Assert.That(result.RunValue("ExampleApp"), Does.Contain(@"ExampleApp\ExampleApp.exe").Or.Contain("ExampleApp/ExampleApp.exe"));
+    }
+
+    [Test]
+    public async Task DenyRunKeyReads_HidesTheRunValue()
+    {
+        var m = new Delegated("adopt", MigrationTiming.AfterCommit, _ => Condition.Always, async (t, _) => await t.Adopt("ExampleApp"));
+        var result = await MigrationHarness.For(m).WithRunValue("ExampleApp", "\"C:\\x\\a.exe\"").DenyRunKeyReads().RunAsync();
+        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Completed));
+        Assert.That(result.AdoptedItems, Is.Empty);
+    }
+
+    [Test]
     public void For_RefusesNull()
     {
         Assert.Throws<ArgumentNullException>(() => MigrationHarness.For(null!));

@@ -19,4 +19,16 @@ Assert.That(harness.Registry.Get(RegistryHive.CurrentUser, @"Software\Example", 
 Assert.That(harness.LogSink.Entries.Any(e => e.Message.Contains("configured")), Is.True);
 ```
 
+Install migrations have their own harness, with every known folder in a fake profile and fake
+running programs:
+
+```csharp
+var result = await MigrationHarness.For<ReplacePreInstellaCopy>()
+    .WithFile(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe")
+    .WithRunningProcess(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe")
+    .RunAsync();
+Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Completed));
+Assert.That(result.FileExists(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe"), Is.False);
+```
+
 Works with any test framework. See `llm.md` in the [repository]({{RepositoryUrl}}) for the full harness surface.

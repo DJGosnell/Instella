@@ -24,7 +24,69 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
     private readonly Dictionary<string, byte[]> _files = new(s_pathComparer);
     private readonly HashSet<string> _explicitDirs = new(s_pathComparer);
     private readonly Dictionary<string, UnixFileMode> _modes = new(s_pathComparer);
+    private readonly List<string> _deniedWrites = new();
+    private readonly List<string> _deniedReads = new();
     private readonly object _lock = new();
+
+    /// <summary>
+    /// Simulates a folder (or file) the installer may read but not change, as the real file
+    /// system reports it: every write, delete, move, copy into it and directory change at or
+    /// under <paramref name="path"/> fails with <see cref="FileSystemErrorType.AccessDenied"/>.
+    /// Seeding with <see cref="AddFile"/> still works.
+    /// </summary>
+    public void DenyWrites(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        lock (_lock) _deniedWrites.Add(Normalize(path));
+    }
+
+    /// <summary>
+    /// Simulates a folder (or file) the installer may not even read, as the real file system
+    /// reports it: <see cref="Exists"/> and <see cref="DirectoryExists"/> return false (as
+    /// <c>File.Exists</c> does), reads fail with <see cref="FileSystemErrorType.AccessDenied"/>,
+    /// <see cref="EnumerateFiles"/> throws <see cref="UnauthorizedAccessException"/> (as
+    /// <c>Directory.EnumerateFiles</c> does), and writes fail as with <see cref="DenyWrites"/>.
+    /// </summary>
+    public void DenyReads(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        lock (_lock)
+        {
+            var normalized = Normalize(path);
+            _deniedReads.Add(normalized);
+            _deniedWrites.Add(normalized);
+        }
+    }
+
+    /// <summary>Removes every <see cref="DenyWrites"/> and <see cref="DenyReads"/>.</summary>
+    public void AllowAll()
+    {
+        lock (_lock)
+        {
+            _deniedWrites.Clear();
+            _deniedReads.Clear();
+        }
+    }
+
+    private static bool Covers(List<string> roots, string normalized)
+    {
+        var comparison = s_pathComparer == StringComparer.OrdinalIgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        foreach (var root in roots)
+            if (s_pathComparer.Equals(root, normalized) || normalized.StartsWith(root + Path.DirectorySeparatorChar, comparison))
+                return true;
+        return false;
+    }
+
+    private static FileSystemError AccessDenied(string path) =>
+        new(FileSystemErrorType.AccessDenied, $"Access to the path '{path}' is denied.", new UnauthorizedAccessException($"Access to the path '{path}' is denied."));
+
+    // Null when the write is allowed; call inside the lock.
+    private FileSystemResult? DeniedWrite(params string[] normalizedPaths)
+    {
+        foreach (var p in normalizedPaths)
+            if (Covers(_deniedWrites, p)) return FileSystemResult.Fail(AccessDenied(p));
+        return null;
+    }
 
     /// <summary>
     /// The mode last set on <paramref name="path"/> through
@@ -42,6 +104,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (DeniedWrite(normalized) is { } denied) return Task.FromResult(denied);
             if (!_files.ContainsKey(normalized))
                 return Task.FromResult(FileSystemResult.Fail(new FileSystemError(
                     FileSystemErrorType.NotFound, $"file not found: {path}")));
@@ -93,6 +156,8 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var dst = Normalize(dest);
         lock (_lock)
         {
+            if (Covers(_deniedReads, src)) return Task.FromResult(FileSystemResult.Fail(AccessDenied(source)));
+            if (DeniedWrite(dst) is { } denied) return Task.FromResult(denied);
             if (!_files.TryGetValue(src, out var bytes))
                 return Task.FromResult(FileSystemResult.Fail(new FileSystemError(
                     FileSystemErrorType.NotFound, $"source not found: {source}")));
@@ -112,6 +177,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var dst = Normalize(dest);
         lock (_lock)
         {
+            if (DeniedWrite(src, dst) is { } denied) return Task.FromResult(denied);
             if (!_files.TryGetValue(src, out var bytes))
                 return Task.FromResult(FileSystemResult.Fail(new FileSystemError(
                     FileSystemErrorType.NotFound, $"source not found: {source}")));
@@ -134,6 +200,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (_files.ContainsKey(normalized) && DeniedWrite(normalized) is { } denied) return Task.FromResult(denied);
             _files.Remove(normalized);
             _modes.Remove(normalized);
         }
@@ -146,6 +213,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (!_explicitDirs.Contains(normalized) && DeniedWrite(normalized) is { } denied) return Task.FromResult(denied);
             _explicitDirs.Add(normalized);
             AddImpliedDirectories(normalized);
         }
@@ -159,6 +227,12 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var prefixWithSep = prefix + Path.DirectorySeparatorChar;
         lock (_lock)
         {
+            if (DeniedWrite(prefix) is { } denied) return Task.FromResult(denied);
+            // Deleting a folder that contains a protected one fails too (recursive or not).
+            foreach (var root in _deniedWrites)
+                if (root.StartsWith(prefixWithSep, s_pathComparer == StringComparer.OrdinalIgnoreCase
+                        ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                    return Task.FromResult(FileSystemResult.Fail(AccessDenied(root)));
             _explicitDirs.Remove(prefix);
             _explicitDirs.RemoveWhere(d =>
                 d.StartsWith(prefixWithSep, s_pathComparer == StringComparer.OrdinalIgnoreCase
@@ -190,6 +264,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (Covers(_deniedReads, normalized)) return Task.FromResult(FileSystemResult<byte[]>.Fail(AccessDenied(path)));
             if (!_files.TryGetValue(normalized, out var bytes))
                 return Task.FromResult(FileSystemResult<byte[]>.Fail(new FileSystemError(
                     FileSystemErrorType.NotFound, $"file not found: {path}")));
@@ -204,6 +279,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (DeniedWrite(normalized) is { } denied) return Task.FromResult(denied);
             _files[normalized] = (byte[])data.Clone();
             AddImpliedDirectories(normalized);
         }
@@ -216,6 +292,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (Covers(_deniedReads, normalized)) return Task.FromResult(FileSystemResult<Stream>.Fail(AccessDenied(path)));
             if (!_files.TryGetValue(normalized, out var bytes))
                 return Task.FromResult(FileSystemResult<Stream>.Fail(new FileSystemError(
                     FileSystemErrorType.NotFound, $"file not found: {path}")));
@@ -228,6 +305,11 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
     public Task<FileSystemResult<Stream>> OpenWriteAsync(string path, CancellationToken ct)
     {
         var normalized = Normalize(path);
+        lock (_lock)
+        {
+            if (Covers(_deniedWrites, normalized))
+                return Task.FromResult(FileSystemResult<Stream>.Fail(AccessDenied(path)));
+        }
         Stream stream = new WritableFileStream(this, normalized);
         lock (_lock) AddImpliedDirectories(normalized);
         return Task.FromResult(FileSystemResult<Stream>.Ok(stream));
@@ -237,7 +319,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
     public bool Exists(string path)
     {
         var normalized = Normalize(path);
-        lock (_lock) return _files.ContainsKey(normalized);
+        lock (_lock) return !Covers(_deniedReads, normalized) && _files.ContainsKey(normalized);
     }
 
     /// <inheritdoc />
@@ -246,6 +328,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         var normalized = Normalize(path);
         lock (_lock)
         {
+            if (Covers(_deniedReads, normalized)) return false;
             if (_explicitDirs.Contains(normalized)) return true;
             var prefix = normalized + Path.DirectorySeparatorChar;
             foreach (var file in _files.Keys)
@@ -273,6 +356,8 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         byte[] bytes;
         lock (_lock)
         {
+            if (Covers(_deniedReads, normalized))
+                throw new UnauthorizedAccessException($"Access to the path '{path}' is denied.");
             if (!_files.TryGetValue(normalized, out var found))
                 throw new FileNotFoundException("file not found in fake filesystem", path);
             bytes = found;
@@ -284,7 +369,26 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
     /// <inheritdoc />
     public IEnumerable<string> EnumerateFiles(string path, string searchPattern = "*", bool recursive = false)
     {
+        // Checked eagerly, as Directory.EnumerateFiles throws for an unreadable folder (or,
+        // recursively, one inside it).
         var normalized = Normalize(path);
+        lock (_lock)
+        {
+            if (Covers(_deniedReads, normalized))
+                throw new UnauthorizedAccessException($"Access to the path '{path}' is denied.");
+            if (recursive)
+            {
+                var comparison = s_pathComparer == StringComparer.OrdinalIgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                foreach (var root in _deniedReads)
+                    if (root.StartsWith(normalized + Path.DirectorySeparatorChar, comparison))
+                        throw new UnauthorizedAccessException($"Access to the path '{root}' is denied.");
+            }
+        }
+        return EnumerateFilesCore(normalized, searchPattern, recursive);
+    }
+
+    private IEnumerable<string> EnumerateFilesCore(string normalized, string searchPattern, bool recursive)
+    {
         var prefixWithSep = normalized + Path.DirectorySeparatorChar;
         var comparison = s_pathComparer == StringComparer.OrdinalIgnoreCase
             ? StringComparison.OrdinalIgnoreCase
@@ -311,7 +415,7 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
     public long GetFileSize(string path)
     {
         var normalized = Normalize(path);
-        lock (_lock) return _files.TryGetValue(normalized, out var bytes) ? bytes.Length : -1;
+        lock (_lock) return !Covers(_deniedReads, normalized) && _files.TryGetValue(normalized, out var bytes) ? bytes.Length : -1;
     }
 
     internal void WriteBytesInternal(string normalizedPath, byte[] bytes)

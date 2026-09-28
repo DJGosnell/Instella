@@ -64,6 +64,8 @@ internal sealed class MigrationTestBed
         Path.Combine(root == KnownFolder.InstallFolder ? InstallPath : Resolver().Resolve(root, Scope, InstallPath)!,
             relative.Replace('/', Path.DirectorySeparatorChar));
 
+    public void AddDirectory(KnownFolder root, string relative) => FileSystem.AddDirectory(PathOf(root, relative));
+
     public void AddFile(KnownFolder root, string relative, string content = "x") =>
         FileSystem.AddFile(PathOf(root, relative), Encoding.UTF8.GetBytes(content));
 
