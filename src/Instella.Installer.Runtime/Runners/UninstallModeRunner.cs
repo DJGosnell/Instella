@@ -168,6 +168,9 @@ internal sealed class UninstallModeRunner
     /// <summary>Test hook: closes programs for uninstall migrations; null asks them through the platform.</summary>
     internal IProcessCloser? ProcessCloser { get; init; }
 
+    /// <summary>Starts the app's uninstall handler and migration programs; null starts real processes.</summary>
+    internal Migrations.IProgramRunner? Programs { get; init; }
+
     /// <summary>Test hook: asks about programs using the app's files; null shows a message box.</summary>
     internal AppRunningPrompt? AppRunningPrompt { get; init; }
 
@@ -353,12 +356,16 @@ internal sealed class UninstallModeRunner
             Folders = KnownFolders ?? Migrations.KnownFolderResolver.Host,
             ProcessFinder = ProcessFinder ?? DefaultLockingProcessFinder.Instance,
             ProcessCloser = ProcessCloser,
+            Programs = Programs ?? Migrations.ProcessProgramRunner.Instance,
             Prompt = prompt,
             ForceClose = dispatch.ForceClose,
         };
 
         // An install that stopped mid-way may have left migration changes to undo, before anything is removed.
         await Migrations.MigrationUndo.RecoverAsync(context, ct);
+
+        // The app's own code first, while everything Instella set up is still in place.
+        await RunAppUninstallAsync(manifest, installPath, context, ct);
         if (hooks.Count == 0 && migrations.Count == 0) return;
 
         foreach (var migration in migrations)
@@ -375,6 +382,40 @@ internal sealed class UninstallModeRunner
             {
                 _log.Warn($"uninstall: OnUninstall of step '{step.Name}' threw: {ex.Message}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Runs the app's upgrade program with <c>--instella-uninstall</c> when its declaration opts in
+    /// (<c>handlesUninstall</c>). Only a program whose bytes match the installed manifest's record runs.
+    /// A failure is a warning: the uninstall always continues.
+    /// </summary>
+    private async Task RunAppUninstallAsync(InstalledManifest manifest, string installPath, Installation.InstallContext context,
+        CancellationToken ct)
+    {
+        try
+        {
+            var runner = new AppUpgrade.AppUpgradeRunner(_fileSystem, context.Migrations.Programs, _log);
+            var result = await runner.RunAsync(new AppUpgrade.AppUpgradeRequest
+            {
+                Mode = AppUpgradeLaunchMode.Uninstall,
+                From = manifest.Version,
+                To = null,
+                Scope = manifest.InstalledPerUser ? InstallationScope.PerUser : InstallationScope.SystemWide,
+                InstallPath = installPath,
+                AppId = manifest.AppId,
+                Platform = manifest.Platform,
+                InstalledFiles = manifest.Files.Select(f => f.RelativePath).ToList(),
+                ExpectedHashes = manifest.Files
+                    .GroupBy(f => f.RelativePath.Replace('\\', '/'), StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().Sha256, StringComparer.OrdinalIgnoreCase),
+            }, progress: null, ct);
+            if (!result.Success)
+                _log.Warn($"uninstall: the app's uninstall handler did not succeed ({result.Message}); continuing");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.Warn($"uninstall: the app's uninstall handler could not run ({ex.Message}); continuing");
         }
     }
 

@@ -295,6 +295,108 @@ public class AppUpgradeInstallTests
     public void TheProgressPage_ShowsUpgradingYourData() =>
         Assert.That(StepDisplayNames.For(new AppUpgradeStep()), Is.EqualTo("Upgrading your data"));
 
+    // ---- Uninstall ---------------------------------------------------------------------------
+
+    private const string HandlesUninstall = """{"contractVersion":1,"program":"ExampleApp.Upgrade","handlesUninstall":true}""";
+
+    private Task<int> Uninstall(InstellaTestHarness harness) =>
+        harness.RunFullWithArgsAsync(["--uninstall", "--silent", "--path", _installPath]);
+
+    [Test]
+    public async Task Uninstall_RunsTheHandlerFirst_BeforeMigrationsAndHooks()
+    {
+        var order = new List<string>();
+        var migration = new Migrations.TestMigration("goodbye", Instella.Installer.Runtime.Migrations.MigrationTiming.Uninstall)
+        {
+            RunOnceValue = false,
+            WhenFactory = t => t.IsUninstall(),
+            Body = (_, _) => { order.Add("migration"); return Task.CompletedTask; },
+        };
+        var h = Harness("1.0", HandlesUninstall, b => b
+            .AddMigration(migration)
+            .AddStep("hooked", s => s.Execute(Ok).NoRollbackNeeded("t")
+                .OnUninstall((_, _) => { order.Add("hook"); return Task.CompletedTask; })));
+        h.WhenProgramRuns(run =>
+        {
+            if (run.Arguments[0] == "--instella-uninstall")
+            {
+                order.Add("program");
+                Assert.That(_fs.Exists(Path.Combine(_installPath, "ExampleApp.exe")), Is.True, "nothing is removed yet");
+            }
+            return ProgramOutcome.Exit(0);
+        });
+        Assert.That(await Install(h), Is.EqualTo(0));
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0), Log(h));
+
+        Assert.That(order, Is.EqualTo(new[] { "program", "migration", "hook" }));
+        var run = h.ProgramRuns.Last();
+        Assert.That(ContractArgs(run), Is.EqualTo(new[]
+        {
+            "--instella-uninstall", "--contract", "1", "--mode", "uninstall", "--from", "1.0.0", "--to", "none",
+            "--scope", "user", "--install-path", _installPath, "--app-id", "com.example.app",
+        }));
+        Assert.That(Live("ExampleApp.exe"), Is.Null, "the uninstall went ahead");
+    }
+
+    [TestCase(1)]
+    [TestCase(2)]
+    public async Task Uninstall_ContinuesWhenTheHandlerFails(int exitCode)
+    {
+        var h = Harness("1.0", HandlesUninstall);
+        Assert.That(await Install(h), Is.EqualTo(0));
+        h.WhenProgramRuns(_ => ProgramOutcome.Exit(exitCode));
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0));
+        Assert.That(Live("ExampleApp.exe"), Is.Null);
+        Assert.That(Log(h), Does.Contain("uninstall handler did not succeed"));
+    }
+
+    [Test]
+    public async Task Uninstall_ContinuesWhenTheHandlerTimesOut()
+    {
+        var h = Harness("1.0", HandlesUninstall);
+        Assert.That(await Install(h), Is.EqualTo(0));
+        h.WhenProgramRuns(_ => ProgramOutcome.TimeOut());
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0));
+        Assert.That(Live("ExampleApp.exe"), Is.Null);
+    }
+
+    [Test]
+    public async Task Uninstall_ContinuesWhenTheProgramIsMissing()
+    {
+        var h = Harness("1.0", HandlesUninstall);
+        Assert.That(await Install(h), Is.EqualTo(0));
+        await _fs.DeleteFileAsync(Path.Combine(_installPath, Upgrade), CancellationToken.None);
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0));
+        Assert.That(h.ProgramRuns, Has.Count.EqualTo(1), "only the install ran it");
+        Assert.That(Log(h), Does.Contain("is missing"));
+    }
+
+    [Test]
+    public async Task Uninstall_WithoutHandlesUninstall_DoesNotRunTheProgram()
+    {
+        var h = Harness("1.0");
+        Assert.That(await Install(h), Is.EqualTo(0));
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0));
+        Assert.That(h.ProgramRuns, Has.Count.EqualTo(1), "only the install ran it");
+    }
+
+    [Test]
+    public async Task Uninstall_NeverRunsAProgramThatWasChangedAfterInstall()
+    {
+        var h = Harness("1.0", HandlesUninstall);
+        Assert.That(await Install(h), Is.EqualTo(0));
+        _fs.AddFile(Path.Combine(_installPath, Upgrade), Encoding.UTF8.GetBytes("replaced by someone else"));
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0));
+        Assert.That(h.ProgramRuns, Has.Count.EqualTo(1), "only the install ran it");
+        Assert.That(Log(h), Does.Contain("changed since it was installed"));
+    }
+
     private string? JournalState()
     {
         var txnRoot = Path.GetFullPath(Path.Combine(_installPath, ".instella", "txn"));
