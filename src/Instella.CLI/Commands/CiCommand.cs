@@ -13,7 +13,7 @@ internal static class CiCommand
         var signingOption = new Option<string>("--signing")
         {
             Description = "How releases are signed: kms-azure, kms-aws, kms-gcp (a key that never leaves the key service), " +
-                          "draft (CI uploads, a person runs 'instella publish'), or secret (the PEM key as a CI secret)",
+                          "secret (the PEM key as a CI secret), or manual (CI uploads a draft, a person runs 'instella publish')",
             Required = true,
         };
         var appProjectOption = new Option<string>("--app-project") { Description = "The app's .csproj, relative to the repository root", Required = true };
@@ -24,11 +24,16 @@ internal static class CiCommand
         var ridOption = new Option<string>("--rid") { Description = "Runtime identifier to build for", DefaultValueFactory = _ => "win-x64" };
         var outputOption = new Option<string?>("--output", "-o") { Description = "Repository root (default: current directory)" };
         var forceOption = new Option<bool>("--force") { Description = "Overwrite an existing workflow file" };
+        var noEnvironmentOption = new Option<bool>("--no-environment")
+        {
+            Description = "GitHub: no 'environment: release' (repositories without deployment environments, such as private ones on the free plan); " +
+                          "OIDC subjects then name the v* tags, and the server's release approval is the approval step",
+        };
 
         var init = new Command("init", "Write a release workflow (build, then upload signed) for GitHub or Gitea Actions")
         {
             hostOption, signingOption, appProjectOption, installerProjectOption, packageOption, serverOption,
-            nameOption, ridOption, outputOption, forceOption,
+            nameOption, ridOption, outputOption, forceOption, noEnvironmentOption,
         };
         init.SetAction(async (parse, ct) =>
         {
@@ -41,11 +46,13 @@ internal static class CiCommand
                     Console.Error.WriteLine("Error: --host must be github or gitea.");
                     return ExitCodes.Usage;
             }
-            if (!CiTemplate.TryParseSigning(parse.GetValue(signingOption)!, out var signing))
+            if (!CiTemplate.TryParseSigning(parse.GetValue(signingOption)!, out var signing, out var deprecatedAlias))
             {
-                Console.Error.WriteLine("Error: --signing must be kms-azure, kms-aws, kms-gcp, draft or secret.");
+                Console.Error.WriteLine("Error: --signing must be kms-azure, kms-aws, kms-gcp, manual or secret.");
                 return ExitCodes.Usage;
             }
+            if (deprecatedAlias)
+                Console.Error.WriteLine("Warning: --signing draft is deprecated; use --signing manual. 'draft' will be removed in the next release.");
             var server = parse.GetValue(serverOption)!;
             if (!CommonOptions.CheckServerUrl(server, allowInsecure: false))
                 return ExitCodes.Usage;
@@ -61,6 +68,7 @@ internal static class CiCommand
                 ServerUrl = server,
                 AppName = parse.GetValue(nameOption) ?? Path.GetFileNameWithoutExtension(appProject),
                 Rid = parse.GetValue(ridOption)!,
+                UseEnvironment = !parse.GetValue(noEnvironmentOption),
             };
 
             var root = parse.GetValue(outputOption) ?? Directory.GetCurrentDirectory();
