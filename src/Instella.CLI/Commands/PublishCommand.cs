@@ -150,6 +150,8 @@ internal static class PublishCommand
                 return ExitCodes.ForStatus(result.StatusCode);
             }
             Console.WriteLine(result.Data?.Message ?? "Published.");
+            if (ReleaseDescription.PendingMessage(result.Data?.State, result.Data?.PublishAfter) is { } pending)
+                Console.WriteLine(pending);
             return ExitCodes.Success;
         });
         return command;
@@ -203,15 +205,7 @@ internal static class PublishCommand
 
     private static void Describe(ReleaseManifest manifest, DraftResponse draft, IReleaseSigningKey key)
     {
-        Console.WriteLine($"Draft {manifest.AppId} {manifest.Version} {manifest.Os}/{manifest.Arch}, channel {manifest.Channel}");
-        Console.WriteLine($"  Uploaded:  {draft.UploadedAt:u}");
-        Console.WriteLine($"  Files:     {manifest.Files.Count} ({UploadCommand.FormatSize(manifest.Files.Sum(f => f.Size))})");
-        foreach (var i in manifest.Installers ?? [])
-            Console.WriteLine($"  Installer: {i.Kind} {i.FileName} ({UploadCommand.FormatSize(i.Size)}, sha256 {i.Sha256})");
-        if (manifest.TrustedKeys is { } rotate)
-            Console.WriteLine($"  Rotates trusted keys to: {string.Join(", ", rotate.Select(k => k.KeyId))}");
-        if (!string.IsNullOrWhiteSpace(draft.Changelog))
-            Console.WriteLine($"  Changelog: {draft.Changelog.Trim().Split('\n')[0].TrimEnd('\r')}");
+        ReleaseDescription.Write("Draft", manifest, draft.UploadedAt, draft.Changelog, Console.Out);
         Console.WriteLine($"  Signing with key {key.PublicKey.KeyId}{(key is CommandSigningKey ? " (sign command)" : "")}");
     }
 

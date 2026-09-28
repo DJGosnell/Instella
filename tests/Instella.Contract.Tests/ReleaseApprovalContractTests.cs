@@ -164,6 +164,24 @@ public class ReleaseApprovalContractTests
         Assert.That(authorize.Policy, Is.EqualTo("ApiKey"));
     }
 
+    [Test]
+    public async Task TheCli_ListsAndApproves_AgainstTheRealServer()
+    {
+        var upload = await UploadAsync();
+        Assert.That(upload.State, Is.EqualTo(ReleaseStates.Pending));
+        using var client = new ApiClient(_server.CreateClient(), _server.BaseUrl, _approveKey);
+        var console = new Instella.CLI.Commands.CommandConsole(new StringWriter(), new StringWriter(), new StringReader(""), true);
+
+        Assert.That(await Instella.CLI.Commands.PendingCommand.RunAsync(client, PackageId, console, CancellationToken.None), Is.Zero);
+        var exit = await Instella.CLI.Commands.ApproveCommand.RunAsync(client,
+            new Instella.CLI.Commands.ReleaseTarget(PackageId, V1, TargetPlatform.Windows, Architecture.X64),
+            new DirectoryInfo(Path.Combine(_work, "app")), null, null, yes: true, console, CancellationToken.None);
+
+        Assert.That(exit, Is.Zero, console.Error.ToString());
+        Assert.That(console.Out.ToString(), Does.Contain("pending approval").And.Contain("Approved 1.0.0 windows/x64"));
+        Assert.That(await _server.QueryAsync(db => db.VersionBuilds.SingleAsync()).ContinueWith(t => t.Result.State), Is.EqualTo(BuildState.Published));
+    }
+
     private Uri Approval() => ApiRoutes.ForApproval(_base, PackageId, V1, TargetPlatform.Windows, Architecture.X64);
 
     private HttpClient Client(string key)
