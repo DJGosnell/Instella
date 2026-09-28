@@ -426,6 +426,9 @@ internal sealed class HarnessPrograms(int exitCode) : IProgramRunner
         Runs.Add(arguments.Count == 0 ? exePath : $"{exePath} {string.Join(' ', arguments)}");
         return Task.FromResult(exitCode);
     }
+
+    public async Task<ProgramExit> RunCapturedAsync(ProgramStart start, Action<ProgramStream, string> onLine, TimeSpan timeout, CancellationToken ct) =>
+        new(await RunAsync(start.ExePath, start.Arguments, timeout, ct), []);
 }
 
 /// <summary>Every log line as <c>LEVEL message</c>.</summary>

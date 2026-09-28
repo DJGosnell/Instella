@@ -196,16 +196,30 @@ internal sealed class FakeProcesses : ILockingProcessFinder, IProcessCloser
     }
 }
 
-/// <summary>Records programs run and answers with <see cref="ExitCode"/>.</summary>
+/// <summary>Records programs run and answers with <see cref="ExitCode"/>, or with <see cref="Behaviour"/> for captured runs.</summary>
 internal sealed class FakePrograms : IProgramRunner
 {
     public int ExitCode { get; set; }
     public List<(string Exe, IReadOnlyList<string> Args)> Runs { get; } = [];
 
+    /// <summary>Captured runs (the app's upgrade program), in order.</summary>
+    public List<ProgramStart> CapturedRuns { get; } = [];
+
+    /// <summary>What a captured run does: prints lines, returns an exit code, or throws (timeout, cannot start).</summary>
+    public Func<ProgramStart, Action<ProgramStream, string>, int>? Behaviour { get; set; }
+
     public Task<int> RunAsync(string exePath, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken ct)
     {
         Runs.Add((exePath, arguments));
         return Task.FromResult(ExitCode);
+    }
+
+    public Task<ProgramExit> RunCapturedAsync(ProgramStart start, Action<ProgramStream, string> onLine, TimeSpan timeout, CancellationToken ct)
+    {
+        CapturedRuns.Add(start);
+        Runs.Add((start.ExePath, start.Arguments));
+        var code = Behaviour is null ? ExitCode : Behaviour(start, onLine);
+        return Task.FromResult(new ProgramExit(code, []));
     }
 }
 
