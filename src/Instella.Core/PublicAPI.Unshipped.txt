@@ -152,3 +152,5 @@ static Instella.Core.Wire.UnpublishedReleaseResponse.operator !=(Instella.Core.W
 static Instella.Core.Wire.UnpublishedReleaseResponse.operator ==(Instella.Core.Wire.UnpublishedReleaseResponse? left, Instella.Core.Wire.UnpublishedReleaseResponse? right) -> bool
 static Instella.Core.Wire.UnpublishedReleaseSummary.operator !=(Instella.Core.Wire.UnpublishedReleaseSummary? left, Instella.Core.Wire.UnpublishedReleaseSummary? right) -> bool
 static Instella.Core.Wire.UnpublishedReleaseSummary.operator ==(Instella.Core.Wire.UnpublishedReleaseSummary? left, Instella.Core.Wire.UnpublishedReleaseSummary? right) -> bool
+Instella.Core.Installation.InstellaExitCode.InstallAppUpgradeFailed = 15 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UpdateAppUpgradeFailed = 25 -> Instella.Core.Installation.InstellaExitCode
