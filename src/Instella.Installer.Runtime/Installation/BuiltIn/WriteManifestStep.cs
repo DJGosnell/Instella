@@ -63,6 +63,8 @@ internal sealed class WriteManifestStep : IInstallStepExecution
             // builder config.
             Registry = MergeRegistry(context),
             TrackedItems = MergeTrackedItems(context),
+            CompletedMigrations = MergeCompletedMigrations(context),
+            AdoptedItems = MergeAdoptedItems(context),
             DeclaredCliFlags = context.ManifestCliFlags,
             Logging = context.ManifestLogging,
         };
@@ -123,18 +125,60 @@ internal sealed class WriteManifestStep : IInstallStepExecution
     }
 
     /// <summary>
-    /// Custom Finalize steps run after the commit, so what they track reaches the installed
-    /// manifest here: it is rewritten atomically (temp file + rename) when it changed.
+    /// Ids of the run-once migrations completed for this installation: the previous version's
+    /// and this run's, sorted ordinally. Upgrades and repairs never drop one.
     /// </summary>
-    internal static async Task AmendTrackedItemsAsync(InstallContext context, CancellationToken ct)
+    internal static List<string>? MergeCompletedMigrations(InstallContext context)
+    {
+        var ids = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var id in context.ExistingInstallation?.CompletedMigrations ?? []) ids.Add(id);
+        foreach (var id in context.Migrations.Completed) ids.Add(id);
+        return ids.Count > 0 ? ids.ToList() : null;
+    }
+
+    /// <summary>
+    /// What uninstall removes although Instella did not create it: what the previous version
+    /// recorded (kept even when this version no longer has the migration that adopted it), the
+    /// <c>WithAppManagedAutoStart</c> values, and what this run's migrations adopted. The first
+    /// entry for a (kind, name, scope) wins, so an item keeps its original source.
+    /// </summary>
+    internal static List<ManifestAdoptedItem>? MergeAdoptedItems(InstallContext context)
+    {
+        var perUser = context.Scope == InstallationScope.PerUser;
+        var merged = new List<ManifestAdoptedItem>();
+        void Add(ManifestAdoptedItem item)
+        {
+            if (!merged.Any(m => m.Kind == item.Kind && m.PerUser == item.PerUser
+                                 && string.Equals(m.Name, item.Name, StringComparison.OrdinalIgnoreCase)))
+                merged.Add(item);
+        }
+        foreach (var item in context.ExistingInstallation?.AdoptedItems ?? []) Add(item);
+        foreach (var name in context.AppManagedRunValues)
+            Add(new ManifestAdoptedItem(ManifestAdoptedItem.RunValue, name, perUser, ManifestAdoptedItem.AppManaged));
+        foreach (var item in context.Migrations.Adopted) Add(item);
+        return merged.Count > 0 ? merged : null;
+    }
+
+    /// <summary>
+    /// Custom Finalize steps and AfterCommit migrations run after the commit, so what they track,
+    /// complete and adopt reaches the installed manifest here: it is rewritten atomically (temp
+    /// file + rename) when it changed.
+    /// </summary>
+    internal static async Task AmendManifestAsync(InstallContext context, CancellationToken ct)
     {
         var writer = new InstallManifestWriter(context.FileSystem);
         var current = await writer.ReadAsync(context.InstallPath, ct);
         if (current is null) return;
         var items = MergeTrackedItems(context);
-        if ((current.TrackedItems ?? []).SequenceEqual(items ?? [])) return;
+        var completed = MergeCompletedMigrations(context);
+        var adopted = MergeAdoptedItems(context);
+        if ((current.TrackedItems ?? []).SequenceEqual(items ?? [])
+            && (current.CompletedMigrations ?? []).SequenceEqual(completed ?? [])
+            && (current.AdoptedItems ?? []).SequenceEqual(adopted ?? []))
+            return;
 
-        var json = JsonSerializer.SerializeToUtf8Bytes(current with { TrackedItems = items }, InstalledManifestJsonContext.Default.InstalledManifest);
+        var amended = current with { TrackedItems = items, CompletedMigrations = completed, AdoptedItems = adopted };
+        var json = JsonSerializer.SerializeToUtf8Bytes(amended, InstalledManifestJsonContext.Default.InstalledManifest);
         var tmp = Path.Combine(context.InstallPath, ManifestFileName + ".tmp");
         await context.FileSystem.WriteAllBytesAsync(tmp, json, ct);
         await context.FileSystem.MoveFileAsync(tmp, Path.Combine(context.InstallPath, ManifestFileName), overwrite: true, ct);

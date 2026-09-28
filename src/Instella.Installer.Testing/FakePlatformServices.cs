@@ -199,24 +199,75 @@ public sealed class FakePlatformServices : IPlatformServices
         return Task.FromResult(PlatformResult.Ok);
     }
 
+    private readonly List<(RegistryHive Hive, string KeyPath)> _deniedRegistryWrites = new();
+    private readonly List<(RegistryHive Hive, string KeyPath)> _deniedRegistryReads = new();
+
+    /// <summary>
+    /// Simulates a registry key (and its subkeys) the installer may read but not change, as the real
+    /// platform reports it: writes and deletes there fail with "access denied".
+    /// </summary>
+    public void DenyRegistryWrites(RegistryHive hive, string keyPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(keyPath);
+        lock (_deniedRegistryWrites) _deniedRegistryWrites.Add((hive, keyPath));
+    }
+
+    /// <summary>
+    /// Simulates a registry key (and its subkeys) the installer may not read, as the real platform
+    /// reports it: reads return null (the value looks absent), and writes fail as with
+    /// <see cref="DenyRegistryWrites"/>.
+    /// </summary>
+    public void DenyRegistryReads(RegistryHive hive, string keyPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(keyPath);
+        lock (_deniedRegistryWrites)
+        {
+            _deniedRegistryReads.Add((hive, keyPath));
+            _deniedRegistryWrites.Add((hive, keyPath));
+        }
+    }
+
+    private bool IsDenied(List<(RegistryHive Hive, string KeyPath)> denied, RegistryHive hive, string keyPath)
+    {
+        lock (_deniedRegistryWrites)
+            return denied.Any(d => d.Hive == hive
+                && (string.Equals(d.KeyPath, keyPath, StringComparison.OrdinalIgnoreCase)
+                    || keyPath.StartsWith(d.KeyPath + "\\", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static Task<PlatformResult> AccessDenied(string keyPath) =>
+        Task.FromResult(PlatformResult.Fail($"Access to the registry key '{keyPath}' is denied."));
+
     /// <inheritdoc />
     public Task<PlatformResult> DeleteRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
-        => Task.FromResult(Registry.Delete(hive, keyPath, name) ? PlatformResult.Ok : PlatformResult.Fail($"no value '{name}' under '{keyPath}'"));
+        => IsDenied(_deniedRegistryWrites, hive, keyPath) ? AccessDenied(keyPath)
+            : Task.FromResult(Registry.Delete(hive, keyPath, name) ? PlatformResult.Ok : PlatformResult.Fail($"no value '{name}' under '{keyPath}'"));
 
     /// <inheritdoc />
     public Task<PlatformResult> DeleteRegistryKeyAsync(RegistryHive hive, string keyPath, bool perUser, CancellationToken ct)
-        => Task.FromResult(Registry.DeleteKey(hive, keyPath) ? PlatformResult.Ok : PlatformResult.Fail($"no key '{keyPath}'"));
+        => IsDenied(_deniedRegistryWrites, hive, keyPath) ? AccessDenied(keyPath)
+            : Task.FromResult(Registry.DeleteKey(hive, keyPath) ? PlatformResult.Ok : PlatformResult.Fail($"no key '{keyPath}'"));
 
     /// <inheritdoc />
     public Task<PlatformResult> WriteRegistryValueAsync(RegistryHive hive, string keyPath, string name, InstellaRegistryValueKind kind, object value, bool perUser, CancellationToken ct)
     {
+        if (IsDenied(_deniedRegistryWrites, hive, keyPath)) return AccessDenied(keyPath);
         Registry.Set(hive, keyPath, name, kind, value);
         return Task.FromResult(PlatformResult.Ok);
     }
 
     /// <inheritdoc />
+    public async Task<RegistryReadResult> TryReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
+    {
+        if (IsDenied(_deniedRegistryReads, hive, keyPath))
+            return new RegistryReadResult(null, $"Access to the registry key '{keyPath}' is denied.");
+        return new RegistryReadResult(await ReadRegistryValueAsync(hive, keyPath, name, perUser, ct), null);
+    }
+
+    /// <inheritdoc />
     public Task<RegistryValueData?> ReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
     {
+        if (IsDenied(_deniedRegistryReads, hive, keyPath)) return Task.FromResult<RegistryValueData?>(null);
         foreach (var r in Registry.Snapshot())
         {
             if (r.Hive == hive && string.Equals(r.KeyPath, keyPath, StringComparison.OrdinalIgnoreCase)

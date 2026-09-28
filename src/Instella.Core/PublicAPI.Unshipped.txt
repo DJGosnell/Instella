@@ -1,1 +1,49 @@
 #nullable enable
+Instella.Core.FileSystem.FileSystemEntryState
+Instella.Core.FileSystem.FileSystemEntryState.Denied = 3 -> Instella.Core.FileSystem.FileSystemEntryState
+Instella.Core.FileSystem.FileSystemEntryState.Directory = 2 -> Instella.Core.FileSystem.FileSystemEntryState
+Instella.Core.FileSystem.FileSystemEntryState.File = 1 -> Instella.Core.FileSystem.FileSystemEntryState
+Instella.Core.FileSystem.FileSystemEntryState.Missing = 0 -> Instella.Core.FileSystem.FileSystemEntryState
+Instella.Core.FileSystem.IFileSystem.EnumerateFilesWithoutLinks(string! path, string! searchPattern) -> System.Collections.Generic.IEnumerable<string!>!
+Instella.Core.FileSystem.IFileSystem.GetEntryState(string! path) -> Instella.Core.FileSystem.FileSystemEntryState
+Instella.Core.FileSystem.IFileSystem.IsLink(string! path) -> bool
+Instella.Core.Installation.InstalledManifest.AdoptedItems.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestAdoptedItem!>?
+Instella.Core.Installation.InstalledManifest.AdoptedItems.init -> void
+Instella.Core.Installation.InstalledManifest.CompletedMigrations.get -> System.Collections.Generic.IReadOnlyList<string!>?
+Instella.Core.Installation.InstalledManifest.CompletedMigrations.init -> void
+Instella.Core.Installation.ManifestAdoptedItem
+Instella.Core.Installation.ManifestAdoptedItem.<Clone>$() -> Instella.Core.Installation.ManifestAdoptedItem!
+Instella.Core.Installation.ManifestAdoptedItem.Deconstruct(out string! Kind, out string! Name, out bool PerUser, out string! Source) -> void
+Instella.Core.Installation.ManifestAdoptedItem.Equals(Instella.Core.Installation.ManifestAdoptedItem? other) -> bool
+Instella.Core.Installation.ManifestAdoptedItem.Kind.get -> string!
+Instella.Core.Installation.ManifestAdoptedItem.Kind.init -> void
+Instella.Core.Installation.ManifestAdoptedItem.ManifestAdoptedItem(string! Kind, string! Name, bool PerUser, string! Source) -> void
+Instella.Core.Installation.ManifestAdoptedItem.Name.get -> string!
+Instella.Core.Installation.ManifestAdoptedItem.Name.init -> void
+Instella.Core.Installation.ManifestAdoptedItem.PerUser.get -> bool
+Instella.Core.Installation.ManifestAdoptedItem.PerUser.init -> void
+Instella.Core.Installation.ManifestAdoptedItem.Source.get -> string!
+Instella.Core.Installation.ManifestAdoptedItem.Source.init -> void
+Instella.Core.Platform.IPlatformServices.TryReadRegistryValueAsync(Instella.Core.Platform.RegistryHive hive, string! keyPath, string! name, bool perUser, System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task<Instella.Core.Platform.RegistryReadResult!>!
+Instella.Core.Platform.RegistryReadResult
+Instella.Core.Platform.RegistryReadResult.<Clone>$() -> Instella.Core.Platform.RegistryReadResult!
+Instella.Core.Platform.RegistryReadResult.Deconstruct(out Instella.Core.Platform.RegistryValueData? Value, out string? Error) -> void
+Instella.Core.Platform.RegistryReadResult.Equals(Instella.Core.Platform.RegistryReadResult? other) -> bool
+Instella.Core.Platform.RegistryReadResult.Error.get -> string?
+Instella.Core.Platform.RegistryReadResult.Error.init -> void
+Instella.Core.Platform.RegistryReadResult.Failed.get -> bool
+Instella.Core.Platform.RegistryReadResult.RegistryReadResult(Instella.Core.Platform.RegistryValueData? Value, string? Error) -> void
+Instella.Core.Platform.RegistryReadResult.Value.get -> Instella.Core.Platform.RegistryValueData?
+Instella.Core.Platform.RegistryReadResult.Value.init -> void
+const Instella.Core.Installation.ManifestAdoptedItem.AppManaged = "app-managed" -> string!
+const Instella.Core.Installation.ManifestAdoptedItem.RunValue = "run-value" -> string!
+override Instella.Core.Installation.ManifestAdoptedItem.Equals(object? obj) -> bool
+override Instella.Core.Installation.ManifestAdoptedItem.GetHashCode() -> int
+override Instella.Core.Installation.ManifestAdoptedItem.ToString() -> string!
+override Instella.Core.Platform.RegistryReadResult.Equals(object? obj) -> bool
+override Instella.Core.Platform.RegistryReadResult.GetHashCode() -> int
+override Instella.Core.Platform.RegistryReadResult.ToString() -> string!
+static Instella.Core.Installation.ManifestAdoptedItem.operator !=(Instella.Core.Installation.ManifestAdoptedItem? left, Instella.Core.Installation.ManifestAdoptedItem? right) -> bool
+static Instella.Core.Installation.ManifestAdoptedItem.operator ==(Instella.Core.Installation.ManifestAdoptedItem? left, Instella.Core.Installation.ManifestAdoptedItem? right) -> bool
+static Instella.Core.Platform.RegistryReadResult.operator !=(Instella.Core.Platform.RegistryReadResult? left, Instella.Core.Platform.RegistryReadResult? right) -> bool
+static Instella.Core.Platform.RegistryReadResult.operator ==(Instella.Core.Platform.RegistryReadResult? left, Instella.Core.Platform.RegistryReadResult? right) -> bool

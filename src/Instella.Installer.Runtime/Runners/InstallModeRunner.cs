@@ -175,7 +175,17 @@ internal sealed class InstallModeRunner
                 builtIns.Add(new WriteRegistrySpecsStep(_config.RegistryWrites));
             }
 
-            var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps);
+            var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
+            // Silent: migrations close programs only with --force-close, as the upgrade gate does.
+            context.Migrations = new Migrations.MigrationRuntime
+            {
+                Folders = Services?.KnownFolders ?? Migrations.KnownFolderResolver.Host,
+                ProcessFinder = ProcessFinder ?? Services?.ProcessFinder ?? DefaultLockingProcessFinder.Instance,
+                ProcessCloser = Services?.ProcessCloser,
+                ForceClose = dispatch.ForceClose,
+            };
+            // An earlier run of an installer on this folder may have stopped mid-install: finish its migrations' undo.
+            await Migrations.MigrationUndo.RecoverAsync(context, ct);
 
             var executor = new StepExecutor(steps);
             var result = await executor.ExecuteAsync(context, progress: null, ct);

@@ -63,6 +63,7 @@ internal static class InstallContextFactory
             ExistingInstallation = existing,
             Cli = cli ?? CliArgs.Empty,
             AllowElevationPrompt = allowElevationPrompt,
+            AppManagedRunValues = config.AppManagedRunValuesOrEmpty,
             Pages = pages ?? new Dictionary<string, UI.Widgets.PageState>(StringComparer.Ordinal),
             ManifestCliFlags = config.DeclaredCliFlags.Count > 0
                 ? config.DeclaredCliFlags
@@ -125,6 +126,8 @@ internal static class InstallContextFactory
             Pages = original.Pages,
             ManifestCliFlags = original.ManifestCliFlags,
             ManifestLogging = original.ManifestLogging,
+            AppManagedRunValues = original.AppManagedRunValues,
+            Migrations = original.Migrations,
         };
     }
 

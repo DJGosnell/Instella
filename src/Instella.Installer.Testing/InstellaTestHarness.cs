@@ -6,6 +6,7 @@ using Instella.Core.Platform;
 using Instella.Installer.Runtime.Builders;
 using Instella.Installer.Runtime.Core;
 using Instella.Installer.Runtime.Installation;
+using Instella.Installer.Runtime.Migrations;
 using Instella.Installer.Runtime.UI.Widgets;
 
 namespace Instella.Installer.Testing;
@@ -50,6 +51,52 @@ public sealed class InstellaTestHarness : IAsyncDisposable
         _pageStates = pageStates;
         _installer = installer;
         _cliArgs = cliArgs;
+    }
+
+    // Set by Builder.Build(): the app files RunFullAsync installs, the fake running programs, and
+    // the fake profile the known folders of install migrations live in.
+    private byte[]? _payload;
+    private readonly HarnessProcesses _processes = new();
+    private readonly string _knownFolderRoot = Path.Combine(Path.GetTempPath(), "instella-harness-folders", Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    /// Where <paramref name="folder"/> is for install migrations during <see cref="RunFullAsync"/>:
+    /// a fake profile inside <see cref="FileSystem"/>, never the host's. Seed old files there.
+    /// </summary>
+    public string KnownFolderPath(KnownFolder folder, InstallationScope scope = InstallationScope.PerUser) =>
+        FakeKnownFolders(folder, scope == InstallationScope.SystemWide)
+        ?? throw new ArgumentException($"{folder} is the install folder; use the installer's --path", nameof(folder));
+
+    /// <summary>
+    /// Pretends a program is running from <paramref name="exePath"/> (a file in <see cref="FileSystem"/>)
+    /// during <see cref="RunFullAsync"/>: install migrations find it and can close it, unless
+    /// <paramref name="closes"/> is false.
+    /// </summary>
+    public void StartProcess(string exePath, bool closes = true)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(exePath);
+        _processes.Start(exePath, closes);
+    }
+
+    /// <summary>Whether a program started with <see cref="StartProcess"/> is still running.</summary>
+    public bool IsProcessRunning(string exePath) => _processes.IsRunning(exePath);
+
+    private string? FakeKnownFolders(KnownFolder folder, bool machine)
+    {
+        var profile = Path.Combine(_knownFolderRoot, "Users", "user");
+        var programData = Path.Combine(_knownFolderRoot, "ProgramData");
+        return folder switch
+        {
+            KnownFolder.LocalAppData => Path.Combine(profile, "AppData", "Local"),
+            KnownFolder.RoamingAppData => Path.Combine(profile, "AppData", "Roaming"),
+            KnownFolder.StartMenuPrograms => machine
+                ? Path.Combine(programData, "Microsoft", "Windows", "Start Menu", "Programs")
+                : Path.Combine(profile, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs"),
+            KnownFolder.ProgramFiles => Path.Combine(_knownFolderRoot, "Program Files"),
+            KnownFolder.ProgramFilesX86 => Path.Combine(_knownFolderRoot, "Program Files (x86)"),
+            KnownFolder.ProgramData => programData,
+            _ => null,
+        };
     }
 
     /// <summary>
@@ -133,25 +180,39 @@ public sealed class InstellaTestHarness : IAsyncDisposable
     /// <see cref="FileSystem"/> and <see cref="PlatformServices"/>, never the host's. Use
     /// <see cref="RunStepAsync"/>/<see cref="RunInstallAsync"/> for step-level assertions.
     /// </remarks>
-    public Task<int> RunFullAsync(CancellationToken cancellationToken = default)
+    public Task<int> RunFullAsync(CancellationToken cancellationToken = default) => RunFullWithArgsAsync(_cliArgs, cancellationToken);
+
+    /// <summary>
+    /// <see cref="RunFullAsync"/> with <paramref name="args"/> instead of the
+    /// arguments given to <see cref="Builder.WithCliArgs"/>, so one harness (one file system, one
+    /// registry) can install, repair and uninstall in turn.
+    /// </summary>
+    public Task<int> RunFullWithArgsAsync(IReadOnlyList<string> args, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(args);
         if (_installer is null)
             throw new InvalidOperationException(
                 "RunFullAsync requires an installer — call Builder.WithInstaller(...) before Build().");
+        var argv = args.ToArray();
         // Never the host: the built-in installer gets a fake for everything that could
-        // reach it: UAC, windows, message boxes, Restart Manager, process starts, the stub folder.
+        // reach it: UAC, windows, message boxes, Restart Manager, process starts, the stub folder,
+        // the payload, and the known folders install migrations use.
+        var payload = _payload;
         if (_installer is Instella.Installer.Runtime.Builders.InstellaInstallerImpl impl)
-            return impl.RunAsync(_cliArgs, new Instella.Installer.Runtime.Builders.InstallerServices(
+            return impl.RunAsync(argv, new Instella.Installer.Runtime.Builders.InstallerServices(
                 PlatformServices, FileSystem,
                 Elevation: Elevation,
+                Payload: payload is null ? null : () => new MemoryStream(payload, writable: false),
                 Messages: _messages,
                 HostFactory: (_, _, _) => throw new InvalidOperationException(NoWindowMessage),
-                ProcessFinder: new NoProcesses(),
+                ProcessFinder: _processes,
                 AppLauncher: _launcher,
                 ScopePrompt: (_, _) => throw new InvalidOperationException(NoWindowMessage),
                 StubDirectory: () => Context.InstallPath,
-                ManagerUi: (_, _, _, _, _, _) => throw new InvalidOperationException(NoWindowMessage)), cancellationToken);
-        return _installer.RunAsync(_cliArgs, cancellationToken);
+                ManagerUi: (_, _, _, _, _, _) => throw new InvalidOperationException(NoWindowMessage),
+                KnownFolders: new Instella.Installer.Runtime.Migrations.KnownFolderResolver(FakeKnownFolders),
+                ProcessCloser: _processes), cancellationToken);
+        return _installer.RunAsync(argv, cancellationToken);
     }
 
     internal const string NoWindowMessage =
@@ -171,11 +232,6 @@ public sealed class InstellaTestHarness : IAsyncDisposable
         private readonly List<string> _launched = [];
         public IReadOnlyList<string> Launched { get { lock (_launched) return [.. _launched]; } }
         public void Launch(string exePath, string workingDirectory) { lock (_launched) _launched.Add(exePath); }
-    }
-
-    private sealed class NoProcesses : Instella.Installer.Runtime.Core.Processes.ILockingProcessFinder
-    {
-        public IReadOnlyList<Instella.Installer.Runtime.Core.Processes.LockingProcess> Find(IReadOnlyList<string> files) => [];
     }
 
     /// <summary>Releases the payload archive, if the run opened one.</summary>
@@ -214,6 +270,19 @@ public sealed class InstellaTestHarness : IAsyncDisposable
         private readonly Dictionary<string, PageState> _pageStates = new();
         private string _serverUrl = "https://updates.example.test";
         private string _channel = "stable";
+        private Dictionary<string, string>? _payloadFiles;
+
+        /// <summary>
+        /// The app files <see cref="RunFullAsync"/> installs (relative path → text),
+        /// as if they were appended to the installer. Without it a full install has no payload.
+        /// </summary>
+        public Builder WithPayload(IReadOnlyDictionary<string, string> files)
+        {
+            ArgumentNullException.ThrowIfNull(files);
+            _payloadFiles = new Dictionary<string, string>(files, StringComparer.Ordinal);
+            return this;
+        }
+
 
         /// <summary>The application id. Default <c>com.instella.tests.fake</c>.</summary>
         public Builder WithAppId(string appId)
@@ -387,7 +456,7 @@ public sealed class InstellaTestHarness : IAsyncDisposable
                 Log = logger,
             };
 
-            return new InstellaTestHarness(
+            var harness = new InstellaTestHarness(
                 context,
                 fs,
                 platform,
@@ -397,6 +466,22 @@ public sealed class InstellaTestHarness : IAsyncDisposable
                 _installer,
                 _cliArgs,
                 _elevationService);
+            if (_payloadFiles is not null) harness._payload = Zip(_payloadFiles);
+            return harness;
+        }
+
+        private static byte[] Zip(Dictionary<string, string> files)
+        {
+            using var ms = new MemoryStream();
+            using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var (path, text) in files)
+                {
+                    using var entry = zip.CreateEntry(path.Replace('\\', '/')).Open();
+                    entry.Write(System.Text.Encoding.UTF8.GetBytes(text));
+                }
+            }
+            return ms.ToArray();
         }
 
         private static InstallerMode InstellaMode() => InstallerMode.FirstInstall;

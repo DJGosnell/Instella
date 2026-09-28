@@ -35,6 +35,13 @@ internal sealed class DefaultLockingProcessFinder : ILockingProcessFinder
         OperatingSystem.IsWindows() ? RestartManager.FindLockingProcesses(files) : [];
 }
 
+/// <summary>Closes one program: asks it to close, then ends it after the timeout. The seam tests fake.</summary>
+internal interface IProcessCloser
+{
+    /// <summary>True when <paramref name="process"/> is no longer running.</summary>
+    Task<bool> CloseAsync(LockingProcess process, TimeSpan timeout, CancellationToken ct);
+}
+
 /// <summary>What the user chose when programs are using the installation's files.</summary>
 internal enum AppRunningChoice
 {
@@ -64,21 +71,47 @@ internal sealed class RunningAppGate
     /// <param name="log">Installer log.</param>
     /// <param name="finder">Finds programs using files; null uses Restart Manager.</param>
     /// <param name="fs">Lists the installation's files; null uses the real disk (the harness passes its own).</param>
+    /// <param name="closer">Closes a program; null asks it to close through <paramref name="platform"/>, then ends it.</param>
     public RunningAppGate(IPlatformServices platform, IInstellaLogger log, ILockingProcessFinder? finder = null,
-        Instella.Core.FileSystem.IFileSystem? fs = null)
+        Instella.Core.FileSystem.IFileSystem? fs = null, IProcessCloser? closer = null)
     {
         _platform = platform;
         _log = log;
         _finder = finder ?? DefaultLockingProcessFinder.Instance;
         _fs = fs ?? Instella.Core.FileSystem.RealFileSystem.Instance;
+        _closer = closer;
     }
+
+    private readonly IProcessCloser? _closer;
+    private readonly List<LockingProcess> _closed = [];
 
     /// <summary>How long a program gets to close after being asked, before it is ended.</summary>
     public TimeSpan CloseTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>The processes using files under <paramref name="installPath"/>.</summary>
-    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string executableName)
+    /// <summary>The programs this gate has closed.</summary>
+    public IReadOnlyList<LockingProcess> Closed { get { lock (_closed) return [.. _closed]; } }
+
+    /// <summary>
+    /// The processes using files under <paramref name="installPath"/>, plus copies of
+    /// <paramref name="executableName"/> running from there; null skips that name-based lookup.
+    /// </summary>
+    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string? executableName) =>
+        FindBlockers(installPath, executableName, out _);
+
+    /// <summary>
+    /// Do not follow symbolic links or junctions when listing the folder's files, so programs of
+    /// whatever a link points to are never found (or closed). Install migrations set it.
+    /// </summary>
+    public bool SkipLinks { get; init; }
+
+    /// <summary>
+    /// <see cref="FindBlockers(string, string?)"/>, also saying why the folder's programs could not
+    /// be found (<paramref name="error"/>: the files could not be listed, or Restart Manager failed),
+    /// in which case the list may be incomplete.
+    /// </summary>
+    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string? executableName, out string? error)
     {
+        error = null;
         var self = Environment.ProcessId;
         var selfPath = Environment.ProcessPath;
         var found = new Dictionary<int, LockingProcess>();
@@ -87,21 +120,29 @@ internal sealed class RunningAppGate
         {
             try
             {
-                var files = _fs.EnumerateFiles(installPath, "*", recursive: true).ToList();
+                var files = (SkipLinks ? _fs.EnumerateFilesWithoutLinks(installPath, "*") : _fs.EnumerateFiles(installPath, "*", recursive: true)).ToList();
                 foreach (var p in _finder.Find(files))
                     if (p.Id != self && !IsSameProgram(p.Id, selfPath))
                         found.TryAdd(p.Id, p);
             }
             catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
             {
+                error = ex.Message;
                 _log.Warn($"could not list the programs using '{installPath}': {ex.Message}");
             }
         }
-
-        foreach (var p in _platform.GetRunningProcesses(Path.GetFileNameWithoutExtension(executableName), installPath))
+        else if (_fs.GetEntryState(installPath) == Instella.Core.FileSystem.FileSystemEntryState.Denied)
         {
-            using (p)
-                if (p.Id != self) found.TryAdd(p.Id, new LockingProcess(p.Id, p.ProcessName, CanClose: true));
+            error = $"'{installPath}' cannot be read";
+        }
+
+        if (!string.IsNullOrEmpty(executableName))
+        {
+            foreach (var p in _platform.GetRunningProcesses(Path.GetFileNameWithoutExtension(executableName), installPath))
+            {
+                using (p)
+                    if (p.Id != self) found.TryAdd(p.Id, new LockingProcess(p.Id, p.ProcessName, CanClose: true));
+            }
         }
         return found.Values.ToList();
     }
@@ -112,7 +153,7 @@ internal sealed class RunningAppGate
     /// prompt (silent) the answer is no.
     /// </summary>
     public async Task<bool> EnsureClosedAsync(
-        string appName, string installPath, string executableName, bool forceClose, AppRunningPrompt? prompt,
+        string appName, string installPath, string? executableName, bool forceClose, AppRunningPrompt? prompt,
         CancellationToken ct)
     {
         while (true)
@@ -141,12 +182,22 @@ internal sealed class RunningAppGate
     public Task CloseAsync(IEnumerable<LockingProcess> blockers, CancellationToken ct) =>
         Task.WhenAll(blockers.Where(b => b.CanClose).Select(async b =>
         {
-            using var process = Open(b);
-            if (process is null) return;
             _log.Info($"closing {b}");
-            var result = await _platform.TerminateProcessAsync(process, CloseTimeout, ct);
-            if (!result.Success) _log.Warn($"could not close {b}: {result.Error}");
+            var closed = _closer is not null
+                ? await _closer.CloseAsync(b, CloseTimeout, ct)
+                : await CloseThroughPlatformAsync(b, ct);
+            if (closed)
+                lock (_closed) _closed.Add(b);
         }));
+
+    private async Task<bool> CloseThroughPlatformAsync(LockingProcess b, CancellationToken ct)
+    {
+        using var process = Open(b);
+        if (process is null) return false;
+        var result = await _platform.TerminateProcessAsync(process, CloseTimeout, ct);
+        if (!result.Success) _log.Warn($"could not close {b}: {result.Error}");
+        return result.Success;
+    }
 
     /// <summary>
     /// The Windows prompt: Continue closes the programs, Try Again checks again after the user

@@ -324,6 +324,14 @@ internal sealed class InteractiveInstallRunner
                         _config, mode, chosenInstallPath, installOptions,
                         _platform, _fileSystem, _log, existing: existing, cli: cli, pages: pageStates,
                         allowElevationPrompt: true);
+                    // Migrations that close programs ask, as the upgrade gate does.
+                    context.Migrations = new Migrations.MigrationRuntime
+                    {
+                        ProcessFinder = ProcessFinder ?? DefaultLockingProcessFinder.Instance,
+                        Prompt = _appRunningPrompt,
+                        ForceClose = dispatch.ForceClose,
+                    };
+                    await Migrations.MigrationUndo.RecoverAsync(context, pipelineCts.Token);
                     result = await RunStepPipelineAsync(context, host, progressState, pipelineCts.Token);
                 }
                 catch (InstallRefusedException ex)
@@ -601,7 +609,7 @@ internal sealed class InteractiveInstallRunner
             if (_config.RegistryWrites.Count > 0)
                 builtIns.Add(new WriteRegistrySpecsStep(_config.RegistryWrites));
 
-            var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps);
+            var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
             _stepDisplayNames = StepDisplayNames.Map(steps);
             var progressSink = new HostProgressSink(host, progressState, _stepDisplayNames);
             var executor = new StepExecutor(steps);

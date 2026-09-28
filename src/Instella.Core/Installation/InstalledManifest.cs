@@ -119,6 +119,18 @@ public sealed record InstalledManifest
     public ManifestLoggingConfig? Logging { get; init; }
 
     /// <summary>
+    /// Ids of the run-once install migrations that have succeeded for this installation, sorted
+    /// ordinally. A migration listed here never runs again for it; upgrades and repairs keep the list.
+    /// </summary>
+    public IReadOnlyList<string>? CompletedMigrations { get; init; }
+
+    /// <summary>
+    /// Things Instella did not create but removes on uninstall: Run values a migration adopted, or
+    /// that the app manages itself (<c>WithAppManagedAutoStart</c>). Upgrades and repairs keep the list.
+    /// </summary>
+    public IReadOnlyList<ManifestAdoptedItem>? AdoptedItems { get; init; }
+
+    /// <summary>
     /// Properties this version does not know, kept so a read–modify–write (the updater's
     /// manifest refresh) never drops a field a newer installer wrote: a stub is never replaced,
     /// so it meets manifests from later 1.x installers (docs/compatibility.md).
@@ -141,6 +153,23 @@ public sealed record ManifestRegistryEntry(
     InstellaRegistryValueKind Kind,
     bool PerUser,
     bool IsKey = false);
+
+/// <summary>
+/// Something uninstall removes although Instella did not create it. A <c>run-value</c> is deleted
+/// only while it points into the installation being removed.
+/// </summary>
+/// <param name="Kind"><see cref="RunValue"/>; readers skip kinds they do not know.</param>
+/// <param name="Name">The Run value's name.</param>
+/// <param name="PerUser">True for the current user's Run key (HKCU), false for the machine's (HKLM).</param>
+/// <param name="Source">The id of the migration that adopted it, or <see cref="AppManaged"/>.</param>
+public sealed record ManifestAdoptedItem(string Kind, string Name, bool PerUser, string Source)
+{
+    /// <summary>The kind of a Windows Run value (<c>Software\Microsoft\Windows\CurrentVersion\Run</c>).</summary>
+    public const string RunValue = "run-value";
+
+    /// <summary>The source of a value declared with <c>WithAppManagedAutoStart</c>.</summary>
+    public const string AppManaged = "app-managed";
+}
 
 /// <summary>A mutation a custom step tracked, replayed in reverse by uninstall.</summary>
 /// <param name="Kind">file, directory, registry-value, registry-key or path-entry.</param>
@@ -247,6 +276,7 @@ internal sealed class InstallManifestWriter
 [JsonSerializable(typeof(InstalledFile))]
 [JsonSerializable(typeof(ManifestRegistryEntry))]
 [JsonSerializable(typeof(ManifestTrackedItem))]
+[JsonSerializable(typeof(ManifestAdoptedItem))]
 [JsonSerializable(typeof(ManifestCliFlag))]
 [JsonSerializable(typeof(ManifestLoggingConfig))]
 [JsonSerializable(typeof(PublisherKey))]

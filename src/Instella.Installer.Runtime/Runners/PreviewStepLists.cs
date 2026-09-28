@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Instella.Core.Installation;
 using Instella.Installer.Runtime.Builders;
 using Instella.Installer.Runtime.Installation;
@@ -27,7 +28,7 @@ internal static class PreviewStepLists
             InstallerMode.FirstInstall or InstallerMode.Upgrade or InstallerMode.Repair =>
                 BuildInstallSteps(config),
             InstallerMode.Update => BuildUpdateSteps(),
-            InstallerMode.Uninstall => BuildUninstallSteps(),
+            InstallerMode.Uninstall => BuildUninstallSteps(config),
             _ => new List<IInstallStepExecution>(),
         };
     }
@@ -37,7 +38,7 @@ internal static class PreviewStepLists
         var list = new List<IInstallStepExecution>(OfflineInstallRunner.BuildDefaultSteps());
         foreach (var user in config.UserSteps)
             list.Add(user);
-        return list;
+        return Migrations.MigrationPipeline.Insert(list, config.MigrationsOrEmpty);
     }
 
     private static IReadOnlyList<IInstallStepExecution> BuildUpdateSteps() => new IInstallStepExecution[]
@@ -47,6 +48,13 @@ internal static class PreviewStepLists
         new SyntheticStep("replace-files", InstallStage.Register, weight: 2),
         new SyntheticStep("finalize-update", InstallStage.Finalize, weight: 1),
     };
+
+    // Uninstall migrations run first, before anything is removed.
+    private static IReadOnlyList<IInstallStepExecution> BuildUninstallSteps(FrozenConfig config) =>
+        Migrations.MigrationPipeline.ForUninstall(config.MigrationsOrEmpty)
+            .Select(m => (IInstallStepExecution)new SyntheticStep(Migrations.MigrationValidation.StepPrefix + m.Id, InstallStage.Register, weight: 1))
+            .Concat(BuildUninstallSteps())
+            .ToList();
 
     private static IReadOnlyList<IInstallStepExecution> BuildUninstallSteps() => new IInstallStepExecution[]
     {

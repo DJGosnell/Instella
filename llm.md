@@ -133,14 +133,16 @@ return await InstellaInstaller.Create()                    // -> InstallerBuilde
 | `WithVersionSelection(bool enabled=true)` | Accepts `--list-versions` (prints versions with an `online` installer for this OS/arch on `--channel`, non-deprecated, newest first, marks latest / this installer, full changelogs; attaches to the parent console), `--app-version <v\|latest>` (own version or `latest` when it is the latest → installs here; another listed version → verified handoff; not listed → 40) and `--choose-version` (Win32 page with a drop-down, this installer's version always offered; cancel → 1; with `--silent` → 40). The handed-over installer gets the args minus the selection flags and `--channel`, plus `--no-newer-check`. Without the call the flags exit 40. Needs `WithServer` + a publisher key. Server errors → 21; an installer that does not verify → 12. Sample: on; `init` template: commented out |
 | `WithPrerequisite(Action<PrerequisiteBuilder>)` | `WithName`(req)/`WithBundlePath`/`WithDownloadUrl`+`WithSha256`/`WithDetectionRegistry`/`WithInstallArguments`/`WithSuccessExitCodes` |
 | `AddPage(id, Action<PageBuilder>)` | Custom wizard page (unique id) |
-| `AddStep(name, Action<StepBuilder>)` | Custom install step (unique name) |
+| `AddStep(name, Action<StepBuilder>)` | Custom install step (unique name; `migration:` prefix reserved) |
+| `AddMigration<T>()` / `AddMigration(InstallMigration)` | Install migration: a class derived from `InstallMigration` (see Install migrations). `new T()`, no scanning, AOT-safe |
+| `WithAppManagedAutoStart(runValueName)` | The app writes its own Run value (HKCU per-user / HKLM machine); uninstall deletes it only while it points into the installation. Recorded as an adopted item. Not with `WithAutoStart()` and the app id as the name |
 | `OnWindows/OnLinux/OnMacOS(Action<*Builder>)` | Platform sub-builders; the delegate runs only on that OS (Linux/macOS builders are empty) |
 | `AddCliFlag<T>(name, default?, help?)` | Typed flag; `T`∈{bool,int,long,string,string[],FileInfo,DirectoryInfo} |
 | `MapCliFlag(flagName, "pageId.widgetId")` | Flag value pre-fills the widget (interactive) and answers it (silent) |
 | `ConfigureLogging(Action<LoggingBuilder>)` / `WithLogLevel(InstellaLogLevel)` | Logging config |
 | `WithPayloadFilter(Action<PayloadFilterBuilder>)` | Glob include/exclude over payload zip entries (build-time) |
 | `EnablePreview()` | Opt into `--preview` (see Preview mode) |
-| `Build()` | Freeze → `IInstellaInstaller`; throws on missing `WithApp`, bad server URL, server without key, dup step/page names, reserved-flag redeclare, unmappable `MapCliFlag` |
+| `Build()` | Freeze → `IInstellaInstaller`; throws on missing `WithApp`, bad server URL, server without key, dup step/page names, reserved-flag redeclare, unmappable `MapCliFlag`, an invalid migration (id, duplicate id, blank display name, uninstall + `RunOnce`, `When()` reading `Context`, a condition that can never be true for its timing) |
 
 `Build()` validation of `MapCliFlag`: the flag must be declared with `AddCliFlag`; the key must
 name an existing page + widget (an unqualified widget id is accepted only when exactly one page
@@ -424,6 +426,76 @@ persisted into the installed manifest as `trackedItems` and reversed by uninstal
 `PointOfNoReturn` step snapshots the completed/ledger indices so only later work unwinds. Failed
 upgrades re-register from the previous `InstalledManifest`.
 
+### Install migrations (`Runtime/Migrations/`, public namespace `Instella.Installer.Runtime.Migrations`)
+
+User doc: `docs/migrations.md`. A migration is `class X : InstallMigration` with `Id` (permanent,
+1–64 of `[a-z0-9._-]`), `DisplayName` (Progress page; default `Id`), `Timing`
+(`MigrationTiming.BeforeCommit|AfterCommit(default)|Uninstall`), `Order` (int, default 0), `RunOnce`
+(default true; must be false for `Uninstall`), `protected Condition When()`, `protected Task
+ExecuteAsync(ct)`, `protected virtual Task RollbackAsync(ct)` (BeforeCommit only), `protected
+MigrationContext Context` / `protected IInstellaLogger Log` (prefix `migration[<id>]: `; both throw
+outside a run, so `When()` may only compose conditions).
+
+- **Conditions** (protected, return `Condition`, combine with `& | !`, `Condition.From(ctx => …,
+  description)`, `Condition.Always`): `IsFirstInstall/IsUpgrade/IsFirstInstallOrUpgrade/IsRepair/
+  IsUninstall()`, `UpgradingFrom("range")` (space-separated comparators `< <= > >= =`, bare version
+  = exact, bare major `2` = `2.0.0`, `*` any; Upgrade mode only), `FileExists/FolderExists/
+  InstellaInstallationAt(KnownFolder, relative)`, `RunValueExists(name)`, `RunValuePointsInto(name,
+  MigrationFolder)`, `RegistryValueExists(hive, key, name)`, `ProcessRunningIn(MigrationFolder)`,
+  `IsWindows()`, `IsPerUserInstall()`, `IsMachineInstall()`. A false condition logs the leaf that was
+  false. **Unknown is never true or false**: a leaf that cannot check (unreadable file via
+  `IFileSystem.GetEntryState` = `Denied`, unreadable registry value via
+  `IPlatformServices.TryReadRegistryValueAsync`, a failed process search, a per-user folder/HKCU in a
+  machine install, a known folder missing on the platform, a throwing `From`) throws
+  `ConditionEvaluationException`, so `!` cannot turn it into "true"; `MigrationExecution` turns any
+  exception while evaluating into a logged skip (not recorded), never a failure. Actions that cannot
+  read what they need fail with the reason; a denied write/delete fails the action with the reason.
+- **Actions** (protected): `Folder(KnownFolder, relative)` → `MigrationFolder`;
+  `StopProcessesInAsync(folder)`, `RepointRunValueAsync(name, from)` (to the new exe, arguments
+  kept), `DeleteRunValueAsync(name, pointingInto)`, `AdoptRunValueAsync(name)`, `DeleteFilesAsync(folder,
+  names)` (named relative paths, no wildcards, missing skipped), `DeleteFolderIfEmptyAsync(folder)`,
+  `RunProgramAsync(exePath, args, successExitCodes)` (full path, no shell, 10 min). A refusal or
+  failure throws `MigrationActionException`.
+- **`KnownFolder`**: `LocalAppData`, `RoamingAppData` (per-user only: unavailable to a machine-wide
+  install), `StartMenuPrograms` (user's or all users' by scope), `ProgramFiles`, `ProgramFilesX86`,
+  `ProgramData`, `InstallFolder` (conditions only). Run key = HKCU per-user / HKLM machine.
+- **Safety** (`MigrationFolderGuard`): known folder + `SafePath` relative, normalised; actions refuse
+  `InstallFolder`, the install folder / inside it / an ancestor of it, volume roots, `PathGuards`
+  protected folders (shared with `--cleanup`) and every known-folder root and `LocalAppData\{Programs,
+  Microsoft,Packages,Temp}`, `RoamingAppData\Microsoft`, and any folder holding
+  `.instella-manifest.json` in it, in an ancestor up to its known folder, or anywhere beneath it (scanned
+  with `IFileSystem.EnumerateFilesWithoutLinks`; anything unreadable is refused), and any path through a
+  link (`IFileSystem.IsLink` on each folder from the known folder down, and on the folders of each
+  `DeleteFilesAsync` name). Processes: `RunningAppGate { SkipLinks = true }` over the folder's files, same
+  prompt / `--force-close` rules; `FindBlockers(..., out error)` reports a failed search.
+  `Context.FileSystem`/`PlatformServices` bypass all of it.
+- **Pipeline**: steps `migration:<id>` (`MigrationStep`). `BeforeCommit` go just before
+  `write-manifest` (after all Register steps); a failure undoes the migration's actions, calls
+  `RollbackAsync`, fails the install; a later failure rolls it back too. **Undo is crash-safe**
+  (`MigrationUndo`): each change is journaled write-ahead to
+  `{UndoRoot=%TEMP%\Instella\migration-undo}\{run guid}\{id}\undo.json` (`UndoEntry` kinds `file`
+  (backup → original, never overwriting), `folder`, `run-value`), deleted files are moved next to it;
+  `InstallContext.CompletionActions` delete the run folder after success or after a failure past a
+  point of no return; a failed undo keeps the folder (`UndoCopiesKept`). `MigrationUndo.RecoverAsync`
+  runs at the start of every install, interactive install and uninstall (under the install-root
+  lock, after transaction recovery): for journals of this install path, committed (installed
+  manifest version = journal target and `installedAt` ≥ journal `createdAt`) → delete copies, else →
+  undo; what still fails stays journaled for the next run. `AfterCommit` go last, after
+  every custom Finalize step, as `IBestEffortStep`: a failure is a warning, cancel skips them without
+  rollback. Order: timing, `Order`, `Id`.
+- **Run-once**: success → id in `MigrationRuntime.Completed` → `completedMigrations` (staged by
+  `write-manifest` for BeforeCommit; `WriteManifestStep.AmendManifestAsync` after the loop for
+  AfterCommit). Skipped/failed ids are not recorded. Repair/upgrade keep and merge the list, so a
+  completed migration never runs again and a missing one catches up on the next installer run.
+- **Auto-updates never run migrations** (the updater does not run the pipeline and never replaces the
+  stub): installer-only with catch-up; conditions should test state, not the mode or the version.
+  Update-time changes belong in the app (`InstellaClient.IsPostUpdate`).
+- **Preview**: `MigrationRuntime.IsPreview` makes actions log `preview: would …` and change nothing;
+  `PreviewModeRunner` lists `migration:<id>` steps (uninstall list: uninstall migrations first).
+- **Seams** (`MigrationRuntime` on `InstallContext.Migrations`): `KnownFolderResolver`,
+  `ILockingProcessFinder`, `IProcessCloser`, `AppRunningPrompt`, `ForceClose`, `IProgramRunner`,
+  `IsPreview`; `InstallerServices.KnownFolders/ProcessCloser` feed them in harness runs.
+
 ### Transactions (`Runtime/Core/Transactions/InstallTransaction.cs`)
 
 One component for first install, upgrade, repair and update. Layout under the install root:
@@ -520,7 +592,9 @@ Uninstall/Update/Repair.
 
 Uninstall: recover → read installed manifest (missing → 31) → confirm (interactive Windows) →
 programs using the app's files (`RunningAppGate`): interactive asks (Cancel → 1), silent without
-`--force-close` → 32 with nothing changed → `OnUninstall` hooks → remove shortcuts/associations/PATH/auto-start/ARP/registry values (then
+`--force-close` → 32 with nothing changed → uninstall migrations (`Order`, `Id`; failure logged) →
+`OnUninstall` hooks → adopted items + `WithAppManagedAutoStart` Run values (deleted only while they
+point into the install folder) → remove shortcuts/associations/PATH/auto-start/ARP/registry values (then
 created keys if empty) and `trackedItems` → delete recorded files (one still locked, e.g. a DLL
 loaded by Explorer: moved to `.instella/pending-delete/{guid}-{name}`, which a loaded DLL allows;
 exit 32) → delete owned files. What it cannot delete (its own running stub, locked files) goes into
@@ -566,6 +640,8 @@ methods above. `InstallContext` has an internal constructor; tests get one from
   publicKey}), allowUnsignedUpdates, allowInsecureServer, downloadToken?, files(InstalledFile{relativePath,sha256,size}),
   registry(ManifestRegistryEntry{hive,keyPath,valueName,kind,perUser,isKey}),
   trackedItems(ManifestTrackedItem{kind,path,recursive,hive,valueName}),
+  completedMigrations?(string[], sorted ids of run-once migrations that succeeded),
+  adoptedItems?(ManifestAdoptedItem{kind:"run-value",name,perUser,source: migration id | "app-managed"}),
   declaredCliFlags(ManifestCliFlag{name,typeName,mapsTo}),
   logging(ManifestLoggingConfig{defaultLevel,fileSinkPath,retainCount})`. `trustedKeys` is copied
   from the build manifest's `PublisherKeys` on a first install or a newer-version installer; a
@@ -700,14 +776,41 @@ update window, Manage window) throws "interactive UI requested in a harness run;
 which the installer reports and exits 10. Use `--silent` for full runs.
 Properties: `Context, Registry(IFakeRegistry), FileSystem(IFakeFileSystem),
 PlatformServices(FakePlatformServices), LogSink(RecordingSink), Logger, PageStates, Elevation, ShownMessages,
-LaunchedPrograms`.
+LaunchedPrograms`. For full runs with migrations: `Builder.WithPayload(files)` (the app files a full
+install installs), `RunFullWithArgsAsync(args)` (several runs on one harness: install, repair,
+uninstall), `KnownFolderPath(KnownFolder, scope)` (the fake profile migrations see),
+`StartProcess(exe, closes)` / `IsProcessRunning(exe)` (fake running programs).
 
-- **`InMemoryFileSystem : IFakeFileSystem`** — dict-backed `IFileSystem`; OS-appropriate path
+**`MigrationHarness`** runs one migration alone:
+
+```csharp
+var result = await MigrationHarness.For<ReplaceOldCopy>()
+    .WithFile(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe")
+    .WithRunningProcess(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe")
+    .RunAsync();                                        // -> MigrationResult
+Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Completed));
+```
+
+Setup: `For<T>()/For(instance)`, `Mode`, `PreviousVersion` (implies Upgrade), `Scope`, `Elevated`
+(implies machine-wide), `Preview`, `InstallPath`, `WithApp`, `AlreadyCompleted`, `WithFile`,
+`WithFolder`, `WithInstellaInstallation`, `WithRunValue` (scope's Run key), `WithRegistryValue`,
+`WithRunningProcess(root, relativeExe, closes)`, `ForceClose` (default true), `ProgramExitCode`,
+`DenyWrites/DenyReads(root, relative)`, `DenyRunKeyWrites/DenyRunKeyReads()` (access denied),
+`FailLaterStep` (BeforeCommit rollback), `PathOf`. `RunAsync` validates as `Build()` does.
+`MigrationResult`: `Outcome` (`Completed/Skipped/AlreadyCompleted/Failed/RolledBack`), `Ran`,
+`SkipReason`, `Error`, `RecordedAsCompleted`, `DeletedFiles`, `StoppedProcesses`,
+`RegistryChanges(MigrationRegistryChange{Hive,KeyPath,Name,Before,After})`, `AdoptedItems`,
+`ProgramsRun`, `PlannedActions` (preview), `Actions`, `LogLines`, `FileExists/FolderExists/RunValue/PathOf`.
+
+- **`InMemoryFileSystem : IFakeFileSystem`** — dict-backed `IFileSystem`; `DenyWrites(path)` (changes fail
+  `AccessDenied`) and `DenyReads(path)` (`Exists` false, reads fail, `EnumerateFiles` throws
+  `UnauthorizedAccessException`, as the real APIs do), `AllowAll()`; OS-appropriate path
   comparer; implicit parent dirs; clone-on-write. Seed/inspect: `AddFile/AddDirectory/Snapshot`.
 - **`InMemoryRegistry : IFakeRegistry`** — `(hive,keyPath,name)`-keyed, case-insensitive
   cross-platform. `Set/Get/Contains/Delete/DeleteKey/Snapshot`.
 - **`FakePlatformServices`** — composes the above; routes registry calls through the fake on
-  every platform; records calls in public lists: `Shortcuts(+Removed), FileAssociations(+Removed),
+  every platform; `DenyRegistryWrites/DenyRegistryReads(hive, key)` simulate access denied (writes fail,
+  reads return null); records calls in public lists: `Shortcuts(+Removed), FileAssociations(+Removed),
   PathEntries(+Removed), AutoStarts(+Removed), UninstallEntries(+Removed)`.
 - **`RecordingSink : IInstellaLogSink`** — thread-safe (`ConcurrentQueue`); `Entries`,
   `AtOrAbove(level)`, `Clear`.

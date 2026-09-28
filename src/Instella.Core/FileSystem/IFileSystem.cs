@@ -93,4 +93,48 @@ public interface IFileSystem
     /// <param name="path">Path to the file.</param>
     /// <returns>File size, or -1 if file doesn't exist.</returns>
     long GetFileSize(string path);
+
+    /// <summary>
+    /// What is at <paramref name="path"/>, telling "absent" from "not allowed to look"
+    /// (<see cref="Exists"/> and <see cref="DirectoryExists"/> report both as false). The default
+    /// implementation cannot tell them apart and never reports <see cref="FileSystemEntryState.Denied"/>.
+    /// </summary>
+    /// <param name="path">Path to a file or directory.</param>
+    FileSystemEntryState GetEntryState(string path) =>
+        Exists(path) ? FileSystemEntryState.File
+        : DirectoryExists(path) ? FileSystemEntryState.Directory
+        : FileSystemEntryState.Missing;
+
+    /// <summary>
+    /// Whether <paramref name="path"/> is a symbolic link or junction (a reparse point that
+    /// redirects elsewhere). The default implementation reports false.
+    /// </summary>
+    /// <param name="path">Path to a file or directory.</param>
+    bool IsLink(string path) => false;
+
+    /// <summary>
+    /// Every file under <paramref name="path"/>, recursively, without following symbolic links or
+    /// junctions (a link and everything behind it are skipped). The default implementation follows
+    /// them, as <see cref="EnumerateFiles"/> does.
+    /// </summary>
+    /// <param name="path">Path to the directory.</param>
+    /// <param name="searchPattern">Search pattern (e.g., "*.dll").</param>
+    IEnumerable<string> EnumerateFilesWithoutLinks(string path, string searchPattern) =>
+        EnumerateFiles(path, searchPattern, recursive: true);
+}
+
+/// <summary>What <see cref="IFileSystem.GetEntryState"/> found at a path.</summary>
+public enum FileSystemEntryState
+{
+    /// <summary>Nothing is there.</summary>
+    Missing,
+
+    /// <summary>A file.</summary>
+    File,
+
+    /// <summary>A directory.</summary>
+    Directory,
+
+    /// <summary>The caller may not look (access denied, or an I/O error): it may or may not exist.</summary>
+    Denied,
 }

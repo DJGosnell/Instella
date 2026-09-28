@@ -118,7 +118,9 @@ internal sealed class UninstallModeRunner
 
         try
         {
-            await RunUninstallHooksAsync(manifest, installPath, dispatch, ct);
+            await RunUninstallHooksAsync(manifest, installPath, dispatch, prompt, ct);
+            await Migrations.MigrationPipeline.RemoveAdoptedItemsAsync(
+                manifest, installPath, _config.AppManagedRunValuesOrEmpty, _platform, _log, ct);
             await RemoveIntegrationAsync(manifest, ct);
             var locked = await DeleteFilesAsync(installPath, manifest, ct);
 
@@ -156,6 +158,15 @@ internal sealed class UninstallModeRunner
 
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }
+
+    /// <summary>Test hook: the seams uninstall migrations use (known folders, processes, programs); null uses the host's.</summary>
+    internal Migrations.MigrationRuntime? MigrationRuntime { get; init; }
+
+    /// <summary>Test hook: where uninstall migrations find the known folders; null uses the host's.</summary>
+    internal Migrations.KnownFolderResolver? KnownFolders { get; init; }
+
+    /// <summary>Test hook: closes programs for uninstall migrations; null asks them through the platform.</summary>
+    internal IProcessCloser? ProcessCloser { get; init; }
 
     /// <summary>Test hook: asks about programs using the app's files; null shows a message box.</summary>
     internal AppRunningPrompt? AppRunningPrompt { get; init; }
@@ -308,18 +319,21 @@ internal sealed class UninstallModeRunner
     }
 
     /// <summary>
-    /// Runs every custom step's <c>OnUninstall</c> in reverse stage order, before Instella's
-    /// own unregistration. A failing hook is logged; it does not stop the uninstall.
+    /// Runs the uninstall migrations (<c>Order</c>, then id), then every custom step's
+    /// <c>OnUninstall</c> in reverse stage order, before Instella's own unregistration: uninstall
+    /// mirrors install in reverse, and migrations ran last on install. A failing migration or hook
+    /// is logged; it does not stop the uninstall.
     /// </summary>
-    private async Task RunUninstallHooksAsync(InstalledManifest manifest, string installPath, DispatchResult dispatch, CancellationToken ct)
+    private async Task RunUninstallHooksAsync(InstalledManifest manifest, string installPath, DispatchResult dispatch,
+        AppRunningPrompt? prompt, CancellationToken ct)
     {
+        var migrations = Migrations.MigrationPipeline.ForUninstall(_config.MigrationsOrEmpty);
         var hooks = _config.UserSteps
             .Select((step, index) => (step, index))
             .Where(x => x.step.OnUninstall is not null)
             .OrderByDescending(x => x.step.Stage)
             .ThenByDescending(x => x.index)
             .ToList();
-        if (hooks.Count == 0) return;
 
         var options = new InstallOptions
         {
@@ -334,6 +348,21 @@ internal sealed class UninstallModeRunner
         var context = InstallContextFactory.Create(
             _config, InstallerMode.Uninstall, installPath, options, _platform, _fileSystem, _log,
             existing: manifest, cli: dispatch.CliOrEmpty);
+        context.Migrations = MigrationRuntime ?? new Migrations.MigrationRuntime
+        {
+            Folders = KnownFolders ?? Migrations.KnownFolderResolver.Host,
+            ProcessFinder = ProcessFinder ?? DefaultLockingProcessFinder.Instance,
+            ProcessCloser = ProcessCloser,
+            Prompt = prompt,
+            ForceClose = dispatch.ForceClose,
+        };
+
+        // An install that stopped mid-way may have left migration changes to undo, before anything is removed.
+        await Migrations.MigrationUndo.RecoverAsync(context, ct);
+        if (hooks.Count == 0 && migrations.Count == 0) return;
+
+        foreach (var migration in migrations)
+            await Migrations.MigrationExecution.RunAsync(migration, context, ct);
 
         foreach (var (step, _) in hooks)
         {

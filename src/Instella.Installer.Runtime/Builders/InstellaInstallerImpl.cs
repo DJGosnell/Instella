@@ -318,6 +318,7 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
                     await new UninstallModeRunner(_config, log, platform, fileSystem)
                     {
                         Messages = messages, ProcessFinder = services.ProcessFinder,
+                        KnownFolders = services.KnownFolders, ProcessCloser = services.ProcessCloser,
                     }.RunAsync(dispatch, ct),
                 InstallerMode.Manage =>
                     await new ManageModeRunner(_config, log, platform, fileSystem,

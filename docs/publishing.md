@@ -242,6 +242,14 @@ hardware or a cloud signing service (Azure Trusted Signing, DigiCert KeyLocker, 
 which all offer a command-line signer and OIDC sign-in, the same pattern as the publisher key
 above. The server never needs, and should never hold, a code-signing certificate.
 
+## Before you publish an installer that replaces something
+
+If users may already have the app installed some other way (a zip, another installer, an older
+layout), add an install migration so the first Instella install replaces that copy instead of
+installing next to it: see [migrations.md](migrations.md#replacing-an-existing-installation).
+Migrations run when an installer runs, never during an in-app update, so ship them in the installer
+users download.
+
 ## After publishing
 
 - Deprecate a bad version in the admin UI: it stops being offered as an update, as `latest`, and on

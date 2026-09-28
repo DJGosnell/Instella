@@ -121,6 +121,15 @@ public sealed class InstallContext
     /// <summary>Set when a step (e.g. a prerequisite returning 3010) needs a reboot; the finish page shows it.</summary>
     public bool RebootRequired { get; set; }
 
+    /// <summary>The <c>WithAppManagedAutoStart</c> Run value names, recorded as adopted items in the manifest.</summary>
+    internal IReadOnlyList<string> AppManagedRunValues { get; init; } = [];
+
+    /// <summary>Install migrations: the seams they reach the machine through, and what they did in this run.</summary>
+    internal Migrations.MigrationRuntime Migrations { get; set; } = new();
+
+    /// <summary>Best-effort clean-ups (migration undo copies) the executor runs once the work before them is final: after success, or after a failure past a point of no return.</summary>
+    internal List<Func<System.Threading.Tasks.Task>> CompletionActions { get; } = new();
+
     /// <summary>Ledger for tracked mutations. Covers files, directories, registry values/keys, and PATH entries.</summary>
     internal TrackingLedger Ledger { get; } = new();
 
