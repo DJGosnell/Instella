@@ -31,6 +31,7 @@ public sealed class CoverageMetaTests
             "Instella.Server.Services.UploadService",
             "Instella.Server.Services.ReleaseApprovalService",
             "Instella.Server.Api.ApprovalsController",
+            "Instella.Server.Services.DelayedReleaseWorker",
         };
         // Each runner, individually.
         required.AddRange(typeof(Instella.Installer.Runtime.Builders.InstellaInstaller).Assembly.GetTypes()
