@@ -28,4 +28,7 @@ public class VersionGridItem
 
     /// <summary>Child builds, pre-sorted by OS then Architecture.</summary>
     public List<BuildGridItem> Builds { get; set; } = [];
+
+    /// <summary>Builds pending approval.</summary>
+    public int PendingCount => Builds.Count(b => b.State == Instella.Server.Data.Entities.BuildState.Pending);
 }

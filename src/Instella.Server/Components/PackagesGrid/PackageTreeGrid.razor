@@ -44,6 +44,10 @@
                             </span>
                             <span class="item-icon">📦</span>
                             <span class="item-name">@pkg.DisplayName</span>
+                            @if (pkg.PendingCount > 0)
+                            {
+                                <span class="pending-badge" title="Releases waiting for approval">@pkg.PendingCount pending</span>
+                            }
                         </td>
                         <td class="col-versions hide-mobile">@pkg.VersionCount</td>
                         <td class="col-builds hide-mobile">@pkg.BuildCount</td>
@@ -74,6 +78,10 @@
                                     {
                                         <span class="deprecated-badge">Deprecated</span>
                                     }
+                                    @if (ver.PendingCount > 0)
+                                    {
+                                        <span class="pending-badge" title="A build of this version waits for approval">Pending</span>
+                                    }
                                 </td>
                                 <td class="col-versions hide-mobile"></td>
                                 <td class="col-builds hide-mobile">@ver.Builds.Count</td>
@@ -96,6 +104,16 @@
                                             <span class="expand-toggle"></span>
                                             <span class="item-icon">💾</span>
                                             <span class="item-name">@build.Platform</span>
+                                            @if (build.State == Instella.Server.Data.Entities.BuildState.Pending)
+                                            {
+                                                <span class="pending-badge" title="@(build.PublishAfter is { } at ? $"Publishes automatically at {at:g} UTC unless rejected" : "Waits for approval")">
+                                                    @(build.PublishAfter is null ? "Pending" : "Pending (delayed)")
+                                                </span>
+                                            }
+                                            else if (build.State == Instella.Server.Data.Entities.BuildState.Draft)
+                                            {
+                                                <span class="draft-badge" title="Unsigned: waits for instella publish">Draft</span>
+                                            }
                                         </td>
                                         <td class="col-versions hide-mobile"></td>
                                         <td class="col-builds hide-mobile"></td>
@@ -246,6 +264,28 @@
     .channel-badge.channel-stable { background: #4caf50; color: #fff; }
     .channel-badge.channel-beta { background: #ff9800; color: #fff; }
     .channel-badge.channel-nightly { background: #9c27b0; color: #fff; }
+
+    .pending-badge, .draft-badge {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .pending-badge {
+        border: 1px solid #ef6c00;
+        background: #fff3e0;
+        color: #e65100;
+    }
+
+    .draft-badge {
+        border: 1px solid #9e9e9e;
+        background: #fafafa;
+        color: #616161;
+    }
 
     .deprecated-badge {
         display: inline-block;

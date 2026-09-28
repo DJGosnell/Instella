@@ -57,7 +57,7 @@
             }
             else if (_selectedBuild != null && _selectedVersion != null && _selectedPackage != null)
             {
-                <BuildProperties Build="_selectedBuild" Version="_selectedVersion" Package="_selectedPackage" OnDelete="HandleBuildDeleted" />
+                <BuildProperties Build="_selectedBuild" Version="_selectedVersion" Package="_selectedPackage" OnDelete="HandleBuildDeleted" OnChanged="RefreshCurrentPageAsync" />
             }
             else if (_selectedVersion != null && _selectedPackage != null)
             {
@@ -65,7 +65,8 @@
             }
             else if (_selectedPackage != null)
             {
-                <PackageProperties Package="_selectedPackage" OnSave="HandlePackageUpdated" OnDelete="HandlePackageDeleted" OnNewVersion="ShowNewVersion" />
+                <PackageProperties Package="_selectedPackage" OnSave="HandlePackageUpdated" OnDelete="HandlePackageDeleted" OnNewVersion="ShowNewVersion"
+                                   OnSelectBuild="SelectBuildById" />
             }
         </CollapsiblePropertyPane>
     </div>
@@ -271,6 +272,21 @@
         _selectedPackage = await PackageService.GetPackageByIdAsync(selection.Pkg.Id);
         _selectedVersion = await PackageService.GetVersionByIdAsync(selection.Ver.Id);
         _selectedBuild = await PackageService.GetBuildByIdAsync(selection.Build.Id);
+        _propertyPaneVisible = true;
+        _showNewPackage = false;
+        _showNewVersion = false;
+    }
+
+    /// <summary>Selects a build by id (the package pane's list of releases awaiting a decision).</summary>
+    private async Task SelectBuildById(long buildId)
+    {
+        var build = await PackageService.GetBuildByIdAsync(buildId);
+        if (build is null) return;
+        _selectedPackage = await PackageService.GetPackageByIdAsync(build.Version.PackageId);
+        _selectedVersion = await PackageService.GetVersionByIdAsync(build.VersionId);
+        _selectedBuild = build;
+        _expandedPackages.Add(build.Version.PackageId);
+        _expandedVersions.Add(build.VersionId);
         _propertyPaneVisible = true;
         _showNewPackage = false;
         _showNewVersion = false;

@@ -527,7 +527,9 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
             Downloads = build.DownloadCount,
             FileCount = build.Files.Count,
             // Relative to the site root; the admin UI navigates to it directly.
-            DownloadPath = Api.SiteLinks.DownloadBuild(packageId, versionString, build.OS, build.Architecture)
+            DownloadPath = Api.SiteLinks.DownloadBuild(packageId, versionString, build.OS, build.Architecture),
+            State = build.State,
+            PublishAfter = build.PublishAfter,
         };
     }
 }
