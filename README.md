@@ -12,6 +12,9 @@ app as `instella.exe`, later updates, repairs and uninstalls it.
 - **Installer as code.** A fluent builder for identity, shortcuts, file associations, PATH,
   auto-start, registry values, prerequisites, wizard pages and custom install steps. No separate
   authoring tool; your compile is the installer.
+- **Install migrations.** Small classes that deal with what came before: replacing a copy installed
+  without Instella, moving old settings, cleaning up after an older version. They run once, under a
+  condition, inside safety rules, and can be tested on fakes.
 - **Signed updates.** Every release is signed with your publisher key. An installed app accepts
   an update only if the signature verifies, it is for this app, OS and architecture, and it is
   newer than what is installed. The update server cannot forge or downgrade a release.
@@ -193,6 +196,7 @@ Details, including what is out of scope, are in [security-model.md](docs/securit
 | [`src/Instella.Server/llm.md`](src/Instella.Server/llm.md) | Server reference: API, auth, configuration, storage |
 | [security-model.md](docs/security-model.md) | Trust chain, what the server can and cannot do, elevation |
 | [publishing.md](docs/publishing.md) | Publishing releases and installers by hand or from GitHub/Gitea Actions (`instella ci init`) |
+| [migrations.md](docs/migrations.md) | Install migrations, and replacing an existing (pre-Instella) installation |
 | [signing-and-keys.md](docs/signing-and-keys.md) | Publisher keys: generation, storage, rotation, loss, KMS signing |
 | [distribution-and-signing.md](docs/distribution-and-signing.md) | Authenticode signing of installers and the stub |
 | [server-deployment.md](docs/server-deployment.md) | Docker, reverse proxy and TLS, backups, upgrades |

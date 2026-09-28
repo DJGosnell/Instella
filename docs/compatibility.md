@@ -30,7 +30,7 @@ and served for years. Each of them carries a version field, and each reader foll
 | Document | Field | Current value | Reader rule |
 |---|---|---|---|
 | Build manifest (`InstellaManifest`, `instella.json`) | `schemaVersion` | 1 | Accept ≤ 1 (an absent field reads as 0 and is accepted). Reject newer with "written by a newer Instella". |
-| Installed manifest (`.instella-manifest.json`) | `manifestVersion` | 4 | Accept exactly 4; values 1–3 are rejected. Optional fields may be absent, including `downloadToken` (the token the installer was built with; updates keep it unchanged). |
+| Installed manifest (`.instella-manifest.json`) | `manifestVersion` | 4 | Accept exactly 4; values 1–3 are rejected. Optional fields may be absent, including `downloadToken` (the token the installer was built with; updates keep it unchanged), `completedMigrations` (ids of the install migrations that succeeded) and `adoptedItems` (Run values uninstall removes although Instella did not create them). An installer or updater that does not know the last two keeps them as unknown fields when it rewrites the manifest; an install by such an installer writes a fresh manifest without them. |
 | Release manifest (signed, served by the server) | `formatVersion` | 1 | Exactly 1. The server refuses to store other versions; clients refuse to trust them. |
 | Payload footer | `format_version` | 3 | Exactly 3. A later version or an unknown flag bit: "built by a newer Instella" (exit 12). See [footer-format.md](footer-format.md). |
 | Transaction journal (`.instella/txn/{id}/journal.json`) | `journalVersion` | 1 | Exactly 1. Any other version (including an absent field): refuse to touch the installation and exit 23 with a message naming the journal. |

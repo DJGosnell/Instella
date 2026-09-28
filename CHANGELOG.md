@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Install migrations** ([docs/migrations.md](docs/migrations.md)): classes derived from
+  `InstallMigration`, registered with `InstallerBuilder.AddMigration<T>()` or `AddMigration(instance)`,
+  that run under a condition during an install, upgrade, repair or uninstall. Conditions (mode,
+  previous version range, files and folders, Run values, registry values, running programs, scope,
+  custom) combine with `&`, `|` and `!`. Safe actions stop programs in a folder, repoint, delete or
+  adopt Run values, delete named files and empty folders, and run programs; they refuse the install
+  folder, protected folders and other Instella installations. `AfterCommit` migrations (the default)
+  are best effort; `BeforeCommit` ones fail and roll back the install. A run-once migration is
+  recorded and never runs again for the installation; one an in-app update skipped runs on the next
+  installer run.
+- `InstallerBuilder.WithAppManagedAutoStart(name)`: uninstall removes the app's own Run value while
+  it points into the installation.
+- `MigrationHarness` in `Instella.Installer.Testing` runs one migration on in-memory fakes, and
+  `InstellaTestHarness` gains `WithPayload`, `KnownFolderPath`, `StartProcess`, `IsProcessRunning` and
+  `RunFullWithArgsAsync` for full install/uninstall runs.
+- Access-denied simulation in the test fakes: `InMemoryFileSystem.DenyWrites/DenyReads/AllowAll` and
+  `FakePlatformServices.DenyRegistryWrites/DenyRegistryReads` report denials as the real file system
+  and registry do; `MigrationHarness` exposes them as `DenyWrites`, `DenyReads`, `DenyRunKeyWrites`
+  and `DenyRunKeyReads`.
+
+### Changed
+
+- The installed manifest (`.instella-manifest.json`) gains two optional fields, `completedMigrations`
+  and `adoptedItems`. `manifestVersion` stays 4; no reinstall is needed.
+
 ## [0.1.0] - 2026-09-27
 
 The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are
