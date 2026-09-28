@@ -103,6 +103,22 @@ public class ReleaseApprovalService(AppDbContext db, ContentStorageService conte
     /// <summary>Lowercase hex SHA-256 of the manifest bytes: what an approver confirms they reviewed.</summary>
     public static string ManifestSha256(byte[] manifestBytes) => Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
 
+    /// <summary>The wire name of a state (<see cref="Instella.Core.Wire.ReleaseStates"/>).</summary>
+    public static string ToWire(BuildState state) => state switch
+    {
+        BuildState.Draft => Instella.Core.Wire.ReleaseStates.Draft,
+        BuildState.Pending => Instella.Core.Wire.ReleaseStates.Pending,
+        _ => Instella.Core.Wire.ReleaseStates.Published,
+    };
+
+    /// <summary>
+    /// The audit details of a build entering <see cref="BuildState.Pending"/>: who signed it, and whether it
+    /// waits for approval or publishes by itself.
+    /// </summary>
+    public static string PendingDetails(string version, TargetOS os, Architecture arch, string? keyId, DateTime? publishAfter) =>
+        $"{version} {PlatformMapping.ToWire(os)}/{PlatformMapping.ToWire(arch)}: key {keyId}; "
+        + (publishAfter is { } at ? $"publishes at {at:u} unless rejected" : "waits for approval");
+
     /// <summary>A delay for people: "24 h", "7 days", "90 min".</summary>
     public static string FormatDelay(int minutes) =>
         minutes >= 2880 && minutes % 1440 == 0 ? $"{minutes / 1440} days"

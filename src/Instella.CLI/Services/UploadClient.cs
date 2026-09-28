@@ -152,7 +152,11 @@ public sealed class UploadClient : IDisposable
             }
 
             var versionUrl = ApiRoutes.ForPackageVersion(_server, request.PackageId, request.Version.ToString()).AbsoluteUri;
-            return new UploadResult(true, null, versionUrl);
+            return new UploadResult(true, null, versionUrl)
+            {
+                State = completeResult.Data?.State,
+                PublishAfter = completeResult.Data?.PublishAfter,
+            };
         }
         catch (OperationCanceledException)
         {
@@ -323,6 +327,15 @@ public sealed record UploadResult(bool Success, string? Error, string? VersionUr
 {
     /// <summary>HTTP status of the failing call, when there was one.</summary>
     public System.Net.HttpStatusCode? StatusCode { get; init; }
+
+    /// <summary>
+    /// The build's state on the server (<see cref="ReleaseStates"/>): published, pending approval, or a
+    /// draft. Null from an older server.
+    /// </summary>
+    public string? State { get; init; }
+
+    /// <summary>When a delayed release goes live unless rejected (UTC).</summary>
+    public DateTime? PublishAfter { get; init; }
 
     /// <summary>Signing failed; nothing was uploaded (exit <c>Signing</c>, 4).</summary>
     public bool SigningFailed { get; init; }

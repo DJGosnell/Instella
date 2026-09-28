@@ -71,6 +71,18 @@ public static class ApiRoutes
     /// <summary>POST: publish a draft build with its signed release (upload permission).</summary>
     public const string PublishDraft = "drafts/{packageId}/{version}/{os}/{arch}/publish";
 
+    /// <summary>GET: the package's unpublished builds, drafts and pending releases (approve permission).</summary>
+    public const string Approvals = "approvals/{packageId}";
+
+    /// <summary>GET: one unpublished build with its release manifest (approve permission).</summary>
+    public const string Approval = "approvals/{packageId}/{version}/{os}/{arch}";
+
+    /// <summary>POST: publish a pending release (approve permission; not the key that uploaded it).</summary>
+    public const string ApproveRelease = "approvals/{packageId}/{version}/{os}/{arch}/approve";
+
+    /// <summary>POST: reject (delete) a pending release or a draft (approve permission).</summary>
+    public const string RejectRelease = "approvals/{packageId}/{version}/{os}/{arch}/reject";
+
     /// <summary>The <c>{version}</c> of <see cref="DownloadInstaller"/> that means the newest one.</summary>
     public const string LatestVersion = "latest";
 
@@ -167,6 +179,21 @@ public static class ApiRoutes
     /// <summary>URL of <see cref="PublishDraft"/>.</summary>
     public static Uri ForPublishDraft(Uri server, string packageId, Version version, TargetPlatform os, Architecture arch) =>
         Build(server, $"drafts/{Build(packageId, version, os, arch)}/publish");
+
+    /// <summary>URL of <see cref="Approvals"/>.</summary>
+    public static Uri ForApprovals(Uri server, string packageId) => Build(server, $"approvals/{E(packageId)}");
+
+    /// <summary>URL of <see cref="Approval"/>.</summary>
+    public static Uri ForApproval(Uri server, string packageId, Version version, TargetPlatform os, Architecture arch) =>
+        Build(server, $"approvals/{Build(packageId, version, os, arch)}");
+
+    /// <summary>URL of <see cref="ApproveRelease"/>.</summary>
+    public static Uri ForApproveRelease(Uri server, string packageId, Version version, TargetPlatform os, Architecture arch) =>
+        Build(server, $"approvals/{Build(packageId, version, os, arch)}/approve");
+
+    /// <summary>URL of <see cref="RejectRelease"/>.</summary>
+    public static Uri ForRejectRelease(Uri server, string packageId, Version version, TargetPlatform os, Architecture arch) =>
+        Build(server, $"approvals/{Build(packageId, version, os, arch)}/reject");
 
     private static string Build(string packageId, Version version, TargetPlatform os, Architecture arch) =>
         $"{E(packageId)}/{E(version.ToString())}/{PlatformStrings.Os(os)}/{PlatformStrings.Arch(arch)}";

@@ -29,6 +29,8 @@ public sealed class CoverageMetaTests
             "Instella.Core.FileSystem.SafePath",
             "Instella.Server.Services.PackageService",
             "Instella.Server.Services.UploadService",
+            "Instella.Server.Services.ReleaseApprovalService",
+            "Instella.Server.Api.ApprovalsController",
         };
         // Each runner, individually.
         required.AddRange(typeof(Instella.Installer.Runtime.Builders.InstellaInstaller).Assembly.GetTypes()

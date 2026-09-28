@@ -207,9 +207,15 @@ public class UploadController(
                 result = await uploadService.CompleteSessionAsync(sessionId, request?.Changelog, request?.Release, ct);
             }
 
+            var state = ReleaseApprovalService.ToWire(result.State);
             await securityLog.LogEventAsync(
                 SecurityEventType.UploadSuccess, ip, apiKeyName: apiKey!.Name, packageId: session!.PackageId,
-                details: $"Version: {session.Version}, Files: {result.FileCount}, Size: {result.TotalSize}", ct: ct);
+                details: $"Version: {session.Version}, Files: {result.FileCount}, Size: {result.TotalSize}, State: {state}", ct: ct);
+            if (result.State == BuildState.Pending)
+                await securityLog.LogEventAsync(
+                    SecurityEventType.ReleasePending, ip, apiKeyName: apiKey.Name, packageId: session.PackageId,
+                    details: ReleaseApprovalService.PendingDetails(session.Version, session.OS, session.Architecture,
+                        request?.Release?.KeyId, result.PublishAfter), ct: ct);
 
             return Ok(new CompleteUploadResponse
             {
@@ -219,6 +225,8 @@ public class UploadController(
                 FileCount = result.FileCount,
                 TotalSize = result.TotalSize,
                 DeduplicatedCount = result.DeduplicatedCount,
+                State = state,
+                PublishAfter = result.PublishAfter,
             });
         }
         catch (UploadConflictException ex)
@@ -266,9 +274,11 @@ public class UploadController(
         if (!PlatformMapping.TryParseArch(arch, out var targetArch))
             return BadRequest(new ApiError { Error = PlatformMapping.InvalidArchMessage });
 
+        DraftPublishResult? result;
         try
         {
-            if (await uploadService.PublishDraftAsync(packageId, version, targetOs, targetArch, release, ct) is null)
+            result = await uploadService.PublishDraftAsync(packageId, version, targetOs, targetArch, release, ct);
+            if (result is null)
                 return NotFound(new ApiError { Error = $"No draft of {packageId} {version} {os}/{arch}" });
         }
         catch (UploadConflictException ex)
@@ -280,10 +290,24 @@ public class UploadController(
             return BadRequest(new ApiError { Error = ex.Message });
         }
 
+        var state = ReleaseApprovalService.ToWire(result.State);
         await securityLog.LogEventAsync(
-            SecurityEventType.UploadSuccess, ip, apiKeyName: apiKey!.Name, packageId: packageId,
-            details: $"Published draft {version} {os}/{arch}, key {release.KeyId}", ct: ct);
-        return Ok(new MessageResponse { Message = $"Published {packageId} {version} {os}/{arch}" });
+            SecurityEventType.DraftSigned, ip, apiKeyName: apiKey!.Name, packageId: packageId,
+            details: $"{version} {os}/{arch}, key {release.KeyId}, now {state}", ct: ct);
+        if (result.State == BuildState.Pending)
+        {
+            await securityLog.LogEventAsync(
+                SecurityEventType.ReleasePending, ip, apiKeyName: apiKey.Name, packageId: packageId,
+                details: ReleaseApprovalService.PendingDetails(version, targetOs, targetArch, release.KeyId, result.PublishAfter), ct: ct);
+        }
+        return Ok(new PublishDraftResponse
+        {
+            Message = result.State == BuildState.Pending
+                ? $"Signed {packageId} {version} {os}/{arch}; it is pending approval on the server"
+                : $"Published {packageId} {version} {os}/{arch}",
+            State = state,
+            PublishAfter = result.PublishAfter,
+        });
     }
 
     /// <summary>
