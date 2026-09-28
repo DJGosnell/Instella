@@ -46,7 +46,8 @@ public abstract class Condition
 
     /// <summary>
     /// A custom condition. It runs outside the safety rules, so it should only read. A predicate
-    /// that throws counts as false and is logged as a warning.
+    /// that throws skips the migration (with a warning) whatever <c>&amp;</c>, <c>|</c> or <c>!</c>
+    /// surround it: a check that never completed is never read as true.
     /// </summary>
     /// <param name="predicate">Evaluated when the migration's turn comes.</param>
     /// <param name="description">Shown in logs; defaults to <c>custom condition</c>.</param>
@@ -68,6 +69,10 @@ public abstract class Condition
     /// <summary>The modes <c>!this</c> can be true in.</summary>
     internal virtual ModeSet PossibleModesWhenNegated => ModeSet.All;
 }
+
+/// <summary>A part of a condition could not be evaluated; the migration is skipped, never run.</summary>
+internal sealed class ConditionEvaluationException(string condition, Exception inner)
+    : Exception($"{condition} threw {inner.GetType().Name}: {inner.Message}", inner);
 
 /// <summary>A condition's value; <see cref="Reason"/> says why it is false (or, under <c>!</c>, why it was true).</summary>
 internal readonly record struct ConditionOutcome(bool Value, string? Reason)
@@ -264,6 +269,11 @@ internal sealed class ScopeCondition(InstallationScope scope) : Condition
     public override string ToString() => scope == InstallationScope.PerUser ? "IsPerUserInstall()" : "IsMachineInstall()";
 }
 
+/// <remarks>
+/// A predicate that throws is not "false": under <c>!</c> that would turn a check that never ran
+/// into "true" and let the migration act. The exception propagates, and the migration is skipped
+/// (<see cref="MigrationExecution"/>) whatever operators surround the condition.
+/// </remarks>
 internal sealed class DelegateCondition(Func<MigrationContext, bool> predicate, string description) : Condition
 {
     internal override ValueTask<ConditionOutcome> EvaluateAsync(MigrationContext context, CancellationToken ct)
@@ -276,8 +286,7 @@ internal sealed class DelegateCondition(Func<MigrationContext, bool> predicate, 
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            context.Log.Warn($"{description} threw {ex.GetType().Name}: {ex.Message}; treated as false");
-            return ValueTask.FromResult(ConditionOutcome.False($"{description} threw {ex.GetType().Name}: {ex.Message}"));
+            throw new ConditionEvaluationException(description, ex);
         }
     }
 

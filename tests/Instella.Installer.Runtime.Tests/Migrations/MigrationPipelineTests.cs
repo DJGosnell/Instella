@@ -288,6 +288,27 @@ public class MigrationPipelineTests
     }
 
     [Test]
+    public async Task UndoCopies_AreDeleted_WhenAFailurePastAPointOfNoReturnKeepsTheMigration()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe");
+        var m = new TestMigration("before", MigrationTiming.BeforeCommit)
+        {
+            Body = (t, _) => t.DeleteFilesAsync(t.Folder(KnownFolder.LocalAppData, "ExampleApp"), ["ExampleApp.exe"], default),
+        };
+        var config = Config(App().AddMigration(m)
+            .AddStep("ponr", s => s.Execute(Ok).NoRollbackNeeded("t").PointOfNoReturn("data converted"))
+            .AddStep("fails-later", s => s.InStage(InstallStage.Finalize).After("ponr")
+                .Execute((_, _, _) => Task.FromResult(StepResult.Fail("custom step failed"))).NoRollbackNeeded("t")));
+
+        var (result, _) = await InstallAsync(config);
+
+        Assert.That(result.Success, Is.False);
+        Assert.That(m.Rollbacks, Is.Zero, "rollback stops at the point of no return; the migration stands");
+        Assert.That(_bed.FileSystem.Exists(_bed.PathOf(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe")), Is.False);
+        Assert.That(_bed.FileSystem.DirectoryExists(Path.Combine(_bed.Root, "undo")), Is.False, "no orphaned undo copies in %TEMP%");
+    }
+
+    [Test]
     public async Task UndoCopies_AreDeleted_OnceTheInstallSucceeds()
     {
         _bed.AddFile(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe");

@@ -388,6 +388,42 @@ public class MigrationActionTests
     }
 
     [Test]
+    public async Task Actions_RefuseAFolderContainingANestedInstellaInstallation()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "Vendor/App/" + InstellaOwnedPaths.InstalledManifest, "{}");
+        _bed.AddFile(KnownFolder.LocalAppData, "Vendor/App/App.exe");
+        var appExe = _bed.PathOf(KnownFolder.LocalAppData, "Vendor/App/App.exe");
+        _bed.Processes.Start(appExe);
+
+        var delete = await Run(Body(m => m.DeleteFilesAsync(m.Folder(KnownFolder.LocalAppData, "Vendor"), ["App/App.exe"], default)));
+        Assert.That(delete.Reason, Does.Contain("contains the Instella installation"));
+        Assert.That(_bed.FileSystem.Exists(appExe), Is.True);
+
+        var stop = await Run(Body(m => m.StopProcessesInAsync(m.Folder(KnownFolder.LocalAppData, "Vendor"), default)));
+        Assert.That(stop.Reason, Does.Contain("contains the Instella installation"));
+        Assert.That(_bed.Processes.IsRunning(appExe), Is.True, "its programs are not closed either");
+    }
+
+    [Test]
+    public async Task Actions_RefuseAFolderInsideAnInstellaInstallation()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "Vendor/App/" + InstellaOwnedPaths.InstalledManifest, "{}");
+        _bed.AddFile(KnownFolder.LocalAppData, "Vendor/App/cache/x.exe");
+        Assert.That(await RefusalFor(KnownFolder.LocalAppData, "Vendor/App/cache"), Does.Contain("inside the Instella installation"));
+        Assert.That(_bed.FileSystem.Exists(_bed.PathOf(KnownFolder.LocalAppData, "Vendor/App/cache/x.exe")), Is.True);
+    }
+
+    [Test]
+    public async Task Actions_RefuseATreeThatCannotBeCheckedForInstallations()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "Vendor/x.exe");
+        _bed.AddFile(KnownFolder.LocalAppData, "Vendor/private/y.dat");
+        _bed.FileSystem.DenyReads(_bed.PathOf(KnownFolder.LocalAppData, "Vendor/private"));
+        Assert.That(await RefusalFor(KnownFolder.LocalAppData, "Vendor"), Does.Contain("cannot be checked for Instella installations"));
+        Assert.That(_bed.FileSystem.Exists(_bed.PathOf(KnownFolder.LocalAppData, "Vendor/x.exe")), Is.True);
+    }
+
+    [Test]
     public async Task Actions_RefusePerUserFoldersInAMachineInstall()
     {
         _bed.AddFile(KnownFolder.LocalAppData, "ExampleApp/x.exe");

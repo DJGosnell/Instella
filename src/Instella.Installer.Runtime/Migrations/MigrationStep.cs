@@ -61,7 +61,8 @@ internal static class MigrationExecution
             {
                 // Something the condition reads could not be read (access denied, an I/O error).
                 // Nothing was changed, so this is a skip, never a failed install; not recorded.
-                var reason = $"could not evaluate the condition ({ex.GetType().Name}: {ex.Message})";
+                var reason = ex is ConditionEvaluationException ? $"could not evaluate the condition: {ex.Message}"
+                    : $"could not evaluate the condition ({ex.GetType().Name}: {ex.Message})";
                 log.Warn($"skipped: {reason}; it is tried again the next time an installer runs");
                 return Done(MigrationRunOutcome.Skipped, reason);
             }

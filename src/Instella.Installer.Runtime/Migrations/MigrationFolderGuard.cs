@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Instella.Core.FileSystem;
 using Instella.Core.Installation;
 using Instella.Installer.Runtime.Core;
@@ -64,9 +66,38 @@ internal static class MigrationFolderGuard
             if (PathGuards.IsSameOrInside(install, path))
                 return new(null, $"{display} contains the folder being installed");
         }
-        if (context.FileSystem.Exists(Path.Combine(path, InstellaOwnedPaths.InstalledManifest)))
-            return new(null, $"{display} holds an Instella installation ({InstellaOwnedPaths.InstalledManifest}); uninstall it instead");
+        if (OtherInstallation(path, context) is { } installation)
+            return new(null, $"{display}: {installation}; uninstall it instead");
         return new(path, null);
+    }
+
+    /// <summary>
+    /// Why <paramref name="path"/> touches another Instella installation, or null: the folder
+    /// holds one, is inside one (an ancestor holds the manifest), or has one anywhere beneath it
+    /// (actions take nested file names and close programs from the whole tree). A tree that cannot
+    /// be listed counts as touching one: the rule cannot be checked, so the action is refused.
+    /// </summary>
+    private static string? OtherInstallation(string path, MigrationContext context)
+    {
+        var fs = context.FileSystem;
+        for (var dir = path; !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
+        {
+            if (fs.Exists(Path.Combine(dir, InstellaOwnedPaths.InstalledManifest)))
+                return dir == path
+                    ? $"it holds an Instella installation ({InstellaOwnedPaths.InstalledManifest})"
+                    : $"it is inside the Instella installation in '{dir}'";
+        }
+
+        if (!fs.DirectoryExists(path)) return null;
+        try
+        {
+            var nested = fs.EnumerateFiles(path, InstellaOwnedPaths.InstalledManifest, recursive: true).FirstOrDefault();
+            return nested is null ? null : $"it contains the Instella installation in '{Path.GetDirectoryName(nested)}'";
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            return $"it cannot be checked for Instella installations ({ex.Message})";
+        }
     }
 
     private static IEnumerable<string> ExtraProtected(MigrationContext context)

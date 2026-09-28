@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Instella.Core.Installation;
 using Instella.Core.Platform;
@@ -304,12 +305,33 @@ public class MigrationConditionTests
     }
 
     [Test]
-    public async Task AThrowingCustomCondition_IsFalse_AndWarns()
+    public void AThrowingCustomCondition_IsNotFalse_ItThrows()
     {
-        var (value, reason) = await Eval(Condition.From(_ => throw new InvalidOperationException("boom"), "fragile"));
-        Assert.That(value, Is.False);
-        Assert.That(reason, Does.Contain("boom"));
-        Assert.That(_bed.Log.Warnings.Single(), Does.Contain("migration[test]: fragile threw"));
+        // "false" would become "true" under !, so a check that never completed must not have a value.
+        var ex = Assert.ThrowsAsync<ConditionEvaluationException>(() => Eval(Condition.From(_ => throw new InvalidOperationException("boom"), "fragile")));
+        Assert.That(ex!.Message, Is.EqualTo("fragile threw InvalidOperationException: boom"));
+        Assert.ThrowsAsync<ConditionEvaluationException>(() => Eval(!Condition.From(_ => throw new IOException("x"))));
+    }
+
+    [TestCase("not")]
+    [TestCase("and")]
+    [TestCase("or")]
+    public async Task AMigrationWhoseCustomConditionThrows_IsSkipped_WhateverTheOperators(string shape)
+    {
+        var failing = Condition.From(_ => throw new UnauthorizedAccessException("denied"), "already migrated");
+        var m = new TestMigration
+        {
+            WhenFactory = t => shape switch
+            {
+                "not" => t.IsFirstInstall() & !failing,
+                "and" => !(failing & t.IsWindows()),
+                _ => !(failing | t.IsRepair()),
+            },
+        };
+        var result = await MigrationExecution.RunAsync(m, _bed.Context(), CancellationToken.None);
+        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Skipped));
+        Assert.That(result.Reason, Is.EqualTo("could not evaluate the condition: already migrated threw UnauthorizedAccessException: denied"));
+        Assert.That(m.Executions, Is.Zero, "the migration never acts on a check that did not complete");
     }
 
     [Test]

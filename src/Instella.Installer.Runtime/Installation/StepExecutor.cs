@@ -184,6 +184,19 @@ internal sealed class StepExecutor
             await txn.CompleteAsync();
         }
 
+        await RunCompletionActionsAsync(context);
+        LogMigrationSummary(context);
+
+        return ExecutionResult.Ok(audit, warnings);
+    }
+
+    /// <summary>
+    /// Runs the clean-ups registered for when the work before them is final (migration undo
+    /// copies): after a successful run, and after a failure past a point of no return, where
+    /// rollback stops at that step and everything before it stays.
+    /// </summary>
+    private static async Task RunCompletionActionsAsync(InstallContext context)
+    {
         foreach (var completion in context.CompletionActions)
         {
             try
@@ -195,9 +208,7 @@ internal sealed class StepExecutor
                 context.Log.Warn($"clean-up after the install: {ex.Message}");
             }
         }
-        LogMigrationSummary(context);
-
-        return ExecutionResult.Ok(audit, warnings);
+        context.CompletionActions.Clear();
     }
 
     /// <summary>
@@ -215,6 +226,9 @@ internal sealed class StepExecutor
     {
         using var rollbackCts = new CancellationTokenSource(RollbackTimeout);
         await RollbackCompletedAsync(context, completed, warnings, ponrCompletedIndex, ponrLedgerIndex, rollbackCts.Token);
+        // Past a point of no return, what ran before it stays: its undo copies are no longer needed.
+        if (ponrCompletedIndex >= 0)
+            await RunCompletionActionsAsync(context);
     }
 
     /// <summary>One line naming what each migration did, e.g. <c>migrations: 1 completed (a), 1 skipped (b)</c>.</summary>

@@ -40,6 +40,9 @@ internal sealed class MigrationRuntime
     /// <summary>Whether the install's completion already deletes <see cref="UndoDirectory"/>.</summary>
     public bool UndoCleanupRegistered { get; set; }
 
+    /// <summary>A rollback could not restore everything: <see cref="UndoDirectory"/> holds the only copies and is never deleted.</summary>
+    public bool UndoCopiesKept { get; set; }
+
     /// <summary>Ids of the run-once migrations that succeeded in this run.</summary>
     public List<string> Completed { get; } = [];
 

@@ -99,6 +99,28 @@ public class MigrationAccessDeniedTests
         }, MigrationTiming.BeforeCommit);
         Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.RolledBack));
         Assert.That(_bed.Log.Warnings, Has.Some.Contains("rollback: could not restore").And.Contains("denied"));
+
+        // The undo copy is the only copy left: it must survive the rollback and the clean-up.
+        var kept = _bed.FileSystem.EnumerateFiles(Path.Combine(_bed.Root, "undo", "denied")).ToList();
+        Assert.That(kept.Select(Path.GetFileName), Is.EqualTo(new[] { "0-ExampleApp.exe" }));
+        Assert.That(_bed.Log.Warnings, Has.Some.Contains("are kept in").And.Contains(Path.Combine(_bed.Root, "undo", "denied")));
+        Assert.That(_context.Migrations.UndoCopiesKept, Is.True);
+        foreach (var completion in _context.CompletionActions) await completion();
+        Assert.That(_bed.FileSystem.Exists(kept[0]), Is.True, "the completion clean-up leaves kept copies alone");
+    }
+
+    [Test]
+    public async Task BeforeCommit_AFullUndo_StillDeletesTheCopies()
+    {
+        var result = await Run(async t =>
+        {
+            await t.DeleteFilesAsync(Old(t), ["ExampleApp.exe"], default);
+            throw new InvalidOperationException("custom code failed");
+        }, MigrationTiming.BeforeCommit);
+        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.RolledBack));
+        Assert.That(_bed.FileSystem.Exists(OldExe), Is.True);
+        Assert.That(_bed.FileSystem.DirectoryExists(Path.Combine(_bed.Root, "undo", "denied")), Is.False);
+        Assert.That(_context.Migrations.UndoCopiesKept, Is.False);
     }
 
     [Test]
@@ -108,7 +130,7 @@ public class MigrationAccessDeniedTests
         _bed.FileSystem.DenyReads(_bed.PathOf(KnownFolder.LocalAppData, "ExampleApp/private"));
         var result = await Run(t => t.DeleteFolderIfEmptyAsync(Old(t), default));
         Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Failed));
-        Assert.That(result.Reason, Does.Contain("could not list LocalAppData/ExampleApp").And.Contain("denied"));
+        Assert.That(result.Reason, Does.Contain("cannot be checked for Instella installations").And.Contain("denied"));
         Assert.That(_bed.FileSystem.DirectoryExists(OldFolder), Is.True);
     }
 

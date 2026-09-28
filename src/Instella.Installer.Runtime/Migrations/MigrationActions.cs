@@ -256,8 +256,13 @@ internal static class MigrationActions
     }
 
     /// <summary>Replays <paramref name="run"/>'s undo journal, newest first; a failing entry is a warning.</summary>
+    /// <remarks>
+    /// The undo folder holds the only copy of every file the migration deleted, so it is removed
+    /// only when every entry was undone; otherwise it is kept and the log says where.
+    /// </remarks>
     public static async Task UndoAsync(MigrationRun run, CancellationToken ct)
     {
+        var failed = 0;
         for (var i = run.UndoJournal.Count - 1; i >= 0; i--)
         {
             var (what, undo) = run.UndoJournal[i];
@@ -268,11 +273,22 @@ internal static class MigrationActions
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                failed++;
                 run.Context.Log.Warn($"rollback: could not {what}: {ex.Message}");
             }
         }
         run.UndoJournal.Clear();
-        await DeleteUndoFolderAsync(run.Context, run.Migration.Id, ct);
+        if (failed == 0)
+        {
+            await DeleteUndoFolderAsync(run.Context, run.Migration.Id, ct);
+        }
+        else
+        {
+            run.Context.Runtime.UndoCopiesKept = true;
+            run.Context.Log.Warn(
+                $"rollback: {failed} change(s) could not be undone; the files the migration had deleted are kept in " +
+                $"'{Path.Combine(run.Context.Runtime.UndoDirectory, run.Migration.Id)}'");
+        }
     }
 
     // ---- helpers -------------------------------------------------------------------------------
@@ -329,10 +345,11 @@ internal static class MigrationActions
         if (!ctx.Runtime.UndoCleanupRegistered)
         {
             ctx.Runtime.UndoCleanupRegistered = true;
-            var undoDirectory = ctx.Runtime.UndoDirectory;
+            var runtime = ctx.Runtime;
+            var undoDirectory = runtime.UndoDirectory;
             ctx.Install.CompletionActions.Add(async () =>
             {
-                if (fs.DirectoryExists(undoDirectory))
+                if (!runtime.UndoCopiesKept && fs.DirectoryExists(undoDirectory))
                     await fs.DeleteDirectoryAsync(undoDirectory, recursive: true, CancellationToken.None);
             });
         }

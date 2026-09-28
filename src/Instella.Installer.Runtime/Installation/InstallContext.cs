@@ -127,7 +127,7 @@ public sealed class InstallContext
     /// <summary>Install migrations: the seams they reach the machine through, and what they did in this run.</summary>
     internal Migrations.MigrationRuntime Migrations { get; set; } = new();
 
-    /// <summary>Best-effort clean-ups the executor runs once every step has succeeded (migration undo backups).</summary>
+    /// <summary>Best-effort clean-ups (migration undo copies) the executor runs once the work before them is final: after success, or after a failure past a point of no return.</summary>
     internal List<Func<System.Threading.Tasks.Task>> CompletionActions { get; } = new();
 
     /// <summary>Ledger for tracked mutations. Covers files, directories, registry values/keys, and PATH entries.</summary>
