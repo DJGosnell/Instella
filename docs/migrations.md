@@ -125,10 +125,13 @@ A refused or failed action throws `MigrationActionException`, which fails the mi
 - **Actions refuse** the folder being installed, anything inside it and any folder that contains it;
   volume roots; the well-known folders (the profile, Desktop, Documents, Program Files, Windows,
   AppData, ProgramData, the Start menu, Temp, each known folder's root, `LocalAppData\Programs`,
-  `LocalAppData\Microsoft`, …) and their ancestors; any folder that holds, contains or is inside an Instella installation; and a folder that cannot be listed to check.
+  `LocalAppData\Microsoft`, …) and their ancestors; any folder that holds, contains or is inside an
+  Instella installation, or that cannot be read to check; and any path that goes through a symbolic
+  link or junction (the folder itself, a folder on the way to it, or a folder in a file name you
+  pass), because a link may lead anywhere.
 - **Deleting** is limited to the files you name and to empty folders.
-- **Processes**: only programs holding files in the validated folder, with the same prompt and
-  `--force-close` rules as closing the app itself.
+- **Processes**: only programs holding files in the validated folder (links inside it are not
+  followed), with the same prompt and `--force-close` rules as closing the app itself.
 - **Registry**: only the scope's Run key, through the Run-value actions.
 
 ### When access is denied
@@ -140,20 +143,26 @@ any install can meet a file or registry key it is not allowed to touch.
   reason, for example `DeleteFiles: could not delete '…\ExampleApp.pdb': Access to the path … is
   denied.` An `AfterCommit` migration logs it as a warning and runs again on the next installer run;
   a `BeforeCommit` migration puts back what it had already changed and fails the install.
-- **A denied read looks like "not there"**, as in Windows itself: `File.Exists` and registry reads
-  cannot tell "denied" from "absent", so `FileExists`, `RunValueExists` and similar conditions are
-  false and the migration is skipped (and not recorded). Listing a folder that cannot be read fails
-  `DeleteFolderIfEmptyAsync` with the reason.
-- **A condition that cannot be evaluated at all** (it throws) skips the migration with a warning;
-  it never fails the install.
+- **A condition that cannot be checked is never true, or false.** A file, folder or Run value that
+  cannot be read, a program search that fails, a per-user folder or HKCU in a machine-wide install,
+  a known folder this platform does not have, a custom `Condition.From` that throws: the migration
+  is skipped with a warning (and not recorded, so the next installer run tries again), whatever
+  `&`, `|` or `!` surround the check. `!FileExists(...)` is therefore never true because the file
+  could not be read.
+- **An action that cannot read what it needs fails** with the reason (for example a Run value it
+  cannot read, a file it cannot check, a program search that fails), rather than treating it as
+  absent.
 - **Undo that is denied** (the folder became read-only in the meantime) is logged as a warning; the
-  rest of the rollback continues, and the files the migration deleted are kept in
-  `%TEMP%\Instella\migration-undo\…` (the log names the folder) instead of being lost.
+  rest of the rollback continues, the files the migration deleted are kept in
+  `%TEMP%\Instella\migration-undo\…` (the log names the folder), and the next installer run on the
+  same folder tries the undo again.
 
 `MigrationHarness` simulates all of these: `DenyWrites(root, relative)`, `DenyReads(root, relative)`,
 `DenyRunKeyWrites()` and `DenyRunKeyReads()`. The fakes behind it, `InMemoryFileSystem.DenyWrites/
-DenyReads` and `FakePlatformServices.DenyRegistryWrites/DenyRegistryReads`, report denials the way
-the real file system and registry do, for your own tests of custom steps too.
+DenyReads/AddLink` and `FakePlatformServices.DenyRegistryWrites/DenyRegistryReads`, report denials
+and links the way the real file system and registry do, for your own tests of custom steps too. In
+custom code, `Context.FileSystem.GetEntryState(path)` tells "absent" from "denied", and
+`Context.PlatformServices.TryReadRegistryValueAsync` does the same for registry values.
 
 ### Custom code
 
@@ -169,6 +178,14 @@ so `MigrationHarness` can test the code.
 | `AfterCommit` (default) | At the very end of an install, upgrade or repair, after every other step, including your own Finalize steps. | Is logged as a warning. The install succeeds and is kept; the migration is not recorded, so it runs again on the next installer run. Cancelling the install at this point skips the migration without undoing the install. |
 | `BeforeCommit` | Just before the new files are moved into place (after all registration steps). | Fails the install. The migration's built-in actions are undone (deleted files are put back, Run values restored), `RollbackAsync` is called for your custom code, and the install is rolled back. A later failure in the install rolls the migration back the same way. |
 | `Uninstall` | During uninstall, before Instella removes anything. | Is logged; the uninstall continues. |
+
+**If the installer is killed or the machine loses power** during a `BeforeCommit` migration or before
+the commit, nothing is lost: every change is written to a journal (`undo.json`, next to the moved-aside
+files in `%TEMP%\Instella\migration-undo\`) before it is made. The next installer run on the same
+folder (install, repair or uninstall) looks at the installed manifest: if the interrupted install was
+committed, the changes stand and the copies are deleted; if not, the migration is undone (files put
+back, Run values restored). A file that has reappeared in the meantime is never overwritten; its
+original stays in the undo folder and the log says so.
 
 Use `AfterCommit` unless the new version cannot work until the migration has run. Programs you run
 (`RunProgramAsync`) cannot be undone, so put them in `AfterCommit` migrations.
@@ -327,5 +344,8 @@ it and check the path yourself.
 - A repair or downgrade by an installer built before migrations existed (Instella 0.1.0) rewrites
   the installed manifest without the migration record, so completed migrations can run again later.
   Keep them idempotent.
-- Folders are compared by path; a folder that is a junction to somewhere else is not detected. The
-  actions only delete named files and empty folders, which limits the impact.
+- Undo copies are only recovered by an installer run on the same install folder, and only by an
+  installer with this version of Instella or later. An undo folder whose installation is never run
+  again stays in `%TEMP%` until Windows cleans it.
+- The link checks skip every reparse point, including cloud placeholder files (OneDrive "online-only"
+  files) inside a folder being checked for Instella installations.

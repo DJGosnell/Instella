@@ -144,23 +144,54 @@ public class MigrationConditionTests
 
     [TestCase(KnownFolder.LocalAppData)]
     [TestCase(KnownFolder.RoamingAppData)]
-    public async Task PerUserFolders_AreFalseInAMachineInstall_WithTheReason(KnownFolder root)
+    public void PerUserFolders_CannotBeCheckedInAMachineInstall(KnownFolder root)
     {
         _bed.AddFile(root, "ExampleApp/ExampleApp.exe");
         _bed.Scope = InstallationScope.SystemWide;
-        var (value, reason) = await Eval(_m.FileExists(root, "ExampleApp/ExampleApp.exe"));
-        Assert.That(value, Is.False);
-        Assert.That(reason, Does.Contain("per-user folder").And.Contain("machine-wide"));
+        Assert.That(Unknown(_m.FileExists(root, "ExampleApp/ExampleApp.exe")), Does.Contain("per-user folder").And.Contain("machine-wide"));
+        Assert.That(Unknown(!_m.FileExists(root, "ExampleApp/ExampleApp.exe")), Does.Contain("per-user folder"),
+            "\"cannot check\" is never read as \"false\", so ! cannot make it true");
     }
 
     [Test]
-    public async Task AFolderMissingOnThisPlatform_IsFalse()
+    public void AFolderMissingOnThisPlatform_CannotBeChecked()
     {
         _bed.Folders.Remove(KnownFolder.ProgramFilesX86);
-        var (value, reason) = await Eval(_m.FolderExists(KnownFolder.ProgramFilesX86, "Vendor"));
-        Assert.That(value, Is.False);
-        Assert.That(reason, Does.Contain("does not exist on this platform"));
+        Assert.That(Unknown(_m.FolderExists(KnownFolder.ProgramFilesX86, "Vendor")), Does.Contain("does not exist on this platform"));
     }
+
+    [Test]
+    public void AnUnreadableFile_CannotBeChecked_UnderAnyOperator()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe");
+        _bed.FileSystem.DenyReads(_bed.PathOf(KnownFolder.LocalAppData, "ExampleApp"));
+        Assert.That(Unknown(_m.FileExists(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe")), Does.Contain("cannot be read"));
+        Assert.That(Unknown(!_m.FolderExists(KnownFolder.LocalAppData, "ExampleApp")), Does.Contain("cannot be read"));
+        Assert.That(Unknown(!_m.InstellaInstallationAt(KnownFolder.LocalAppData, "ExampleApp")), Does.Contain("cannot be read"));
+    }
+
+    [Test]
+    public void AnUnreadableRunKey_CannotBeChecked()
+    {
+        _bed.SetRunValue("ExampleApp", "\"C:\\x\\a.exe\"");
+        _bed.Platform.DenyRegistryReads(Instella.Core.Platform.RegistryHive.CurrentUser, RunCommand.RunKey);
+        Assert.That(Unknown(!_m.RunValueExists("ExampleApp")), Does.Contain("could not be read").And.Contain("denied"));
+        Assert.That(Unknown(!_m.RunValuePointsInto("ExampleApp", _m.Folder(KnownFolder.LocalAppData, "x"))), Does.Contain("could not be read"));
+        Assert.That(Unknown(!_m.RegistryValueExists(Instella.Core.Platform.RegistryHive.CurrentUser, RunCommand.RunKey, "ExampleApp")),
+            Does.Contain("could not be read"));
+    }
+
+    [Test]
+    public void AProcessLookupThatFails_CannotBeChecked()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe");
+        _bed.FileSystem.DenyReads(_bed.PathOf(KnownFolder.LocalAppData, "ExampleApp"));
+        Assert.That(Unknown(!_m.ProcessRunningIn(_m.Folder(KnownFolder.LocalAppData, "ExampleApp"))), Does.Contain("could not be found"));
+    }
+
+    /// <summary>Asserts the condition cannot be evaluated, and returns why.</summary>
+    private string Unknown(Condition condition) =>
+        Assert.ThrowsAsync<ConditionEvaluationException>(() => Eval(condition))!.Message;
 
     [Test]
     public async Task InstellaInstallationAt_LooksForTheManifest()
@@ -218,13 +249,11 @@ public class MigrationConditionTests
     }
 
     [Test]
-    public async Task RunValuePointsInto_APerUserFolderInAMachineInstall_IsFalse()
+    public void RunValuePointsInto_APerUserFolderInAMachineInstall_CannotBeChecked()
     {
         _bed.Scope = InstallationScope.SystemWide;
         _bed.SetRunValue("ExampleApp", $"\"{Path.Combine(_bed.Folders[KnownFolder.LocalAppData], "ExampleApp", "ExampleApp.exe")}\"");
-        var (value, reason) = await Eval(_m.RunValuePointsInto("ExampleApp", _m.Folder(KnownFolder.LocalAppData, "ExampleApp")));
-        Assert.That(value, Is.False);
-        Assert.That(reason, Does.Contain("per-user folder"));
+        Assert.That(Unknown(_m.RunValuePointsInto("ExampleApp", _m.Folder(KnownFolder.LocalAppData, "ExampleApp"))), Does.Contain("per-user folder"));
     }
 
     [TestCase(null)]
@@ -247,9 +276,7 @@ public class MigrationConditionTests
         Assert.That((await Eval(_m.RegistryValueExists(RegistryHive.AutoFromScope, @"Software\ExampleApp", "Theme"))).Value, Is.True, "per-user → HKCU");
 
         _bed.Scope = InstallationScope.SystemWide;
-        var (value, reason) = await Eval(_m.RegistryValueExists(RegistryHive.CurrentUser, @"Software\ExampleApp", "Theme"));
-        Assert.That(value, Is.False);
-        Assert.That(reason, Does.Contain("HKCU"));
+        Assert.That(Unknown(_m.RegistryValueExists(RegistryHive.CurrentUser, @"Software\ExampleApp", "Theme")), Does.Contain("HKCU"));
         Assert.That((await Eval(_m.RegistryValueExists(RegistryHive.AutoFromScope, @"Software\ExampleApp", "Edition"))).Value, Is.True, "machine → HKLM");
     }
 

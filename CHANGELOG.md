@@ -27,7 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Access-denied simulation in the test fakes: `InMemoryFileSystem.DenyWrites/DenyReads/AllowAll` and
   `FakePlatformServices.DenyRegistryWrites/DenyRegistryReads` report denials as the real file system
   and registry do; `MigrationHarness` exposes them as `DenyWrites`, `DenyReads`, `DenyRunKeyWrites`
-  and `DenyRunKeyReads`.
+  and `DenyRunKeyReads`; `InMemoryFileSystem.AddLink` simulates a symbolic link or junction.
+- `IFileSystem.GetEntryState` (tells "absent" from "access denied"), `IsLink` and
+  `EnumerateFilesWithoutLinks`, and `IPlatformServices.TryReadRegistryValueAsync` with
+  `RegistryReadResult`, all with default implementations, so existing implementations keep compiling.
+- Crash-safe migration undo: `BeforeCommit` changes are journaled (`undo.json`) before they are made,
+  and the next installer run on the folder finishes an interrupted install's undo, or deletes the
+  copies if the install was committed.
 
 ### Changed
 

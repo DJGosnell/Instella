@@ -480,7 +480,10 @@ internal sealed partial class WindowsPlatformServices : IPlatformServices
         }, ct);
     }
 
-    public Task<RegistryValueData?> ReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
+    public async Task<RegistryValueData?> ReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct) =>
+        (await TryReadRegistryValueAsync(hive, keyPath, name, perUser, ct)).Value;
+
+    public Task<RegistryReadResult> TryReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
     {
         return Task.Run(() =>
         {
@@ -488,7 +491,7 @@ internal sealed partial class WindowsPlatformServices : IPlatformServices
             {
                 using var key = ResolveBaseKey(hive, perUser).OpenSubKey(keyPath, writable: false);
                 var value = key?.GetValue(name, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
-                if (key is null || value is null) return null;
+                if (key is null || value is null) return new RegistryReadResult(null, null);
                 var kind = key.GetValueKind(name) switch
                 {
                     RegistryValueKind.ExpandString => InstellaRegistryValueKind.ExpandString,
@@ -498,11 +501,12 @@ internal sealed partial class WindowsPlatformServices : IPlatformServices
                     RegistryValueKind.QWord => InstellaRegistryValueKind.QWord,
                     _ => InstellaRegistryValueKind.String,
                 };
-                return new RegistryValueData(kind, value);
+                return new RegistryReadResult(new RegistryValueData(kind, value), null);
             }
-            catch
+            catch (Exception ex)
             {
-                return (RegistryValueData?)null;
+                // Access denied, a key deleted while reading, …: the value's existence is unknown.
+                return new RegistryReadResult(null, ex.Message);
             }
         }, ct);
     }

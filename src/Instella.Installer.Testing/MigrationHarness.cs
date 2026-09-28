@@ -308,6 +308,7 @@ public sealed class MigrationHarness
             Programs = programs,
             ForceClose = _forceClose,
             IsPreview = _preview,
+            UndoRoot = _root,
             UndoDirectory = Path.Combine(_root, "undo"),
         };
         context.Migrations = runtime;

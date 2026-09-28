@@ -140,6 +140,14 @@ public interface IPlatformServices
         => Task.FromResult<RegistryValueData?>(null);
 
     /// <summary>
+    /// <see cref="ReadRegistryValueAsync"/>, telling "absent" (a null <see cref="RegistryReadResult.Value"/>)
+    /// from "could not read" (<see cref="RegistryReadResult.Error"/> set, for example access denied).
+    /// The default implementation cannot tell them apart and never reports an error.
+    /// </summary>
+    async Task<RegistryReadResult> TryReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
+        => new(await ReadRegistryValueAsync(hive, keyPath, name, perUser, ct), null);
+
+    /// <summary>
     /// True when the registry key exists. Install uses it to record which keys Instella
     /// created, so uninstall deletes only those. Linux/macOS return false.
     /// </summary>

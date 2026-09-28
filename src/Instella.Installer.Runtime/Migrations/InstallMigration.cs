@@ -242,5 +242,8 @@ internal sealed class MigrationRun(InstallMigration migration, MigrationContext 
     public List<MigrationAction> Actions { get; } = [];
 
     /// <summary>Undo entries, applied newest first.</summary>
-    public List<(string What, Func<CancellationToken, Task> Undo)> UndoJournal { get; } = [];
+    public List<UndoStep> UndoJournal { get; } = [];
+
+    /// <summary>When this migration first journaled a change (written into <c>undo.json</c>).</summary>
+    public DateTime? JournalCreatedAt { get; set; }
 }

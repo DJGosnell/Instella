@@ -66,33 +66,66 @@ internal static class MigrationFolderGuard
             if (PathGuards.IsSameOrInside(install, path))
                 return new(null, $"{display} contains the folder being installed");
         }
-        if (OtherInstallation(path, context) is { } installation)
-            return new(null, $"{display}: {installation}; uninstall it instead");
+        if (LinkBetween(context.FileSystem, rootPath, path, includeLast: true) is { } link)
+            return new(null, $"{display}: '{link}' is a symbolic link or junction, which may lead anywhere");
+        if (OtherInstallation(path, rootPath, context) is { } installation)
+            return new(null, $"{display}: {installation}");
         return new(path, null);
     }
 
     /// <summary>
-    /// Why <paramref name="path"/> touches another Instella installation, or null: the folder
-    /// holds one, is inside one (an ancestor holds the manifest), or has one anywhere beneath it
-    /// (actions take nested file names and close programs from the whole tree). A tree that cannot
-    /// be listed counts as touching one: the rule cannot be checked, so the action is refused.
+    /// The first folder strictly below <paramref name="from"/> on the way to <paramref name="to"/>
+    /// (with <paramref name="includeLast"/>, <paramref name="to"/> itself too; without it,
+    /// <paramref name="to"/>'s own name is not checked, as for a file) that is a symbolic link or
+    /// junction; null when there is none. A path through a link may lead anywhere, so actions
+    /// refuse it.
     /// </summary>
-    private static string? OtherInstallation(string path, MigrationContext context)
+    public static string? LinkBetween(IFileSystem fs, string from, string to, bool includeLast = false)
+    {
+        var chain = new List<string>();
+        for (var dir = includeLast ? to : Path.GetDirectoryName(to);
+             !string.IsNullOrEmpty(dir) && PathGuards.IsSameOrInside(dir, from) && !InstallPaths.SameFolder(dir.TrimEnd('\\', '/'), from.TrimEnd('\\', '/'));
+             dir = Path.GetDirectoryName(dir))
+            chain.Add(dir);
+        chain.Reverse();
+        return chain.FirstOrDefault(fs.IsLink);
+    }
+
+    /// <summary>
+    /// Why <paramref name="path"/> touches another Instella installation, or null: the folder
+    /// holds one, is inside one (a folder between it and its known folder holds the manifest), or
+    /// has one anywhere beneath it (actions take nested file names and close programs from the
+    /// whole tree; links are not followed, the link check refuses them). Anything that cannot be
+    /// read counts as touching one: the rule cannot be checked, so the action is refused.
+    /// </summary>
+    private static string? OtherInstallation(string path, string rootPath, MigrationContext context)
     {
         var fs = context.FileSystem;
-        for (var dir = path; !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
+        for (var dir = path; !string.IsNullOrEmpty(dir) && PathGuards.IsSameOrInside(dir, rootPath); dir = Path.GetDirectoryName(dir))
         {
-            if (fs.Exists(Path.Combine(dir, InstellaOwnedPaths.InstalledManifest)))
-                return dir == path
-                    ? $"it holds an Instella installation ({InstellaOwnedPaths.InstalledManifest})"
-                    : $"it is inside the Instella installation in '{dir}'";
+            switch (fs.GetEntryState(Path.Combine(dir, InstellaOwnedPaths.InstalledManifest)))
+            {
+                case FileSystemEntryState.File:
+                    return dir == path
+                        ? $"it holds an Instella installation ({InstellaOwnedPaths.InstalledManifest}); uninstall it instead"
+                        : $"it is inside the Instella installation in '{dir}'; uninstall it instead";
+                case FileSystemEntryState.Denied:
+                    return $"it cannot be checked for Instella installations ('{dir}' cannot be read)";
+            }
         }
 
-        if (!fs.DirectoryExists(path)) return null;
+        switch (fs.GetEntryState(path))
+        {
+            case FileSystemEntryState.Missing:
+            case FileSystemEntryState.File:
+                return null;
+            case FileSystemEntryState.Denied:
+                return "it cannot be checked for Instella installations (it cannot be read)";
+        }
         try
         {
-            var nested = fs.EnumerateFiles(path, InstellaOwnedPaths.InstalledManifest, recursive: true).FirstOrDefault();
-            return nested is null ? null : $"it contains the Instella installation in '{Path.GetDirectoryName(nested)}'";
+            var nested = fs.EnumerateFilesWithoutLinks(path, InstellaOwnedPaths.InstalledManifest).FirstOrDefault();
+            return nested is null ? null : $"it contains the Instella installation in '{Path.GetDirectoryName(nested)}'; uninstall it instead";
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
         {

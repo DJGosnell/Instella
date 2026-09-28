@@ -10,9 +10,9 @@ internal static class RunValues
 {
     public static RegistryHive Hive(bool perUser) => perUser ? RegistryHive.CurrentUser : RegistryHive.LocalMachine;
 
-    /// <summary>The value's data, or null when it does not exist (always null off Windows).</summary>
-    public static async Task<RegistryValueData?> ReadAsync(IPlatformServices platform, string name, bool perUser, CancellationToken ct) =>
-        await platform.ReadRegistryValueAsync(Hive(perUser), RunCommand.RunKey, name, perUser, ct);
+    /// <summary>The value (null when it does not exist; always null off Windows), or why it could not be read.</summary>
+    public static Task<RegistryReadResult> ReadAsync(IPlatformServices platform, string name, bool perUser, CancellationToken ct) =>
+        platform.TryReadRegistryValueAsync(Hive(perUser), RunCommand.RunKey, name, perUser, ct);
 
     /// <summary>The value as a command line, or null when it is missing or not a string.</summary>
     public static string? AsCommand(RegistryValueData? data) =>

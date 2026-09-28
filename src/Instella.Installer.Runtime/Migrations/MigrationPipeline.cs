@@ -82,7 +82,13 @@ internal static class MigrationPipeline
                 continue;
             }
 
-            var command = RunValues.AsCommand(await RunValues.ReadAsync(platform, item.Name, item.PerUser, ct));
+            var read = await RunValues.ReadAsync(platform, item.Name, item.PerUser, ct);
+            if (read.Failed)
+            {
+                log.Warn($"uninstall: Run value '{item.Name}' could not be read, so it is left in place: {read.Error}");
+                continue;
+            }
+            var command = RunValues.AsCommand(read.Value);
             if (command is null) continue;
             if (!RunValues.PointsInto(command, installPath))
             {

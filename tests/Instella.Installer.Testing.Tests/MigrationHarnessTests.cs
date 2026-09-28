@@ -275,12 +275,22 @@ public class MigrationHarnessTests
     }
 
     [Test]
-    public async Task DenyRunKeyReads_HidesTheRunValue()
+    public async Task DenyRunKeyReads_FailsAnActionThatReadsIt()
     {
         var m = new Delegated("adopt", MigrationTiming.AfterCommit, _ => Condition.Always, async (t, _) => await t.Adopt("ExampleApp"));
         var result = await MigrationHarness.For(m).WithRunValue("ExampleApp", "\"C:\\x\\a.exe\"").DenyRunKeyReads().RunAsync();
-        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Completed));
+        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Failed));
+        Assert.That(result.Error, Does.Contain("could not read Run value"));
         Assert.That(result.AdoptedItems, Is.Empty);
+    }
+
+    [Test]
+    public async Task DenyRunKeyReads_SkipsTheOldCopyMigration()
+    {
+        // The ExampleApp migration repoints the Run value; it is never done on a guess.
+        var result = await OldCopyScenario().DenyRunKeyReads().RunAsync();
+        Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Failed));
+        Assert.That(result.FileExists(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe"), Is.True, "stopped before deleting");
     }
 
     [Test]

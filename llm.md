@@ -443,10 +443,13 @@ outside a run, so `When()` may only compose conditions).
   InstellaInstallationAt(KnownFolder, relative)`, `RunValueExists(name)`, `RunValuePointsInto(name,
   MigrationFolder)`, `RegistryValueExists(hive, key, name)`, `ProcessRunningIn(MigrationFolder)`,
   `IsWindows()`, `IsPerUserInstall()`, `IsMachineInstall()`. A false condition logs the leaf that was
-  false. A throwing `From` delegate throws `ConditionEvaluationException` (never "false", so `!` cannot
-  turn it into "true"); any exception while evaluating (e.g. access
-  denied) is a logged skip, never a failure. A denied read looks absent (as `File.Exists` does); a denied
-  write/delete fails the action with the reason.
+  false. **Unknown is never true or false**: a leaf that cannot check (unreadable file via
+  `IFileSystem.GetEntryState` = `Denied`, unreadable registry value via
+  `IPlatformServices.TryReadRegistryValueAsync`, a failed process search, a per-user folder/HKCU in a
+  machine install, a known folder missing on the platform, a throwing `From`) throws
+  `ConditionEvaluationException`, so `!` cannot turn it into "true"; `MigrationExecution` turns any
+  exception while evaluating into a logged skip (not recorded), never a failure. Actions that cannot
+  read what they need fail with the reason; a denied write/delete fails the action with the reason.
 - **Actions** (protected): `Folder(KnownFolder, relative)` → `MigrationFolder`;
   `StopProcessesInAsync(folder)`, `RepointRunValueAsync(name, from)` (to the new exe, arguments
   kept), `DeleteRunValueAsync(name, pointingInto)`, `AdoptRunValueAsync(name)`, `DeleteFilesAsync(folder,
@@ -460,13 +463,24 @@ outside a run, so `When()` may only compose conditions).
   `InstallFolder`, the install folder / inside it / an ancestor of it, volume roots, `PathGuards`
   protected folders (shared with `--cleanup`) and every known-folder root and `LocalAppData\{Programs,
   Microsoft,Packages,Temp}`, `RoamingAppData\Microsoft`, and any folder holding
-  `.instella-manifest.json` in it, in an ancestor, or anywhere beneath it (a tree that cannot be listed is
-  refused too). Processes: `RunningAppGate` over the folder's files, same prompt /
-  `--force-close` rules. `Context.FileSystem`/`PlatformServices` bypass all of it.
+  `.instella-manifest.json` in it, in an ancestor up to its known folder, or anywhere beneath it (scanned
+  with `IFileSystem.EnumerateFilesWithoutLinks`; anything unreadable is refused), and any path through a
+  link (`IFileSystem.IsLink` on each folder from the known folder down, and on the folders of each
+  `DeleteFilesAsync` name). Processes: `RunningAppGate { SkipLinks = true }` over the folder's files, same
+  prompt / `--force-close` rules; `FindBlockers(..., out error)` reports a failed search.
+  `Context.FileSystem`/`PlatformServices` bypass all of it.
 - **Pipeline**: steps `migration:<id>` (`MigrationStep`). `BeforeCommit` go just before
-  `write-manifest` (after all Register steps); a failure undoes the migration's actions (journal;
-  deleted files moved to `%TEMP%\Instella\migration-undo\…` until the install completes), calls
-  `RollbackAsync`, fails the install; a later failure rolls it back too. `AfterCommit` go last, after
+  `write-manifest` (after all Register steps); a failure undoes the migration's actions, calls
+  `RollbackAsync`, fails the install; a later failure rolls it back too. **Undo is crash-safe**
+  (`MigrationUndo`): each change is journaled write-ahead to
+  `{UndoRoot=%TEMP%\Instella\migration-undo}\{run guid}\{id}\undo.json` (`UndoEntry` kinds `file`
+  (backup → original, never overwriting), `folder`, `run-value`), deleted files are moved next to it;
+  `InstallContext.CompletionActions` delete the run folder after success or after a failure past a
+  point of no return; a failed undo keeps the folder (`UndoCopiesKept`). `MigrationUndo.RecoverAsync`
+  runs at the start of every install, interactive install and uninstall (under the install-root
+  lock, after transaction recovery): for journals of this install path, committed (installed
+  manifest version = journal target and `installedAt` ≥ journal `createdAt`) → delete copies, else →
+  undo; what still fails stays journaled for the next run. `AfterCommit` go last, after
   every custom Finalize step, as `IBestEffortStep`: a failure is a warning, cancel skips them without
   rollback. Order: timing, `Order`, `Id`.
 - **Run-once**: success → id in `MigrationRuntime.Completed` → `completedMigrations` (staged by

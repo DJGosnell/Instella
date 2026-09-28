@@ -331,6 +331,7 @@ internal sealed class InteractiveInstallRunner
                         Prompt = _appRunningPrompt,
                         ForceClose = dispatch.ForceClose,
                     };
+                    await Migrations.MigrationUndo.RecoverAsync(context, pipelineCts.Token);
                     result = await RunStepPipelineAsync(context, host, progressState, pipelineCts.Token);
                 }
                 catch (InstallRefusedException ex)

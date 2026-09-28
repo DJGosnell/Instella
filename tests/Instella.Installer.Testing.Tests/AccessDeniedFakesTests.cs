@@ -97,6 +97,56 @@ public class AccessDeniedFakesTests
     }
 
     [Test]
+    public void GetEntryState_TellsDeniedFromMissing()
+    {
+        var fs = Seeded();
+        Assert.That(fs.GetEntryState(File1), Is.EqualTo(FileSystemEntryState.File));
+        Assert.That(fs.GetEntryState(Locked), Is.EqualTo(FileSystemEntryState.Directory));
+        Assert.That(fs.GetEntryState(Path.Combine(Root, "nothing")), Is.EqualTo(FileSystemEntryState.Missing));
+        fs.DenyReads(Locked);
+        Assert.That(fs.GetEntryState(File1), Is.EqualTo(FileSystemEntryState.Denied));
+        Assert.That(fs.GetEntryState(Locked), Is.EqualTo(FileSystemEntryState.Denied));
+        Assert.That(fs.Exists(File1), Is.False, "Exists still answers false, as File.Exists does");
+    }
+
+    [Test]
+    public void DeniedFilesInAReadableFolder_AreStillListed()
+    {
+        var fs = Seeded();
+        fs.DenyReads(File1);
+        Assert.That(fs.EnumerateFiles(Root, "*", recursive: true), Has.Member(File1));
+    }
+
+    [Test]
+    public void Links_AreReported_AndNotFollowedByTheLinkFreeListing()
+    {
+        var fs = Seeded();
+        var link = Path.Combine(Locked, "sub");
+        fs.AddLink(link);
+        Assert.That(fs.IsLink(link), Is.True);
+        Assert.That(fs.IsLink(Locked), Is.False);
+        Assert.That(fs.EnumerateFiles(Locked, "*", recursive: true), Has.Member(Nested), "EnumerateFiles follows it");
+        Assert.That(fs.EnumerateFilesWithoutLinks(Locked, "*"), Is.EqualTo(new[] { File1 }), "EnumerateFilesWithoutLinks does not");
+        Assert.That(fs.EnumerateFilesWithoutLinks(Root, "b.txt"), Is.Empty);
+    }
+
+    [Test]
+    public async Task TryReadRegistryValue_ReportsDenied_ReadRegistryValue_LooksAbsent()
+    {
+        var platform = new FakePlatformServices();
+        platform.Registry.Set(RegistryHive.CurrentUser, @"Software\Locked", "V", InstellaRegistryValueKind.String, "x");
+        var ok = await platform.TryReadRegistryValueAsync(RegistryHive.CurrentUser, @"Software\Locked", "V", true, CancellationToken.None);
+        Assert.That((ok.Failed, ok.Value!.Value), Is.EqualTo((false, (object)"x")));
+        var missing = await platform.TryReadRegistryValueAsync(RegistryHive.CurrentUser, @"Software\Locked", "Nope", true, CancellationToken.None);
+        Assert.That((missing.Failed, missing.Value), Is.EqualTo((false, (RegistryValueData?)null)));
+
+        platform.DenyRegistryReads(RegistryHive.CurrentUser, @"Software\Locked");
+        var denied = await platform.TryReadRegistryValueAsync(RegistryHive.CurrentUser, @"Software\Locked", "V", true, CancellationToken.None);
+        Assert.That(denied.Failed, Is.True);
+        Assert.That(denied.Error, Does.Contain("denied"));
+    }
+
+    [Test]
     public async Task DenyRegistryWrites_FailsWritesAndDeletes_AndKeepsReads()
     {
         var platform = new FakePlatformServices();

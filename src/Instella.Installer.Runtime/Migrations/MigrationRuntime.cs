@@ -33,9 +33,17 @@ internal sealed class MigrationRuntime
     /// <summary>Actions report what they would do and change nothing.</summary>
     public bool IsPreview { get; init; }
 
-    /// <summary>Where <see cref="MigrationTiming.BeforeCommit"/> deletions keep files until the install completes.</summary>
-    public string UndoDirectory { get; init; } =
-        Path.Combine(Path.GetTempPath(), "Instella", "migration-undo", Guid.NewGuid().ToString("N"));
+    /// <summary>Where every installer run keeps the undo copies of <see cref="MigrationTiming.BeforeCommit"/> migrations, one folder per run.</summary>
+    public string UndoRoot { get; init; } = Path.Combine(Path.GetTempPath(), "Instella", "migration-undo");
+
+    /// <summary>This run's undo folder under <see cref="UndoRoot"/>: moved-aside files and <c>undo.json</c> journals, until the install completes.</summary>
+    public string UndoDirectory
+    {
+        get => _undoDirectory ??= Path.Combine(UndoRoot, Guid.NewGuid().ToString("N"));
+        init => _undoDirectory = value;
+    }
+
+    private string? _undoDirectory;
 
     /// <summary>Whether the install's completion already deletes <see cref="UndoDirectory"/>.</summary>
     public bool UndoCleanupRegistered { get; set; }

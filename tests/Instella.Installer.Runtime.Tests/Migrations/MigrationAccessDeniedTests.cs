@@ -102,7 +102,9 @@ public class MigrationAccessDeniedTests
 
         // The undo copy is the only copy left: it must survive the rollback and the clean-up.
         var kept = _bed.FileSystem.EnumerateFiles(Path.Combine(_bed.Root, "undo", "denied")).ToList();
-        Assert.That(kept.Select(Path.GetFileName), Is.EqualTo(new[] { "0-ExampleApp.exe" }));
+        Assert.That(kept.Select(Path.GetFileName), Is.EquivalentTo(new[] { "0-ExampleApp.exe", "undo.json" }),
+            "the copy, and the journal the next installer run retries from");
+        kept.RemoveAll(k => k.EndsWith("undo.json", StringComparison.Ordinal));
         Assert.That(_bed.Log.Warnings, Has.Some.Contains("are kept in").And.Contains(Path.Combine(_bed.Root, "undo", "denied")));
         Assert.That(_context.Migrations.UndoCopiesKept, Is.True);
         foreach (var completion in _context.CompletionActions) await completion();
@@ -206,15 +208,59 @@ public class MigrationAccessDeniedTests
     }
 
     [Test]
-    public async Task AnUnreadableRunKey_LooksEmpty()
+    public async Task AnUnreadableRunKey_SkipsAConditionOnIt_EvenNegated()
     {
         _bed.SetRunValue("ExampleApp", $"\"{OldExe}\"");
         _bed.Platform.DenyRegistryReads(RegistryHive.CurrentUser, RunCommand.RunKey);
-        bool changed = true;
-        var result = await Run(async t => changed = await t.RepointRunValueAsync("ExampleApp", Old(t), default),
-            when: t => !t.RunValueExists("Other"));
-        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Completed));
-        Assert.That(changed, Is.False, "nothing it can see to repoint");
+        var result = await Run(t => t.DeleteFilesAsync(Old(t), ["ExampleApp.exe"], default), when: t => !t.RunValueExists("ExampleApp"));
+        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Skipped));
+        Assert.That(result.Reason, Does.Contain("could not be read"));
+        Assert.That(_bed.FileSystem.Exists(OldExe), Is.True);
+    }
+
+    [TestCase("repoint")]
+    [TestCase("delete")]
+    [TestCase("adopt")]
+    public async Task AnUnreadableRunKey_FailsTheRunValueActions(string which)
+    {
+        _bed.SetRunValue("ExampleApp", $"\"{OldExe}\"");
+        _bed.Platform.DenyRegistryReads(RegistryHive.CurrentUser, RunCommand.RunKey);
+        var result = await Run(t => which switch
+        {
+            "repoint" => t.RepointRunValueAsync("ExampleApp", Old(t), default),
+            "delete" => t.DeleteRunValueAsync("ExampleApp", Old(t), default),
+            _ => t.AdoptRunValueAsync("ExampleApp", default),
+        });
+        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Failed));
+        Assert.That(result.Reason, Does.Contain("could not read Run value 'ExampleApp'").And.Contain("denied"));
+    }
+
+    [Test]
+    public async Task AFileThatCannotBeRead_FailsDeleteFiles_InsteadOfLookingAbsent()
+    {
+        _bed.FileSystem.DenyReads(OldPdb);
+        var result = await Run(t => t.DeleteFilesAsync(Old(t), ["ExampleApp.pdb"], default));
+        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Failed));
+        Assert.That(result.Reason, Does.Contain("cannot be read"));
+    }
+
+    [Test]
+    public async Task AProcessLookupThatFails_FailsStopProcesses()
+    {
+        _bed.AddFile(KnownFolder.LocalAppData, "Locked/app.exe");
+        _bed.FileSystem.DenyReads(_bed.PathOf(KnownFolder.LocalAppData, "Locked"));
+        var result = await Run(t => t.StopProcessesInAsync(t.Folder(KnownFolder.LocalAppData, "Locked"), default));
+        Assert.That(result.Outcome, Is.EqualTo(MigrationRunOutcome.Failed));
+    }
+
+    [Test]
+    public async Task AProgramThatCannotBeRead_IsNotRun()
+    {
+        _bed.AddFile(KnownFolder.ProgramFiles, "OldVendor/uninstall.exe");
+        _bed.FileSystem.DenyReads(_bed.PathOf(KnownFolder.ProgramFiles, "OldVendor"));
+        var result = await Run(t => t.RunProgramAsync(_bed.PathOf(KnownFolder.ProgramFiles, "OldVendor/uninstall.exe"), [], [0], default));
+        Assert.That(result.Reason, Does.Contain("cannot be read"));
+        Assert.That(_bed.Programs.Runs, Is.Empty);
     }
 
     [Test]

@@ -95,8 +95,23 @@ internal sealed class RunningAppGate
     /// The processes using files under <paramref name="installPath"/>, plus copies of
     /// <paramref name="executableName"/> running from there; null skips that name-based lookup.
     /// </summary>
-    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string? executableName)
+    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string? executableName) =>
+        FindBlockers(installPath, executableName, out _);
+
+    /// <summary>
+    /// Do not follow symbolic links or junctions when listing the folder's files, so programs of
+    /// whatever a link points to are never found (or closed). Install migrations set it.
+    /// </summary>
+    public bool SkipLinks { get; init; }
+
+    /// <summary>
+    /// <see cref="FindBlockers(string, string?)"/>, also saying why the folder's programs could not
+    /// be found (<paramref name="error"/>: the files could not be listed, or Restart Manager failed),
+    /// in which case the list may be incomplete.
+    /// </summary>
+    public IReadOnlyList<LockingProcess> FindBlockers(string installPath, string? executableName, out string? error)
     {
+        error = null;
         var self = Environment.ProcessId;
         var selfPath = Environment.ProcessPath;
         var found = new Dictionary<int, LockingProcess>();
@@ -105,15 +120,20 @@ internal sealed class RunningAppGate
         {
             try
             {
-                var files = _fs.EnumerateFiles(installPath, "*", recursive: true).ToList();
+                var files = (SkipLinks ? _fs.EnumerateFilesWithoutLinks(installPath, "*") : _fs.EnumerateFiles(installPath, "*", recursive: true)).ToList();
                 foreach (var p in _finder.Find(files))
                     if (p.Id != self && !IsSameProgram(p.Id, selfPath))
                         found.TryAdd(p.Id, p);
             }
             catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
             {
+                error = ex.Message;
                 _log.Warn($"could not list the programs using '{installPath}': {ex.Message}");
             }
+        }
+        else if (_fs.GetEntryState(installPath) == Instella.Core.FileSystem.FileSystemEntryState.Denied)
+        {
+            error = $"'{installPath}' cannot be read";
         }
 
         if (!string.IsNullOrEmpty(executableName))

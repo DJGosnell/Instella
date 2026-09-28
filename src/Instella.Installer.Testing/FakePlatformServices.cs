@@ -257,6 +257,14 @@ public sealed class FakePlatformServices : IPlatformServices
     }
 
     /// <inheritdoc />
+    public async Task<RegistryReadResult> TryReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
+    {
+        if (IsDenied(_deniedRegistryReads, hive, keyPath))
+            return new RegistryReadResult(null, $"Access to the registry key '{keyPath}' is denied.");
+        return new RegistryReadResult(await ReadRegistryValueAsync(hive, keyPath, name, perUser, ct), null);
+    }
+
+    /// <inheritdoc />
     public Task<RegistryValueData?> ReadRegistryValueAsync(RegistryHive hive, string keyPath, string name, bool perUser, CancellationToken ct)
     {
         if (IsDenied(_deniedRegistryReads, hive, keyPath)) return Task.FromResult<RegistryValueData?>(null);

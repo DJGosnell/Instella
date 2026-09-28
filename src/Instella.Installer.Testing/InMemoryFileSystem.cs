@@ -58,6 +58,54 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
         }
     }
 
+    /// <summary>
+    /// Marks <paramref name="path"/> as a symbolic link or junction: <see cref="IsLink"/> reports it,
+    /// and <see cref="EnumerateFilesWithoutLinks"/> skips it and everything under it, as the real
+    /// file system does. <see cref="EnumerateFiles"/> still follows it.
+    /// </summary>
+    public void AddLink(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        var normalized = Normalize(path);
+        lock (_lock)
+        {
+            _links.Add(normalized);
+            _explicitDirs.Add(normalized);
+            AddImpliedDirectories(normalized);
+        }
+    }
+
+    private readonly HashSet<string> _links = new(s_pathComparer);
+
+    /// <inheritdoc />
+    public FileSystemEntryState GetEntryState(string path)
+    {
+        var normalized = Normalize(path);
+        lock (_lock)
+        {
+            if (Covers(_deniedReads, normalized)) return FileSystemEntryState.Denied;
+        }
+        return Exists(path) ? FileSystemEntryState.File
+            : DirectoryExists(path) ? FileSystemEntryState.Directory
+            : FileSystemEntryState.Missing;
+    }
+
+    /// <inheritdoc />
+    public bool IsLink(string path)
+    {
+        lock (_lock) return _links.Contains(Normalize(path));
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<string> EnumerateFilesWithoutLinks(string path, string searchPattern)
+    {
+        List<string> links;
+        lock (_lock) links = [.. _links];
+        return EnumerateFiles(path, searchPattern, recursive: true)
+            .Where(f => !Covers(links, Path.GetDirectoryName(f)!) && !links.Contains(f, s_pathComparer))
+            .ToList();
+    }
+
     /// <summary>Removes every <see cref="DenyWrites"/> and <see cref="DenyReads"/>.</summary>
     public void AllowAll()
     {
@@ -380,7 +428,8 @@ public sealed class InMemoryFileSystem : IFakeFileSystem
             {
                 var comparison = s_pathComparer == StringComparer.OrdinalIgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
                 foreach (var root in _deniedReads)
-                    if (root.StartsWith(normalized + Path.DirectorySeparatorChar, comparison))
+                    // An unreadable folder stops the listing; an unreadable file in a readable folder is still listed.
+                    if (root.StartsWith(normalized + Path.DirectorySeparatorChar, comparison) && !_files.ContainsKey(root))
                         throw new UnauthorizedAccessException($"Access to the path '{root}' is denied.");
             }
         }

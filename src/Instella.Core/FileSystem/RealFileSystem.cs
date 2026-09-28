@@ -204,6 +204,50 @@ internal sealed class RealFileSystem : IFileSystem
         return info.Exists ? info.Length : -1;
     }
 
+    public FileSystemEntryState GetEntryState(string path)
+    {
+        // File.GetAttributes throws where File.Exists answers false, so it tells "absent" from
+        // "not allowed to look".
+        try
+        {
+            return (File.GetAttributes(path) & FileAttributes.Directory) != 0
+                ? FileSystemEntryState.Directory
+                : FileSystemEntryState.File;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return FileSystemEntryState.Missing;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException
+                                       or ArgumentException or NotSupportedException)
+        {
+            return FileSystemEntryState.Denied;
+        }
+    }
+
+    public bool IsLink(string path)
+    {
+        try
+        {
+            return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException
+                                       or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    public IEnumerable<string> EnumerateFilesWithoutLinks(string path, string searchPattern) =>
+        Directory.EnumerateFiles(path, searchPattern, new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            // A link (and everything behind it) is skipped rather than followed; nothing else is.
+            AttributesToSkip = FileAttributes.ReparsePoint,
+            IgnoreInaccessible = false,
+            MatchType = MatchType.Win32,
+        });
+
     private static bool IsSharingViolation(IOException ex)
     {
         // ERROR_SHARING_VIOLATION = 0x20, ERROR_LOCK_VIOLATION = 0x21

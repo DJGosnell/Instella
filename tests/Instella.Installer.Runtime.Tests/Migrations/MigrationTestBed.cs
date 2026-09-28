@@ -91,6 +91,7 @@ internal sealed class MigrationTestBed
         Prompt = Prompt,
         ForceClose = ForceClose,
         IsPreview = Preview,
+        UndoRoot = Root,
         UndoDirectory = Path.Combine(Root, "undo"),
     };
 

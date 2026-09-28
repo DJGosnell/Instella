@@ -184,6 +184,8 @@ internal sealed class InstallModeRunner
                 ProcessCloser = Services?.ProcessCloser,
                 ForceClose = dispatch.ForceClose,
             };
+            // An earlier run of an installer on this folder may have stopped mid-install: finish its migrations' undo.
+            await Migrations.MigrationUndo.RecoverAsync(context, ct);
 
             var executor = new StepExecutor(steps);
             var result = await executor.ExecuteAsync(context, progress: null, ct);

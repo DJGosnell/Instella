@@ -334,7 +334,6 @@ internal sealed class UninstallModeRunner
             .OrderByDescending(x => x.step.Stage)
             .ThenByDescending(x => x.index)
             .ToList();
-        if (hooks.Count == 0 && migrations.Count == 0) return;
 
         var options = new InstallOptions
         {
@@ -357,6 +356,10 @@ internal sealed class UninstallModeRunner
             Prompt = prompt,
             ForceClose = dispatch.ForceClose,
         };
+
+        // An install that stopped mid-way may have left migration changes to undo, before anything is removed.
+        await Migrations.MigrationUndo.RecoverAsync(context, ct);
+        if (hooks.Count == 0 && migrations.Count == 0) return;
 
         foreach (var migration in migrations)
             await Migrations.MigrationExecution.RunAsync(migration, context, ct);

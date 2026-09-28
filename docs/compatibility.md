@@ -34,6 +34,7 @@ and served for years. Each of them carries a version field, and each reader foll
 | Release manifest (signed, served by the server) | `formatVersion` | 1 | Exactly 1. The server refuses to store other versions; clients refuse to trust them. |
 | Payload footer | `format_version` | 3 | Exactly 3. A later version or an unknown flag bit: "built by a newer Instella" (exit 12). See [footer-format.md](footer-format.md). |
 | Transaction journal (`.instella/txn/{id}/journal.json`) | `journalVersion` | 1 | Exactly 1. Any other version (including an absent field): refuse to touch the installation and exit 23 with a message naming the journal. |
+| Migration undo journal (`%TEMP%\Instella\migration-undo\{run}\{id}\undo.json`) | `formatVersion` | 1 | Exactly 1. Any other version, or a file that does not parse: logged and left in place, never acted on. |
 | Post-update marker (`.instella/post-update/{appId}.{updateId}.json`) | `markerVersion` | 1 | Exactly 1: the SDK skips a marker of any other version (the app then simply isn't told about that update). |
 | Patch manifest (`patch-manifest/…`, stored verbatim by the server) | `formatVersion` | 1 | An absent field is 1. A newer version: the client ignores the patch and downloads the changed files in full. The server writes 1. |
 | Patch blobs | 8-byte signature | `BSDIFF40` | New algorithms get a new signature, never a version byte. |
@@ -91,6 +92,7 @@ Every other mode (install, manage, uninstall, preview) stays strict: an unknown 
 | Release manifest | `ReleaseManifest.CurrentFormatVersion` (`src/Instella.Core/Trust/ReleaseManifest.cs`) |
 | Payload footer | `PayloadFooterReader.FormatVersion` (`src/Instella.Core/Internal/PayloadFooterReader.cs`) |
 | Transaction journal | `TransactionJournal.CurrentVersion` (`src/Instella.Core/Installation/TransactionJournal.cs`) |
+| Migration undo journal | `UndoJournalFile.CurrentFormatVersion` (`src/Instella.Installer.Runtime/Migrations/MigrationUndo.cs`) |
 | Post-update marker | `PostUpdateMarker.CurrentVersion` (`src/Instella.Core/Installation/PostUpdateMarker.cs`) |
 | Patch manifest | `PatchManifest.CurrentFormatVersion` (`src/Instella.Core/Update/PatchManifest.cs`) |
 | Patch blobs | `BSDiff/Constants.cs` |

@@ -71,8 +71,20 @@ public abstract class Condition
 }
 
 /// <summary>A part of a condition could not be evaluated; the migration is skipped, never run.</summary>
-internal sealed class ConditionEvaluationException(string condition, Exception inner)
-    : Exception($"{condition} threw {inner.GetType().Name}: {inner.Message}", inner);
+internal sealed class ConditionEvaluationException : Exception
+{
+    /// <summary>The condition's own code threw.</summary>
+    public ConditionEvaluationException(string condition, Exception inner)
+        : base($"{condition} threw {inner.GetType().Name}: {inner.Message}", inner)
+    {
+    }
+
+    /// <summary>What the condition tests could not be read (access denied, a folder unavailable in this scope, ...).</summary>
+    public ConditionEvaluationException(string condition, string reason)
+        : base($"{condition} cannot be checked: {reason}")
+    {
+    }
+}
 
 /// <summary>A condition's value; <see cref="Reason"/> says why it is false (or, under <c>!</c>, why it was true).</summary>
 internal readonly record struct ConditionOutcome(bool Value, string? Reason)
@@ -179,14 +191,12 @@ internal sealed class PathCondition(KnownFolder root, string relative, PathTest 
     {
         var resolved = MigrationFolderGuard.Resolve(root, relative, context, forAction: false);
         if (resolved.Path is not { } path)
-            return ValueTask.FromResult(ConditionOutcome.False($"{this} is false: {resolved.Refusal}"));
-        var fs = context.FileSystem;
-        var value = test switch
-        {
-            PathTest.FileExists => fs.Exists(path),
-            PathTest.FolderExists => fs.DirectoryExists(path),
-            _ => fs.Exists(Path.Combine(path, InstellaOwnedPaths.InstalledManifest)),
-        };
+            throw new ConditionEvaluationException(ToString(), resolved.Refusal!);
+        var target = test == PathTest.InstellaInstallation ? Path.Combine(path, InstellaOwnedPaths.InstalledManifest) : path;
+        var state = context.FileSystem.GetEntryState(target);
+        if (state == FileSystemEntryState.Denied)
+            throw new ConditionEvaluationException(ToString(), $"'{target}' cannot be read (access denied)");
+        var value = test == PathTest.FolderExists ? state == FileSystemEntryState.Directory : state == FileSystemEntryState.File;
         return ValueTask.FromResult(value ? ConditionOutcome.True(ToString()) : ConditionOutcome.False($"{this} is false"));
     }
 
@@ -202,14 +212,17 @@ internal sealed class RunValueCondition(string name, MigrationFolder? pointsInto
 {
     internal override async ValueTask<ConditionOutcome> EvaluateAsync(MigrationContext context, CancellationToken ct)
     {
-        var command = RunValues.AsCommand(await RunValues.ReadAsync(context.PlatformServices, name, context.PerUser, ct));
+        var read = await RunValues.ReadAsync(context.PlatformServices, name, context.PerUser, ct);
+        if (read.Failed)
+            throw new ConditionEvaluationException(ToString(), $"the Run value could not be read ({read.Error})");
+        var command = RunValues.AsCommand(read.Value);
         if (command is null)
             return ConditionOutcome.False($"{this} is false (no Run value '{name}')");
         if (pointsInto is null) return ConditionOutcome.True(ToString());
 
         var folder = MigrationFolderGuard.Resolve(pointsInto, context, forAction: false);
         if (folder.Path is not { } path)
-            return ConditionOutcome.False($"{this} is false: {folder.Refusal}");
+            throw new ConditionEvaluationException(ToString(), folder.Refusal!);
         return RunValues.PointsInto(command, path)
             ? ConditionOutcome.True(ToString())
             : ConditionOutcome.False($"{this} is false (it runs '{command}')");
@@ -223,10 +236,13 @@ internal sealed class RegistryValueCondition(RegistryHive hive, string keyPath, 
     internal override async ValueTask<ConditionOutcome> EvaluateAsync(MigrationContext context, CancellationToken ct)
     {
         if (hive == RegistryHive.CurrentUser && !context.PerUser)
-            return ConditionOutcome.False($"{this} is false: HKCU belongs to the account running a machine-wide install, which may not be the user's");
+            throw new ConditionEvaluationException(ToString(),
+                "HKCU belongs to the account running a machine-wide install, which may not be the user's");
         var effective = hive == RegistryHive.AutoFromScope ? RunValues.Hive(context.PerUser) : hive;
-        var value = await context.PlatformServices.ReadRegistryValueAsync(effective, keyPath, name, context.PerUser, ct);
-        return value is not null ? ConditionOutcome.True(ToString()) : ConditionOutcome.False($"{this} is false");
+        var read = await context.PlatformServices.TryReadRegistryValueAsync(effective, keyPath, name, context.PerUser, ct);
+        if (read.Failed)
+            throw new ConditionEvaluationException(ToString(), $"the value could not be read ({read.Error})");
+        return read.Value is not null ? ConditionOutcome.True(ToString()) : ConditionOutcome.False($"{this} is false");
     }
 
     public override string ToString() => $"RegistryValueExists({hive}\\{keyPath}\\{name})";
@@ -238,9 +254,11 @@ internal sealed class ProcessCondition(MigrationFolder folder) : Condition
     {
         var resolved = MigrationFolderGuard.Resolve(folder, context, forAction: false);
         if (resolved.Path is not { } path)
-            return ValueTask.FromResult(ConditionOutcome.False($"{this} is false: {resolved.Refusal}"));
-        var gate = new RunningAppGate(context.PlatformServices, context.Log, context.Runtime.ProcessFinder, context.FileSystem);
-        var running = gate.FindBlockers(path, executableName: null).Where(p => p.CanClose).ToList();
+            throw new ConditionEvaluationException(ToString(), resolved.Refusal!);
+        var gate = new RunningAppGate(context.PlatformServices, context.Log, context.Runtime.ProcessFinder, context.FileSystem) { SkipLinks = true };
+        var running = gate.FindBlockers(path, executableName: null, out var error).Where(p => p.CanClose).ToList();
+        if (error is not null && running.Count == 0)
+            throw new ConditionEvaluationException(ToString(), $"the programs using it could not be found ({error})");
         return ValueTask.FromResult(running.Count > 0
             ? ConditionOutcome.True($"{this} ({string.Join(", ", running)})")
             : ConditionOutcome.False($"{this} is false"));
