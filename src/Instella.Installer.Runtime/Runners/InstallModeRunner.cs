@@ -73,6 +73,7 @@ internal sealed class InstallModeRunner
                 HttpHandler = Services?.HttpHandler,
                 ProcessFinder = Services?.ProcessFinder,
                 AppLauncher = Services?.AppLauncher,
+                Programs = Services?.Programs,
             };
             return await interactiveRunner.RunAsync(dispatch, ct);
         }
@@ -183,6 +184,7 @@ internal sealed class InstallModeRunner
                 ProcessFinder = ProcessFinder ?? Services?.ProcessFinder ?? DefaultLockingProcessFinder.Instance,
                 ProcessCloser = Services?.ProcessCloser,
                 ForceClose = dispatch.ForceClose,
+                Programs = Services?.Programs ?? Migrations.ProcessProgramRunner.Instance,
             };
             // An earlier run of an installer on this folder may have stopped mid-install: finish its migrations' undo.
             await Migrations.MigrationUndo.RecoverAsync(context, ct);

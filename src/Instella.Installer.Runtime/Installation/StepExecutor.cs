@@ -181,6 +181,9 @@ internal sealed class StepExecutor
             {
                 context.Log.Warn($"could not update the installed manifest after the commit: {ex.Message}");
             }
+            // A held commit is confirmed by app-upgrade; confirm it here too, before the transaction
+            // folder goes, so the journal never says "interrupted" about a finished install.
+            await txn.ConfirmCommitAsync();
             await txn.CompleteAsync();
         }
 

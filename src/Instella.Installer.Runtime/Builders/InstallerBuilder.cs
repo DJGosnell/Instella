@@ -556,6 +556,14 @@ public sealed class InstallerBuilder
             if (spec.Name.StartsWith(Migrations.MigrationValidation.StepPrefix, StringComparison.Ordinal))
                 throw new InvalidOperationException(
                     $"InstallerBuilder.Build(): step name '{spec.Name}' starts with '{Migrations.MigrationValidation.StepPrefix}', which is reserved for migrations.");
+            if (spec.Name == Installation.BuiltIn.AppUpgradeStep.StepName)
+                throw new InvalidOperationException(
+                    $"InstallerBuilder.Build(): step name '{spec.Name}' is reserved for the app's upgrade program.");
+            if (spec.IsPointOfNoReturn && spec.OrderingHints.Any(h => h.Kind == Installation.Builders.StepOrderingHintKind.BeforeStep
+                    && h.StepName == Installation.BuiltIn.AppUpgradeStep.StepName))
+                throw new InvalidOperationException(
+                    $"InstallerBuilder.Build(): step '{spec.Name}' is a point of no return, so it must run after " +
+                    $"'{Installation.BuiltIn.AppUpgradeStep.StepName}' (a failed upgrade program has to be able to roll the install back).");
             specs.Add(spec);
         }
 

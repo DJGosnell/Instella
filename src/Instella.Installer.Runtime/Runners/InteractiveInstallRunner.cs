@@ -330,6 +330,7 @@ internal sealed class InteractiveInstallRunner
                         ProcessFinder = ProcessFinder ?? DefaultLockingProcessFinder.Instance,
                         Prompt = _appRunningPrompt,
                         ForceClose = dispatch.ForceClose,
+                        Programs = Programs ?? Migrations.ProcessProgramRunner.Instance,
                     };
                     await Migrations.MigrationUndo.RecoverAsync(context, pipelineCts.Token);
                     result = await RunStepPipelineAsync(context, host, progressState, pipelineCts.Token);
@@ -485,6 +486,9 @@ internal sealed class InteractiveInstallRunner
 
     /// <summary>Handler for a lite installer's download; null uses a default client.</summary>
     internal HttpMessageHandler? HttpHandler { get; init; }
+
+    /// <summary>Starts the app's upgrade program (and migration programs); null starts real processes.</summary>
+    internal Migrations.IProgramRunner? Programs { get; init; }
 
     /// <summary>
     /// Resolve the install path used to seed the Options folder picker:

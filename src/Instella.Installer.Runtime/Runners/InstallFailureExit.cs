@@ -12,6 +12,8 @@ internal static class InstallFailureExit
     {
         if (result.Steps.Any(s => s.Name == PrerequisitesStep.StepName && s.Outcome == StepOutcome.Failed))
             return InstellaExitCode.InstallPrereqFailed;
+        if (result.Steps.Any(s => s.Name == AppUpgradeStep.StepName && s.Outcome == StepOutcome.Failed))
+            return InstellaExitCode.InstallAppUpgradeFailed;
         return result.Warnings.Count > 0
             ? InstellaExitCode.InstallRollbackCompletedWithWarnings
             : InstellaExitCode.InstallGeneralFailure;

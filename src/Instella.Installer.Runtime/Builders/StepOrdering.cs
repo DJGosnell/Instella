@@ -115,6 +115,22 @@ internal static class StepOrdering
             }
         }
 
+        // The app's upgrade program runs right after the commit, before every user Finalize step:
+        // its failure must be able to roll the commit back, so no point of no return may come
+        // first, and custom Finalize steps should see the upgraded data. A step that is not a point
+        // of no return can still opt in to running earlier with Before("app-upgrade").
+        if (index.TryGetValue(BuiltIn.AppUpgradeStep.StepName, out var upgrade))
+        {
+            for (var i = 0; i < stageNodes.Count; i++)
+            {
+                if (stageNodes[i] is not StepSpec spec) continue;
+                var explicitBefore = spec.OrderingHints.Any(h => h.Kind == StepOrderingHintKind.BeforeStep
+                    && h.StepName is "write-manifest" or BuiltIn.CommitTransactionStep.StepName or BuiltIn.AppUpgradeStep.StepName);
+                if (spec.IsPointOfNoReturn || !explicitBefore)
+                    edges[upgrade].Add(i);
+            }
+        }
+
         // Layer explicit user hints on top. Because user specs do not
         // participate in the weak sequential edges, there is no reverse edge
         // to remove here — conflicting user hints (a.After(b) + b.After(a))

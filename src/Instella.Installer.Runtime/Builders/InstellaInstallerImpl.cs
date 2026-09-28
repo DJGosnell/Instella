@@ -175,7 +175,7 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
             appId: _config.AppId,
             modeName: dispatch.Mode.ToString().ToLowerInvariant());
 
-        var log = new LogsmithLoggerAdapter();
+        Instella.Core.Logging.IInstellaLogger log = services.Log ?? new LogsmithLoggerAdapter();
 
         if (ignoredOptions.Count > 0)
             log.Info($"ignoring options this updater does not know ({string.Join(", ", ignoredOptions)}); they may come from a newer SDK");
