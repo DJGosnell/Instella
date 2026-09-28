@@ -2,6 +2,25 @@ using Instella.Server.Models;
 
 namespace Instella.Server.Data.Entities;
 
+/// <summary>Whether clients see a build.</summary>
+public enum BuildState
+{
+    /// <summary>Visible to installers and apps.</summary>
+    Published = 0,
+
+    /// <summary>
+    /// Uploaded with <c>instella upload --draft</c>: <see cref="VersionBuild.ReleaseManifestBytes"/>
+    /// holds the unsigned manifest until <c>instella publish</c> signs it.
+    /// </summary>
+    Draft = 1,
+
+    /// <summary>
+    /// Signed, and held back by the package's <see cref="ReleaseApproval"/> until someone approves it
+    /// or, under <see cref="ReleaseApproval.Delayed"/>, its <see cref="VersionBuild.PublishAfter"/> passes.
+    /// </summary>
+    Pending = 2,
+}
+
 /// <summary>
 /// Represents a compiled build for a specific OS/Architecture combination.
 /// Uses content-addressed storage - files are stored separately in StoredFile.
@@ -47,11 +66,22 @@ public class VersionBuild
     public string? ReleaseKeyId { get; set; }
 
     /// <summary>
-    /// Uploaded with <c>instella upload --draft</c> and not yet published: <see cref="ReleaseManifestBytes"/>
-    /// holds the unsigned manifest, and clients never see the build (no update, listing, release,
-    /// download or installer) until <c>instella publish</c> signs it.
+    /// Whether clients see the build. Only <see cref="BuildState.Published"/> builds are offered as an
+    /// update, listed, released, downloaded or installed; see <see cref="BuildState"/>.
     /// </summary>
-    public bool IsDraft { get; set; }
+    public BuildState State { get; set; }
+
+    /// <summary>
+    /// For a <see cref="BuildState.Pending"/> build under <see cref="ReleaseApproval.Delayed"/>: when
+    /// the server publishes it unless someone rejects it first (UTC). Null otherwise.
+    /// </summary>
+    public DateTime? PublishAfter { get; set; }
+
+    /// <summary>The API key that uploaded the build (no foreign key: keys go with their package).</summary>
+    public long? UploadedByApiKeyId { get; set; }
+
+    /// <summary>Name of the uploading API key, for the admin UI and the audit log.</summary>
+    public string? UploadedByKeyName { get; set; }
 
     /// <summary>
     /// When this build was uploaded.

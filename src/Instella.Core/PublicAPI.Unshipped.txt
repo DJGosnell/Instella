@@ -35,15 +35,120 @@ Instella.Core.Platform.RegistryReadResult.Failed.get -> bool
 Instella.Core.Platform.RegistryReadResult.RegistryReadResult(Instella.Core.Platform.RegistryValueData? Value, string? Error) -> void
 Instella.Core.Platform.RegistryReadResult.Value.get -> Instella.Core.Platform.RegistryValueData?
 Instella.Core.Platform.RegistryReadResult.Value.init -> void
+Instella.Core.Wire.ApproveReleaseRequest
+Instella.Core.Wire.ApproveReleaseRequest.<Clone>$() -> Instella.Core.Wire.ApproveReleaseRequest!
+Instella.Core.Wire.ApproveReleaseRequest.ApproveReleaseRequest() -> void
+Instella.Core.Wire.ApproveReleaseRequest.Equals(Instella.Core.Wire.ApproveReleaseRequest? other) -> bool
+Instella.Core.Wire.ApproveReleaseRequest.ManifestSha256.get -> string!
+Instella.Core.Wire.ApproveReleaseRequest.ManifestSha256.init -> void
+Instella.Core.Wire.CompleteUploadResponse.PublishAfter.get -> System.DateTime?
+Instella.Core.Wire.CompleteUploadResponse.PublishAfter.init -> void
+Instella.Core.Wire.CompleteUploadResponse.State.get -> string?
+Instella.Core.Wire.CompleteUploadResponse.State.init -> void
+Instella.Core.Wire.PublishDraftResponse
+Instella.Core.Wire.PublishDraftResponse.<Clone>$() -> Instella.Core.Wire.PublishDraftResponse!
+Instella.Core.Wire.PublishDraftResponse.Equals(Instella.Core.Wire.PublishDraftResponse? other) -> bool
+Instella.Core.Wire.PublishDraftResponse.Message.get -> string?
+Instella.Core.Wire.PublishDraftResponse.Message.init -> void
+Instella.Core.Wire.PublishDraftResponse.PublishAfter.get -> System.DateTime?
+Instella.Core.Wire.PublishDraftResponse.PublishAfter.init -> void
+Instella.Core.Wire.PublishDraftResponse.PublishDraftResponse() -> void
+Instella.Core.Wire.PublishDraftResponse.State.get -> string?
+Instella.Core.Wire.PublishDraftResponse.State.init -> void
+Instella.Core.Wire.RejectReleaseRequest
+Instella.Core.Wire.RejectReleaseRequest.<Clone>$() -> Instella.Core.Wire.RejectReleaseRequest!
+Instella.Core.Wire.RejectReleaseRequest.Equals(Instella.Core.Wire.RejectReleaseRequest? other) -> bool
+Instella.Core.Wire.RejectReleaseRequest.ManifestSha256.get -> string?
+Instella.Core.Wire.RejectReleaseRequest.ManifestSha256.init -> void
+Instella.Core.Wire.RejectReleaseRequest.Reason.get -> string?
+Instella.Core.Wire.RejectReleaseRequest.Reason.init -> void
+Instella.Core.Wire.RejectReleaseRequest.RejectReleaseRequest() -> void
+Instella.Core.Wire.ReleaseStates
+Instella.Core.Wire.UnpublishedReleaseResponse
+Instella.Core.Wire.UnpublishedReleaseResponse.<Clone>$() -> Instella.Core.Wire.UnpublishedReleaseResponse!
+Instella.Core.Wire.UnpublishedReleaseResponse.Changelog.get -> string?
+Instella.Core.Wire.UnpublishedReleaseResponse.Changelog.init -> void
+Instella.Core.Wire.UnpublishedReleaseResponse.Equals(Instella.Core.Wire.UnpublishedReleaseResponse? other) -> bool
+Instella.Core.Wire.UnpublishedReleaseResponse.Manifest.get -> string!
+Instella.Core.Wire.UnpublishedReleaseResponse.Manifest.init -> void
+Instella.Core.Wire.UnpublishedReleaseResponse.Summary.get -> Instella.Core.Wire.UnpublishedReleaseSummary!
+Instella.Core.Wire.UnpublishedReleaseResponse.Summary.init -> void
+Instella.Core.Wire.UnpublishedReleaseResponse.UnpublishedReleaseResponse() -> void
+Instella.Core.Wire.UnpublishedReleaseSummary
+Instella.Core.Wire.UnpublishedReleaseSummary.<Clone>$() -> Instella.Core.Wire.UnpublishedReleaseSummary!
+Instella.Core.Wire.UnpublishedReleaseSummary.Arch.get -> string!
+Instella.Core.Wire.UnpublishedReleaseSummary.Arch.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.Channel.get -> string?
+Instella.Core.Wire.UnpublishedReleaseSummary.Channel.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.Equals(Instella.Core.Wire.UnpublishedReleaseSummary? other) -> bool
+Instella.Core.Wire.UnpublishedReleaseSummary.FileCount.get -> int
+Instella.Core.Wire.UnpublishedReleaseSummary.FileCount.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.KeyId.get -> string?
+Instella.Core.Wire.UnpublishedReleaseSummary.KeyId.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.KeyLabel.get -> string?
+Instella.Core.Wire.UnpublishedReleaseSummary.KeyLabel.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.ManifestSha256.get -> string?
+Instella.Core.Wire.UnpublishedReleaseSummary.ManifestSha256.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.Os.get -> string!
+Instella.Core.Wire.UnpublishedReleaseSummary.Os.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.PublishAfter.get -> System.DateTime?
+Instella.Core.Wire.UnpublishedReleaseSummary.PublishAfter.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.State.get -> string!
+Instella.Core.Wire.UnpublishedReleaseSummary.State.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.TotalSize.get -> long
+Instella.Core.Wire.UnpublishedReleaseSummary.TotalSize.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.UnpublishedReleaseSummary() -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.UploadedAt.get -> System.DateTime
+Instella.Core.Wire.UnpublishedReleaseSummary.UploadedAt.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.UploadedBy.get -> string?
+Instella.Core.Wire.UnpublishedReleaseSummary.UploadedBy.init -> void
+Instella.Core.Wire.UnpublishedReleaseSummary.Version.get -> string!
+Instella.Core.Wire.UnpublishedReleaseSummary.Version.init -> void
 const Instella.Core.Installation.ManifestAdoptedItem.AppManaged = "app-managed" -> string!
 const Instella.Core.Installation.ManifestAdoptedItem.RunValue = "run-value" -> string!
+const Instella.Core.Wire.ApiRoutes.Approval = "approvals/{packageId}/{version}/{os}/{arch}" -> string!
+const Instella.Core.Wire.ApiRoutes.Approvals = "approvals/{packageId}" -> string!
+const Instella.Core.Wire.ApiRoutes.ApproveRelease = "approvals/{packageId}/{version}/{os}/{arch}/approve" -> string!
+const Instella.Core.Wire.ApiRoutes.RejectRelease = "approvals/{packageId}/{version}/{os}/{arch}/reject" -> string!
+const Instella.Core.Wire.ReleaseStates.Draft = "draft" -> string!
+const Instella.Core.Wire.ReleaseStates.Pending = "pending" -> string!
+const Instella.Core.Wire.ReleaseStates.Published = "published" -> string!
 override Instella.Core.Installation.ManifestAdoptedItem.Equals(object? obj) -> bool
 override Instella.Core.Installation.ManifestAdoptedItem.GetHashCode() -> int
 override Instella.Core.Installation.ManifestAdoptedItem.ToString() -> string!
 override Instella.Core.Platform.RegistryReadResult.Equals(object? obj) -> bool
 override Instella.Core.Platform.RegistryReadResult.GetHashCode() -> int
 override Instella.Core.Platform.RegistryReadResult.ToString() -> string!
+override Instella.Core.Wire.ApproveReleaseRequest.Equals(object? obj) -> bool
+override Instella.Core.Wire.ApproveReleaseRequest.GetHashCode() -> int
+override Instella.Core.Wire.ApproveReleaseRequest.ToString() -> string!
+override Instella.Core.Wire.PublishDraftResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.PublishDraftResponse.GetHashCode() -> int
+override Instella.Core.Wire.PublishDraftResponse.ToString() -> string!
+override Instella.Core.Wire.RejectReleaseRequest.Equals(object? obj) -> bool
+override Instella.Core.Wire.RejectReleaseRequest.GetHashCode() -> int
+override Instella.Core.Wire.RejectReleaseRequest.ToString() -> string!
+override Instella.Core.Wire.UnpublishedReleaseResponse.Equals(object? obj) -> bool
+override Instella.Core.Wire.UnpublishedReleaseResponse.GetHashCode() -> int
+override Instella.Core.Wire.UnpublishedReleaseResponse.ToString() -> string!
+override Instella.Core.Wire.UnpublishedReleaseSummary.Equals(object? obj) -> bool
+override Instella.Core.Wire.UnpublishedReleaseSummary.GetHashCode() -> int
+override Instella.Core.Wire.UnpublishedReleaseSummary.ToString() -> string!
 static Instella.Core.Installation.ManifestAdoptedItem.operator !=(Instella.Core.Installation.ManifestAdoptedItem? left, Instella.Core.Installation.ManifestAdoptedItem? right) -> bool
 static Instella.Core.Installation.ManifestAdoptedItem.operator ==(Instella.Core.Installation.ManifestAdoptedItem? left, Instella.Core.Installation.ManifestAdoptedItem? right) -> bool
 static Instella.Core.Platform.RegistryReadResult.operator !=(Instella.Core.Platform.RegistryReadResult? left, Instella.Core.Platform.RegistryReadResult? right) -> bool
 static Instella.Core.Platform.RegistryReadResult.operator ==(Instella.Core.Platform.RegistryReadResult? left, Instella.Core.Platform.RegistryReadResult? right) -> bool
+static Instella.Core.Wire.ApiRoutes.ForApproval(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForApprovals(System.Uri! server, string! packageId) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForApproveRelease(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApiRoutes.ForRejectRelease(System.Uri! server, string! packageId, System.Version! version, Instella.Core.Platform.TargetPlatform os, Instella.Core.Platform.Architecture arch) -> System.Uri!
+static Instella.Core.Wire.ApproveReleaseRequest.operator !=(Instella.Core.Wire.ApproveReleaseRequest? left, Instella.Core.Wire.ApproveReleaseRequest? right) -> bool
+static Instella.Core.Wire.ApproveReleaseRequest.operator ==(Instella.Core.Wire.ApproveReleaseRequest? left, Instella.Core.Wire.ApproveReleaseRequest? right) -> bool
+static Instella.Core.Wire.PublishDraftResponse.operator !=(Instella.Core.Wire.PublishDraftResponse? left, Instella.Core.Wire.PublishDraftResponse? right) -> bool
+static Instella.Core.Wire.PublishDraftResponse.operator ==(Instella.Core.Wire.PublishDraftResponse? left, Instella.Core.Wire.PublishDraftResponse? right) -> bool
+static Instella.Core.Wire.RejectReleaseRequest.operator !=(Instella.Core.Wire.RejectReleaseRequest? left, Instella.Core.Wire.RejectReleaseRequest? right) -> bool
+static Instella.Core.Wire.RejectReleaseRequest.operator ==(Instella.Core.Wire.RejectReleaseRequest? left, Instella.Core.Wire.RejectReleaseRequest? right) -> bool
+static Instella.Core.Wire.UnpublishedReleaseResponse.operator !=(Instella.Core.Wire.UnpublishedReleaseResponse? left, Instella.Core.Wire.UnpublishedReleaseResponse? right) -> bool
+static Instella.Core.Wire.UnpublishedReleaseResponse.operator ==(Instella.Core.Wire.UnpublishedReleaseResponse? left, Instella.Core.Wire.UnpublishedReleaseResponse? right) -> bool
+static Instella.Core.Wire.UnpublishedReleaseSummary.operator !=(Instella.Core.Wire.UnpublishedReleaseSummary? left, Instella.Core.Wire.UnpublishedReleaseSummary? right) -> bool
+static Instella.Core.Wire.UnpublishedReleaseSummary.operator ==(Instella.Core.Wire.UnpublishedReleaseSummary? left, Instella.Core.Wire.UnpublishedReleaseSummary? right) -> bool

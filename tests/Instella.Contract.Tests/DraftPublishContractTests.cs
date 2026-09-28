@@ -88,7 +88,7 @@ public class DraftPublishContractTests
 
         Assert.That(result.IsSuccess, Is.False);
         Assert.That(result.Error, Does.Contain("not this draft's manifest"));
-        Assert.That(await _server.QueryAsync(db => db.VersionBuilds.SingleAsync()).ContinueWith(t => t.Result.IsDraft), Is.True);
+        Assert.That(await _server.QueryAsync(db => db.VersionBuilds.SingleAsync()).ContinueWith(t => t.Result.State), Is.EqualTo(Instella.Server.Data.Entities.BuildState.Draft));
     }
 
     [Test]

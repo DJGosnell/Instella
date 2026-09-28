@@ -50,11 +50,37 @@ public class ApiClient : IDisposable
         SendAsync(() => _httpClient.GetAsync(ApiRoutes.ForDraft(_server, packageId, version, os, arch), ct),
             WireJsonContext.Default.DraftResponse, ct);
 
-    /// <summary>Publishes a draft build with its signed release.</summary>
-    public Task<ApiResult<MessageResponse>> PublishDraftAsync(
+    /// <summary>Publishes a draft build with its signed release; the answer says whether it went live or is pending.</summary>
+    public Task<ApiResult<PublishDraftResponse>> PublishDraftAsync(
         string packageId, Version version, TargetPlatform os, Architecture arch, SignedRelease release, CancellationToken ct = default) =>
         SendAsync(() => _httpClient.PostAsJsonAsync(ApiRoutes.ForPublishDraft(_server, packageId, version, os, arch), release,
-            WireJsonContext.Default.SignedRelease, ct), WireJsonContext.Default.MessageResponse, ct);
+            WireJsonContext.Default.SignedRelease, ct), WireJsonContext.Default.PublishDraftResponse, ct);
+
+    /// <summary>The package's drafts and releases pending approval (approve permission).</summary>
+    public Task<ApiResult<UnpublishedReleaseSummary[]>> ListUnpublishedAsync(string packageId, CancellationToken ct = default) =>
+        SendAsync(() => _httpClient.GetAsync(ApiRoutes.ForApprovals(_server, packageId), ct),
+            WireJsonContext.Default.UnpublishedReleaseSummaryArray, ct);
+
+    /// <summary>One draft or pending release with its manifest (approve permission).</summary>
+    public Task<ApiResult<UnpublishedReleaseResponse>> GetUnpublishedAsync(
+        string packageId, Version version, TargetPlatform os, Architecture arch, CancellationToken ct = default) =>
+        SendAsync(() => _httpClient.GetAsync(ApiRoutes.ForApproval(_server, packageId, version, os, arch), ct),
+            WireJsonContext.Default.UnpublishedReleaseResponse, ct);
+
+    /// <summary>Approves the pending release whose manifest has <paramref name="manifestSha256"/>.</summary>
+    public Task<ApiResult<MessageResponse>> ApproveAsync(
+        string packageId, Version version, TargetPlatform os, Architecture arch, string manifestSha256, CancellationToken ct = default) =>
+        SendAsync(() => _httpClient.PostAsJsonAsync(ApiRoutes.ForApproveRelease(_server, packageId, version, os, arch),
+            new ApproveReleaseRequest { ManifestSha256 = manifestSha256 }, WireJsonContext.Default.ApproveReleaseRequest, ct),
+            WireJsonContext.Default.MessageResponse, ct);
+
+    /// <summary>Rejects (deletes) a pending release or a draft.</summary>
+    public Task<ApiResult<MessageResponse>> RejectAsync(
+        string packageId, Version version, TargetPlatform os, Architecture arch, string? manifestSha256, string? reason,
+        CancellationToken ct = default) =>
+        SendAsync(() => _httpClient.PostAsJsonAsync(ApiRoutes.ForRejectRelease(_server, packageId, version, os, arch),
+            new RejectReleaseRequest { ManifestSha256 = manifestSha256, Reason = reason }, WireJsonContext.Default.RejectReleaseRequest, ct),
+            WireJsonContext.Default.MessageResponse, ct);
 
     /// <summary>Sends a request; a transport failure becomes a failed result, not an exception.</summary>
     private static async Task<ApiResult<T>> SendAsync<T>(

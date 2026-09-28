@@ -193,16 +193,28 @@ internal static class UploadCommand
                 return result.SigningFailed ? ExitCodes.Signing : ExitCodes.ForStatus(result.StatusCode);
             }
 
-            Console.WriteLine(draft
-                ? $"Draft uploaded. Publish it with: instella publish --server {server} --package {parse.GetValue(packageOption)} " +
-                  $"--version {version} --os {PlatformStrings.Os(platform)} --arch {PlatformStrings.Arch(architecture)} --path <the same files>"
-                : "Upload successful.");
+            var publishHint = $"instella publish --server {server} --package {parse.GetValue(packageOption)} " +
+                              $"--version {version} --os {PlatformStrings.Os(platform)} --arch {PlatformStrings.Arch(architecture)} --path <the same files>";
+            Console.WriteLine(SuccessMessage(result, draft, publishHint));
             if (!string.IsNullOrEmpty(result.VersionUrl))
                 Console.WriteLine($"Version URL: {result.VersionUrl}");
             return ExitCodes.Success;
         });
         return command;
     }
+
+    /// <summary>
+    /// What a successful upload reports, from the state the server gave the build: published, pending
+    /// approval (the upload still succeeded, exit 0) or a draft. An older server reports no state.
+    /// </summary>
+    internal static string SuccessMessage(UploadResult result, bool draft, string publishHint) =>
+        result.State switch
+        {
+            ReleaseStates.Draft => $"Draft uploaded. Publish it with: {publishHint}",
+            ReleaseStates.Pending => "Uploaded. " + ReleaseDescription.PendingMessage(result.State, result.PublishAfter),
+            ReleaseStates.Published => "Upload successful: the release is published.",
+            _ => draft ? $"Draft uploaded. Publish it with: {publishHint}" : "Upload successful.",
+        };
 
     /// <summary>Parses <c>--trusted-key</c> values; <paramref name="keys"/> is null when none were given.</summary>
     internal static bool TryParseTrustedKeys(IReadOnlyList<string> values, out List<PublisherKey>? keys)

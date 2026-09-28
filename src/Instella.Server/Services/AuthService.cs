@@ -142,6 +142,12 @@ public class AuthService(AppDbContext db, SecretProtector? secrets = null)
     }
 
     // API Key management
+
+    /// <summary>Creates an API key; the plain key is returned once and only its hash is stored.</summary>
+    /// <exception cref="ArgumentException">
+    /// Both <paramref name="canUpload"/> and <paramref name="canApproveReleases"/>: an approve key belongs
+    /// to a person, and a CI key that could approve would approve its own uploads.
+    /// </exception>
     public async Task<(ApiKey key, string plainKey)> CreateApiKeyAsync(
         string name,
         ApiKeyScope scope,
@@ -149,8 +155,12 @@ public class AuthService(AppDbContext db, SecretProtector? secrets = null)
         bool canDownload = false,
         long? packageId = null,
         bool canManageVersions = false,
+        bool canApproveReleases = false,
         CancellationToken ct = default)
     {
+        if (canUpload && canApproveReleases)
+            throw new ArgumentException("A key cannot both upload and approve releases: give CI an upload key and the approver a separate approve key.");
+
         // Generate a random API key (512-bit for enhanced security)
         var keyBytes = RandomNumberGenerator.GetBytes(64);
         var plainKey = Convert.ToBase64String(keyBytes);
@@ -167,6 +177,7 @@ public class AuthService(AppDbContext db, SecretProtector? secrets = null)
             CanUpload = canUpload,
             CanDownload = canDownload,
             CanManageVersions = canManageVersions,
+            CanApproveReleases = canApproveReleases,
         };
 
         db.ApiKeys.Add(apiKey);

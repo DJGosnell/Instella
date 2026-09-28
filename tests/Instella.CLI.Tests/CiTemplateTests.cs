@@ -71,13 +71,13 @@ public class CiTemplateTests
 
     [TestCase(CiHost.GitHub)]
     [TestCase(CiHost.Gitea)]
-    public void Draft_UploadsWithoutAnyKey(CiHost host)
+    public void Manual_UploadsWithoutAnyKey(CiHost host)
     {
-        var yaml = CiTemplate.Generate(Options(host, CiSigning.Draft));
+        var yaml = CiTemplate.Generate(Options(host, CiSigning.Manual));
 
         Assert.That(yaml, Does.Contain("--draft"));
         Assert.That(yaml, Does.Not.Contain("INSTELLA_SIGN").And.Not.Contain("id-token").And.Not.Contain("environment:"));
-        Assert.That(CiTemplate.SetupNotes(Options(host, CiSigning.Draft)), Does.Contain("instella publish"));
+        Assert.That(CiTemplate.SetupNotes(Options(host, CiSigning.Manual)), Does.Contain("instella publish"));
     }
 
     [Test]
@@ -87,6 +87,85 @@ public class CiTemplateTests
 
         Assert.That(yaml, Does.Contain("INSTELLA_SIGNING_KEY: ${{ secrets.INSTELLA_SIGNING_KEY }}").And.Contain("environment: release"));
         Assert.That(yaml, Does.Not.Contain("id-token").And.Not.Contain("INSTELLA_SIGN_COMMAND"));
+    }
+
+    [Test]
+    public void Draft_IsADeprecatedAliasOfManual()
+    {
+        Assert.That(CiTemplate.TryParseSigning("draft", out var signing, out var deprecated), Is.True);
+        Assert.That((signing, deprecated), Is.EqualTo((CiSigning.Manual, true)));
+        Assert.That(CiTemplate.TryParseSigning("manual", out signing, out deprecated), Is.True);
+        Assert.That((signing, deprecated), Is.EqualTo((CiSigning.Manual, false)));
+        Assert.That(CiTemplate.Name(CiSigning.Manual), Is.EqualTo("manual"));
+    }
+
+    [Test]
+    public async Task Command_AcceptsDraft_WithAWarning()
+    {
+        var dir = Directory.CreateTempSubdirectory("instella-ci-").FullName;
+        var error = new StringWriter();
+        var saved = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await Run(["ci", "init", "--host", "github", "--signing", "draft", "--app-project", "src/App/App.csproj",
+                "--installer-project", "src/App.Installer/App.Installer.csproj", "--package", "com.example.app",
+                "--server", "https://updates.example.com", "--output", dir]);
+
+            Assert.That(exit, Is.EqualTo(ExitCodes.Success));
+            Assert.That(error.ToString(), Does.Contain("--signing draft is deprecated; use --signing manual"));
+            Assert.That(File.ReadAllText(Path.Combine(dir, ".github", "workflows", "instella-release.yml")),
+                Does.Contain("--signing manual`").And.Contain("--draft"));
+        }
+        finally
+        {
+            Console.SetError(saved);
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [TestCase(CiSigning.KmsAws, "StringLike 'repo:<owner>/<repo>:ref:refs/tags/v*'")]
+    [TestCase(CiSigning.KmsAzure, "'repo:<owner>/<repo>:ref:refs/tags/v*'")]
+    [TestCase(CiSigning.KmsGcp, "refs/tags/v*")]
+    public void GitHubKms_WithoutAnEnvironment_TrustsTheTagRef(CiSigning signing, string subject)
+    {
+        var options = Options(CiHost.GitHub, signing) with { UseEnvironment = false };
+
+        var yaml = CiTemplate.Generate(options);
+        var notes = CiTemplate.SetupNotes(options);
+
+        Assert.That(yaml, Does.Not.Contain("environment: release"));
+        Assert.That(yaml, Does.Contain("id-token: write").And.Contain("--no-environment`").And.Contain("release approval on the server"));
+        Assert.That(notes, Does.Contain(subject).And.Not.Contain("environment:release"));
+        Assert.That(notes, Does.Contain("Release approval"));
+    }
+
+    [Test]
+    public void GitHubKms_WithAnEnvironment_TrustsTheEnvironment()
+    {
+        var notes = CiTemplate.SetupNotes(Options(CiHost.GitHub, CiSigning.KmsAws));
+
+        Assert.That(notes, Does.Contain("sub = 'repo:<owner>/<repo>:environment:release'"));
+    }
+
+    [Test]
+    public void Secret_WithoutAnEnvironment_OmitsIt_AndRecommendsTheOfflineBackupKey()
+    {
+        var options = Options(CiHost.GitHub, CiSigning.Secret) with { UseEnvironment = false };
+
+        var yaml = CiTemplate.Generate(options);
+        var notes = CiTemplate.SetupNotes(options);
+
+        Assert.That(yaml, Does.Not.Contain("environment: release"));
+        Assert.That(yaml, Does.Contain("INSTELLA_SIGNING_KEY: ${{ secrets.INSTELLA_SIGNING_KEY }}"));
+        Assert.That(notes, Does.Contain("offline backup key").And.Contain("WithPublisherKey twice").And.Not.Contain("'release' environment"));
+    }
+
+    [TestCaseSource(nameof(AllCombinations))]
+    public void EveryWorkflow_NamesItsTier_AndTheNotesExplainReleaseApproval(CiHost host, CiSigning signing)
+    {
+        Assert.That(CiTemplate.Generate(Options(host, signing)), Does.Contain("# Tier: "));
+        Assert.That(CiTemplate.SetupNotes(Options(host, signing)), Does.Contain("Release approval (server"));
     }
 
     [Test]
@@ -116,7 +195,7 @@ public class CiTemplateTests
     [TestCase(CiHost.Gitea, "win-x64")]
     public void Workflow_TakesVersionAndChannelFromTheTag_AndPublishesToThatChannel(CiHost host, string rid)
     {
-        var yaml = CiTemplate.Generate(Options(host, CiSigning.Draft) with { Rid = rid });
+        var yaml = CiTemplate.Generate(Options(host, CiSigning.Manual) with { Rid = rid });
         var build = yaml[yaml.IndexOf("  build:", StringComparison.Ordinal)..yaml.IndexOf("  publish:", StringComparison.Ordinal)];
         var publish = yaml[yaml.IndexOf("  publish:", StringComparison.Ordinal)..];
 
@@ -134,7 +213,7 @@ public class CiTemplateTests
     [Test]
     public void Links_UseTheDocsUrlCompiledFromTheBuild()
     {
-        var yaml = CiTemplate.Generate(Options(CiHost.GitHub, CiSigning.Draft));
+        var yaml = CiTemplate.Generate(Options(CiHost.GitHub, CiSigning.Manual));
 
         Assert.That(Services.InstellaDocs.Url, Does.StartWith("https://").And.EndWith("/docs"), "InstellaDocsUrl assembly metadata");
         Assert.That(yaml, Does.Contain(Services.InstellaDocs.Page("publishing.md")));

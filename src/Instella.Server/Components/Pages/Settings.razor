@@ -1230,9 +1230,13 @@
     {
         return type switch
         {
-            SecurityEventType.LoginSuccess or SecurityEventType.UploadSuccess or SecurityEventType.IpUnbanned => "event-success",
-            SecurityEventType.LoginBlocked or SecurityEventType.UploadBlocked or SecurityEventType.IpBanned => "event-warning",
-            SecurityEventType.LoginFailed or SecurityEventType.ApiKeyInvalid or SecurityEventType.HashMismatch => "event-error",
+            SecurityEventType.LoginSuccess or SecurityEventType.UploadSuccess or SecurityEventType.IpUnbanned
+                or SecurityEventType.ReleaseApproved or SecurityEventType.ReleaseAutoPublished or SecurityEventType.DraftSigned => "event-success",
+            SecurityEventType.LoginBlocked or SecurityEventType.UploadBlocked or SecurityEventType.IpBanned
+                or SecurityEventType.ReleasePending or SecurityEventType.ReleaseApprovalChanged
+                or SecurityEventType.PublisherKeyAdded or SecurityEventType.PublisherKeyRemoved => "event-warning",
+            SecurityEventType.LoginFailed or SecurityEventType.ApiKeyInvalid or SecurityEventType.HashMismatch
+                or SecurityEventType.ReleaseRejected or SecurityEventType.ReleaseAutoPublishBlocked => "event-error",
             _ => ""
         };
     }

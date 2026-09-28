@@ -62,7 +62,10 @@ columns).
 ## Schema and migrations
 
 - Startup runs `db.Database.Migrate()`. No `EnsureCreated`, no raw SQL.
-- One baseline migration: `Migrations/20260927011420_InitialCreate` (+ `AppDbContextModelSnapshot`).
+- Baseline `Migrations/20260927011420_InitialCreate`, then `20260928162942_ReleaseApproval` (renames
+  `VersionBuilds.IsDraft` to `State`, since 0/1 = Published/Draft; adds `PublishAfter`, `UploadedByApiKeyId`,
+  `UploadedByKeyName`, `Packages.ReleaseApproval`/`ReleaseDelayMinutes`, `ApiKeys.CanApproveReleases`; `Down` maps
+  Pending to Draft) (+ `AppDbContextModelSnapshot`). `Integration/MigrationDataTests` migrates old rows.
   `DesignTimeDbContextFactory` serves `dotnet ef`. `verify.ps1 -Stage Migrations` fails on
   `has-pending-model-changes`.
 - Every schema change is a new migration; released migrations are never edited. Before 1.0 a release
@@ -74,11 +77,11 @@ columns).
 
 | Entity (DbSet) | Key fields / notes |
 |---|---|
-| `Package` | PackageId (unique, ≤100), DisplayName, Description, IconPath?, DownloadAccessMode → Versions, ApiKeys, PublisherKeys |
+| `Package` | PackageId (unique, ≤100), DisplayName, Description, IconPath?, DownloadAccessMode, **ReleaseApproval** (`Automatic`/`Delayed`/`Required`, default Automatic), **ReleaseDelayMinutes** (default 1440, 10..43200) → Versions, ApiKeys, PublisherKeys |
 | `PackageVersion` | PackageId FK (cascade), VersionString (canonical `AppVersions` form, `1.3` → `1.3.0`, unique per package), VersionKey (`AppVersions.ToSortKey`, 43 chars, set by the VersionString setter; index `(PackageId, Channel, VersionKey)`), Channel (string ≤ 32, default `stable`), Changelog, ReleasedAt (set at creation, and again when a draft becomes the version's first published build; never orders versions), IsDeprecated → Builds |
 | `PackageChannel` | PackageId FK (cascade), Name (unique per package), PinnedVersionId? (FK, `SetNull`), CreatedAt. Created by the first version on the channel (upload completion) |
 | `DownloadToken` | PackageId FK (cascade), Name ≤ 100, TokenHash (SHA-256 hex, unique), DisplayPrefix (8 chars after `idt_`), CreatedAt, ExpiresAt?, LastUsedAt?, IsRevoked |
-| `VersionBuild` | VersionId FK (cascade), OS, Architecture (unique per version), TotalSize, ManifestHash, **ReleaseManifestBytes? / ReleaseSignature? / ReleaseKeyId?** (signed release, stored verbatim), **IsDraft** (unsigned draft, hidden from every client route until published), **UploadedAt**, DownloadCount, PatchDownloadCount → Files, Installers |
+| `VersionBuild` | VersionId FK (cascade), OS, Architecture (unique per version), TotalSize, ManifestHash, **ReleaseManifestBytes? / ReleaseSignature? / ReleaseKeyId?** (signed release, stored verbatim), **State** (`BuildState`: Published = 0, Draft = 1 (unsigned), Pending = 2 (signed, held by release approval); every client route requires Published; index `(State, PublishAfter)`), **PublishAfter?** (Delayed: when the worker publishes it), **UploadedByApiKeyId? / UploadedByKeyName?** (no FK; the self-approval rule), **UploadedAt**, DownloadCount, PatchDownloadCount → Files, Installers |
 | `BuildInstaller` | BuildId FK (cascade), Kind (`online`/`offline`, one per build), FileName (the upload's name, served as-is), ContentHash FK→StoredFile (counted like a `BuildFile` reference), Size, DownloadCount |
 | `BuildFile` | BuildId FK (cascade), RelativePath (unique per build), ContentHash FK→StoredFile (**Restrict**), Size |
 | `StoredFile` | ContentHash (PK, string), Size, StoragePath, ReferenceCount, **PendingSince?** (indexed), FirstUploadedAt |
@@ -87,7 +90,7 @@ columns).
 | `UploadSessionRecord` (`UploadSessions`, table `UploadSessions`) | Id (Guid PK), ApiKeyId?, PackageDbId, PackageId, Version, Channel, OS, Architecture, CreatedAt, ExpiresAt (indexed) |
 | `UploadSessionFile` (`UploadSessionFiles`) | SessionId FK (cascade), RelativePath (unique per session), ContentHash (indexed), Size, Deduplicated |
 | `UploadSessionInstaller` (`UploadSessionInstallers`) | SessionId FK (cascade), Kind (one per session; a re-upload replaces), FileName, ContentHash, Size, Deduplicated; becomes a `BuildInstaller` at completion |
-| `ApiKey` | KeyHash (SHA-256 hex, unique), Name, Scope, PackageId? (cascade), CanUpload (default true), CanDownload (default false), CanManageVersions (default false), IsRevoked, LastUsedAt |
+| `ApiKey` | KeyHash (SHA-256 hex, unique), Name, Scope, PackageId? (cascade), CanUpload (default true), CanDownload (default false), CanManageVersions (default false), **CanApproveReleases** (default false; never together with CanUpload: `CreateApiKeyAsync` throws), IsRevoked, LastUsedAt |
 | `AdminUser` | Username (unique), PasswordHash (`PasswordHasher<AdminUser>`), TotpSecret? (**protected**), TotpEnabled, **LastTotpTimeStep** |
 | `ServerSettings` | singleton row: StorageProvider, LocalBasePath, S3Preset/Endpoint/Bucket/AccessKey/**S3SecretKey (protected)**/Region/UrlExpiryMinutes/AllowInsecureEndpoint |
 | `PendingPatchJob` | FromBuildId? (set null) / ToBuildId (cascade), Status, Attempts, LastError, NextAttemptAt, **LeaseExpiresAt?**, RowVersion (uint, concurrency token) |
@@ -98,7 +101,10 @@ columns).
 Enums: `Models`: `TargetOS{Windows,Linux,MacOS}`, `Architecture{X64,X86,ARM64,ARM32}`. Channels are strings (`ChannelNames`).
 `Data.Entities`: `ApiKeyScope{Admin,Package}` (Admin = all packages), `DownloadAccessMode{Open,MasterKeyRequired,PackageKeyRequired}`,
 `StorageProviderType{Local,S3}`, `S3ProviderPreset{Custom,AwsS3,MinIO,CloudflareR2,BackblazeB2,DigitalOceanSpaces}`,
-`PatchJobStatus{Pending,InProgress,Completed,Failed,Dead}`, `SecurityEventType` (login/upload/api-key/hash-mismatch/ban/download-denied).
+`PatchJobStatus{Pending,InProgress,Completed,Failed,Dead}`, `BuildState{Published,Draft,Pending}`, `ReleaseApproval{Automatic,Delayed,Required}`,
+`SecurityEventType` (login/upload/api-key/hash-mismatch/ban/download-denied; appended, stored as int: `ReleasePending`, `ReleaseApproved`,
+`ReleaseRejected`, `ReleaseAutoPublished`, `ReleaseAutoPublishBlocked`, `ReleaseApprovalChanged`, `PublisherKeyAdded`, `PublisherKeyRemoved`,
+`DraftSigned`; these are never throttled, `SecurityEventThrottle.IsNeverThrottled`).
 Wire names come from `Instella.Core.Wire.PlatformStrings` via `Models/PlatformMapping`: os `windows|linux|macos`
 (accepts `win`, `osx`), arch `x64|x86|arm64|arm32` (accepts `amd64`, `i386`, `i686`, `aarch64`, `arm`, `armv7`).
 
@@ -145,15 +151,25 @@ is security-logged). Rate-limit policy `api`.
 | POST | `upload/start` | body `StartUploadRequest {packageId, version, os?, arch?, channel?}`; checked first: the version must parse with `AppVersions` (else 400 "invalid version '…': use numbers like 1.2.3 or 1.2.3.4"; `latest` too) and is stored canonically (`1.2` → `1.2.0`, echoed in the response); an invalid channel name → 400 (`ChannelNames.Rule`; `Beta` is stored as `beta`); the version already on another channel → 409 (`UploadConflictException`, checked again inside the completion transaction); package must exist (created in admin UI) and the build must not; → `{sessionId, packageId, version, os, arch}` |
 | POST | `upload/{sessionId}/file?path=&sha256=` | raw body; body limit = `Upload:MaxFileBytes` (+ streaming counter); per-key+IP backoff `upload:{keyhash[..16]}@{ip}`; → `{stored, deduplicated, path, size, hash}` |
 | GET | `drafts/{packageId}/{version}/{os}/{arch}` | draft build's unsigned manifest → `DraftResponse{manifest (base64), uploadedAt, changelog}`; 404 when there is no draft (Upload permission) |
-| POST | `drafts/{packageId}/{version}/{os}/{arch}/publish` | body `SignedRelease`; manifest bytes must equal the stored draft bytes; with registered publisher keys the signature must verify against one; clears `VersionBuild.IsDraft`, stores signature + key id, sets `ReleasedAt` if it is the version's first published build; security-logged (Upload permission) |
+| POST | `drafts/{packageId}/{version}/{os}/{arch}/publish` | body `SignedRelease`; manifest bytes must equal the stored draft bytes; with registered publisher keys the signature must verify against one; stores signature + key id and sets the state from the package's release approval (`ReleaseApprovalService.InitialState`: Published, or Pending with the delay starting now); sets `ReleasedAt` if published and it is the version's first published build; → `PublishDraftResponse{message, state, publishAfter}`; logs `DraftSigned` (+ `ReleasePending`) (Upload permission) |
 | POST | `upload/{sessionId}/installer?kind=&fileName=&sha256=` | same limits; stored content-addressed (`UploadSessionInstaller`, one per kind, re-upload replaces); at completion becomes a `BuildInstaller` (one reference each). With a signed release, `installers` must equal the uploaded set (kind, fileName, sha256, size) |
-| POST | `upload/{sessionId}/complete` | body `CompleteUploadRequest {changelog?, release?: SignedRelease, draftManifest?: base64}` (a draft: unsigned bytes checked like a release, build stored with `IsDraft` and hidden from every client route until published; release and draftManifest together → 400); creates version (if new) + build in one transaction, enqueues `PendingPatchJob`; → `{success, buildId, versionId, fileCount, totalSize, deduplicatedCount}` |
+| POST | `upload/{sessionId}/complete` | body `CompleteUploadRequest {changelog?, release?: SignedRelease, draftManifest?: base64}` (a draft: unsigned bytes checked like a release, build stored as Draft and hidden from every client route until published; release and draftManifest together → 400); creates version (if new) + build in one transaction, enqueues `PendingPatchJob` (also for Draft/Pending builds, so approval is instant); a non-draft build is Published or Pending per the package's release approval, and records the uploading key; → `{success, buildId, versionId, fileCount, totalSize, deduplicatedCount, state, publishAfter?}`; logs `UploadSuccess` (+ `ReleasePending`) |
 | DELETE | `upload/{sessionId}` | cancel: deletes session rows only (content was never counted) |
 | PUT | `packages/{packageId}/versions/{version}` | body `UpdateVersionRequest {changelog?, isDeprecated?}` (ManageVersions) |
 | DELETE | `packages/{packageId}/versions/{version}` | delete version + all its builds (ManageVersions) |
 
 Session calls also require `session.ApiKeyId == calling key` (403 otherwise). Package deletion and build
 deletion exist only in the admin UI (no API route).
+
+**ApprovalsController** — `[Authorize(Policy="ApiKey")]`, every action needs `ApproveReleases` (401/404/403 as above);
+decisions by `ReleaseApprovalService` with `ReleaseActor.Key(key, ip)`.
+
+| Method | Route | Notes |
+|---|---|---|
+| GET | `approvals/{packageId}` | drafts and pending builds, oldest first → `UnpublishedReleaseSummary[]` (version, channel, os, arch, state, uploadedAt, publishAfter?, keyId?, keyLabel?, uploadedBy?, manifestSha256?, fileCount, totalSize) |
+| GET | `approvals/{packageId}/{version}/{os}/{arch}` | → `UnpublishedReleaseResponse{summary, manifest (base64), changelog}`; 404 when not Draft/Pending |
+| POST | `approvals/{packageId}/{version}/{os}/{arch}/approve` | body `ApproveReleaseRequest{manifestSha256}`; Pending → Published. 409: not pending, manifest changed, signature no longer verifies against the currently registered keys; 403: the key uploaded this build |
+| POST | `approvals/{packageId}/{version}/{os}/{arch}/reject` | body `RejectReleaseRequest{manifestSha256?, reason?}`; deletes a Draft or Pending build (and its version when empty); 409 for Published |
 
 **AuthController** `[Route("api/auth")]`, rate-limit policy `auth` — admin form posts, not API contract (outside `ApiRoutes`), all
 `[RequireAntiforgeryToken]` + class-level `[RejectInvalidAntiforgery]` (bad token → 400, not 500):
@@ -177,6 +193,9 @@ to it; the build pane lists the build's installers with download counts.
 | `Upload` | `CanUpload` | `upload/*` (+ session must belong to the key) |
 | `ManageVersions` | `CanManageVersions` (off by default; the CLI's `delete` explains a 403) | `PUT`/`DELETE packages/{id}/versions/{v}` (version canonicalised) |
 | `Download` | `CanDownload` | `download/*`, `patch*`, `release/*`, `check-update` of a non-Open package |
+| `ApproveReleases` | `CanApproveReleases` (never with `CanUpload`) | `approvals/*`; approve also refuses the build's own uploading key (`UploadedByApiKeyId`) |
+
+Admin UI users (any admin; no roles yet) may approve and reject any build and change release approval (package pane).
 
 Download access modes: `Open` → no key needed; `PackageKeyRequired` → `Allows(..., Download)`;
 `MasterKeyRequired` → `Allows(..., Download)` **and** `Scope == Admin`.
@@ -284,10 +303,32 @@ parses and normalises (`'abc' is not an IP address` otherwise); `IpBanCache` nor
 - Stored verbatim (`ReleaseManifestBytes`, `ReleaseSignature`, `ReleaseKeyId`) and relayed by `release/...`
   and in `check-update`'s `release`. The server never signs; clients verify against keys compiled into the
   installer. See [docs/security-model.md](../../docs/security-model.md).
+- Key add/remove take an `actor` and log `PublisherKeyAdded`/`PublisherKeyRemoved`. Removing the package's last key
+  throws while release approval is not Automatic or a build is Pending.
+
+## Release approval (`Services/ReleaseApprovalService.cs`, `DelayedReleaseWorker`)
+
+- `InitialState(package, isDraft, now)`: draft → Draft; else Automatic → Published, Delayed → Pending with
+  `PublishAfter = now + ReleaseDelayMinutes`, Required → Pending. Used by `CompleteCoreAsync` and `PublishDraftAsync`.
+- Every transition is a conditional UPDATE on `State` (the compare-and-set token) with its `SecurityEvent` in the
+  same transaction: approve and auto-publish `WHERE Id AND State = Pending` (+ `PublishAfter <= now` for the worker);
+  reject first claims with `UPDATE … SET PublishAfter = NULL WHERE State <> Published` (holds SQLite's write lock),
+  then `BuildPurger.PurgeBuildsAsync` (shared with `PackageService` deletes) and deletes the version if empty.
+- Approve checks: Pending, `ManifestSha256(bytes)` equals the reviewed hash, the actor's key is not the uploader,
+  and `ReleaseVerifier.Verify` against the keys registered **now**. `ReleasedAt` = now when it is the version's first
+  published build.
+- `SetReleaseApprovalAsync(package, approval, delay, actor)`: Delayed/Required need a registered key; never publishes;
+  switching to Required cancels running timers (count in the `ReleaseApprovalChanged` entry).
+- `DelayedReleaseWorker` (hosted): every 30 s (first pass at startup) up to 50 due builds, each via
+  `AutoPublishAsync(id, now)` in its own scope. A build whose key is no longer registered gets `PublishAfter = null`
+  and `ReleaseAutoPublishBlocked`. Internal `PublishDueAsync(now, ct)` for tests.
+- Admin UI: package pane "Release approval" (setting, delay presets, "Awaiting a decision" list with Review →
+  `OnSelectBuild`), build pane (state banner, key, uploader, manifest SHA-256, Approve/Reject behind an inline
+  confirmation, actor = `User.Identity.Name`), tree badges (`PendingCount`), dashboard notice, API key checkbox.
 
 ## Deletion (`PackageService`)
 
-`DeleteVersionAsync` / `DeletePackageAsync` / `DeleteBuildAsync` run one DB transaction via `PurgeBuildsAsync`:
+`DeleteVersionAsync` / `DeletePackageAsync` / `DeleteBuildAsync` (and release reject) run one DB transaction via `BuildPurger.PurgeBuildsAsync`:
 delete patches touching the builds (either direction) and their patch jobs → per-hash `ReferenceCount -= n`
 (bulk) after deleting `BuildFile` rows → delete `StoredFile` rows now ≤ 0 that no open upload session references →
 delete builds (download logs cascade) → version(s) / package (API keys + publisher keys cascade). Blobs
@@ -382,20 +423,22 @@ keeps the developer exception page. EF command logging is `Warning` in `appsetti
 `tests/Instella.Server.Tests` use in-memory SQLite + `Migrate()` (real FKs/transactions/bulk SQL, not the EF
 InMemory provider); `ContractServer` (`WebApplicationFactory<PackagesController>`) sets `Instella:ConfigDir` to a
 temp root and a fixed client address `198.51.100.7`. Queries compare against a captured `DateTime.UtcNow`
-parameter, never SQL `now` (precision differs).
+parameter, never SQL `now` (precision differs). Release approval: `Infrastructure/ReleaseTestBed` (package + registered
+key + upload key; signed, draft and sign-draft helpers), `ReleaseApprovalServiceTests`, `ReleaseApprovalSettingTests`,
+`DelayedReleaseWorkerTests`, `Integration/ReleaseApprovalUiTests` (bUnit), `Contract.Tests/ReleaseApprovalContractTests`.
 
 ## File structure
 
 ```
 Program.cs
-Api/{Upload,Download,Installer,Packages,Auth}Controller.cs, SiteLinks.cs
+Api/{Upload,Download,Installer,Packages,Approvals,Auth}Controller.cs, SiteLinks.cs
 Auth/{AdminAuthHandler,ApiKeyAuthHandler,ApiPermissions,DownloadAccess,PendingSecondFactor,RejectInvalidAntiforgeryAttribute}.cs
 Extensions/{HttpContextExtensions,IpAddresses}.cs
 Data/AppDbContext.cs, DesignTimeDbContextFactory.cs, Entities/ (20 entity types in 18 files)
-Migrations/20260927011420_InitialCreate*.cs, AppDbContextModelSnapshot.cs
+Migrations/20260927011420_InitialCreate*.cs, 20260928162942_ReleaseApproval*.cs, AppDbContextModelSnapshot.cs
 Models/ (TargetOS, Architecture, PlatformMapping, grid/paging models)
-Services/{Package,DownloadPage,DownloadToken,Auth,Diff,StorageSettings,ContentStorage,Upload,SecurityLog,IpBan,RateLimit}Service.cs
-Services/{PatchJobWorker,OrphanSweeper,ContentLocks,IpBanCache,SecurityEventThrottle,SecretProtector,SetupTokenService,DatabaseHealthCheck,UploadLimits}.cs
+Services/{Package,DownloadPage,DownloadToken,Auth,Diff,StorageSettings,ContentStorage,Upload,ReleaseApproval,SecurityLog,IpBan,RateLimit}Service.cs
+Services/{PatchJobWorker,DelayedReleaseWorker,BuildPurger,OrphanSweeper,ContentLocks,IpBanCache,SecurityEventThrottle,SecretProtector,SetupTokenService,DatabaseHealthCheck,UploadLimits}.cs
 Storage/{IStorageProvider,LocalStorageProvider,S3StorageProvider,StorageProviderAccessor,StorageResult}.cs
 Components/Pages/{Home,Packages,ApiKeys,Settings,Docs,Setup,Login,Logout,Error,NotFound,Download}.razor
 Components/{Layout,PackagesGrid,Shared}/, Routes.razor, App.razor

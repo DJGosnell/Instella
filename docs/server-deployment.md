@@ -319,7 +319,7 @@ Data Protection keys and the setup token live there.
 | `Downloads:PermitsPerMinute` | `600` | Download API requests (check-update, release, download, patch, installer) per client address per minute. Excess requests get 429. |
 | `Api:PermitsPerMinute` | `300` | Package API requests (`packages`, `packages/{id}`, `…/versions`) per client address per minute. |
 | `Auth:PermitsPerMinute` | `20` | Sign-in requests (login, TOTP, logout) per client address per minute, on top of the login backoff. |
-| `Retention:SecurityEventDays` | `90` | Security log entries older than this are deleted by the hourly sweep. Repeats of an identical event (same type, address and package) within a minute are counted, not written; the next entry says "(+N similar)". |
+| `Retention:SecurityEventDays` | `90` | Security log entries older than this are deleted by the hourly sweep. Repeats of an identical event (same type, address and package) within a minute are counted, not written; the next entry says "(+N similar)". Release decisions and publisher key changes are always written in full. A rejected release is deleted, so its log entry is its only record: raise this if you need a longer audit trail. |
 | `Retention:DownloadLogDays` | `365` | Download log entries older than this are deleted by the hourly sweep. |
 | `Upload:MaxFileBytes` | `2147483648` (2 GiB) | Largest single uploaded file. |
 | `Upload:MaxFilesPerSession` | `20000` | Most files in one build. |

@@ -26,12 +26,21 @@ instella upload ... --signing-public-key <base64 public key> \
 # Key rotation: installations that take this release trust exactly the listed keys afterwards.
 instella upload ... --signing-key a.key.pem --trusted-key <A public key> --trusted-key <B public key>
 
-# Drafts: CI uploads without a key; a maintainer checks and signs.
+# Hand-signed: CI uploads a draft without a key; a maintainer checks and signs.
 instella upload ... --draft
 instella publish --server https://updates.example.com --package com.example.quicknotes --version 1.2.0 \
     --os windows --arch x64 --path ./publish --signing-key publisher.key.pem
 
-# A release workflow for GitHub or Gitea Actions (see {{DocsUrl}}/publishing.md).
+# Release approval (the package on the server holds releases back): list, approve, reject,
+# with an API key that has the Approve releases permission (never the CI upload key).
+instella pending --server https://updates.example.com --package com.example.quicknotes
+instella approve --server https://updates.example.com --package com.example.quicknotes --version 1.2.0 \
+    --os windows --arch x64 --path ./publish
+instella reject --server https://updates.example.com --package com.example.quicknotes --version 1.2.0 \
+    --os windows --arch x64 --reason "unexpected tag"
+
+# A release workflow for GitHub or Gitea Actions (see {{DocsUrl}}/publishing.md): --signing secret,
+# kms-azure, kms-aws, kms-gcp or manual; --no-environment for GitHub repositories without environments.
 instella ci init --host github --signing kms-aws --app-project src/QuickNotes/QuickNotes.csproj \
     --installer-project QuickNotes.Installer/QuickNotes.Installer.csproj \
     --package com.example.quicknotes --server https://updates.example.com

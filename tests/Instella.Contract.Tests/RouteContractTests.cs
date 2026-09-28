@@ -63,6 +63,13 @@ public class RouteContractTests
             "GetDraft", ("version", "1.3.0"), ("os", "windows"), ("arch", "x64"));
         yield return Case("POST", ApiRoutes.ForPublishDraft(Server, "com.x.app", V2, TargetPlatform.MacOS, Architecture.ARM64),
             "PublishDraft", ("version", "1.3.0"), ("os", "macos"), ("arch", "arm64"));
+        yield return Case("GET", ApiRoutes.ForApprovals(Server, "com.x.app"), nameof(Instella.Server.Api.ApprovalsController.List), ("packageId", "com.x.app"));
+        yield return Case("GET", ApiRoutes.ForApproval(Server, "com.x.app", V2, TargetPlatform.Windows, Architecture.X64),
+            nameof(Instella.Server.Api.ApprovalsController.Get), ("version", "1.3.0"), ("os", "windows"), ("arch", "x64"));
+        yield return Case("POST", ApiRoutes.ForApproveRelease(Server, "com.x.app", V2, TargetPlatform.Linux, Architecture.ARM64),
+            nameof(Instella.Server.Api.ApprovalsController.Approve), ("version", "1.3.0"), ("os", "linux"), ("arch", "arm64"));
+        yield return Case("POST", ApiRoutes.ForRejectRelease(Server, "com.x.app", V2, TargetPlatform.Windows, Architecture.X86),
+            nameof(Instella.Server.Api.ApprovalsController.Reject), ("version", "1.3.0"), ("os", "windows"), ("arch", "x86"));
     }
 
     private static TestCaseData Case(string method, Uri uri, string action, params (string Key, string Value)[] values) =>

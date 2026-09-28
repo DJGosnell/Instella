@@ -147,6 +147,15 @@ public sealed record CompleteUploadResponse
 
     /// <summary>Number of files whose content already existed on the server.</summary>
     public int DeduplicatedCount { get; init; }
+
+    /// <summary>
+    /// A <see cref="ReleaseStates"/> value: whether clients see the build now, or it is a draft or held by
+    /// the package's release approval. Null from an older server.
+    /// </summary>
+    public string? State { get; init; }
+
+    /// <summary>When a delayed release goes live unless rejected (UTC).</summary>
+    public DateTime? PublishAfter { get; init; }
 }
 
 /// <summary>Body of PUT <see cref="ApiRoutes.PackageVersion"/>.</summary>
@@ -249,6 +258,111 @@ public sealed record MessageResponse
     public string? Message { get; init; }
 }
 
+/// <summary>
+/// The state of a build on the server, as <see cref="CompleteUploadResponse.State"/> and
+/// <see cref="PublishDraftResponse.State"/> report it. Only a published build is visible to clients.
+/// </summary>
+public static class ReleaseStates
+{
+    /// <summary>Visible to installers and apps.</summary>
+    public const string Published = "published";
+
+    /// <summary>Signed, and held back by the package's release approval until approved or its delay ends.</summary>
+    public const string Pending = "pending";
+
+    /// <summary>Unsigned, waiting for <c>instella publish</c>.</summary>
+    public const string Draft = "draft";
+}
+
+/// <summary>Response of POST <see cref="ApiRoutes.PublishDraft"/>.</summary>
+public sealed record PublishDraftResponse
+{
+    /// <summary>Human-readable message.</summary>
+    public string? Message { get; init; }
+
+    /// <summary>A <see cref="ReleaseStates"/> value: published, or pending under the package's release approval.</summary>
+    public string? State { get; init; }
+
+    /// <summary>When a delayed release goes live unless rejected (UTC).</summary>
+    public DateTime? PublishAfter { get; init; }
+}
+
+/// <summary>One entry of GET <see cref="ApiRoutes.Approvals"/>: a build clients cannot see yet.</summary>
+public sealed record UnpublishedReleaseSummary
+{
+    /// <summary>Version.</summary>
+    public required string Version { get; init; }
+
+    /// <summary>Channel name.</summary>
+    public string? Channel { get; init; }
+
+    /// <summary>Canonical OS name.</summary>
+    public required string Os { get; init; }
+
+    /// <summary>Canonical architecture name.</summary>
+    public required string Arch { get; init; }
+
+    /// <summary><see cref="ReleaseStates.Pending"/> or <see cref="ReleaseStates.Draft"/>.</summary>
+    public required string State { get; init; }
+
+    /// <summary>When the build was uploaded (UTC).</summary>
+    public DateTime UploadedAt { get; init; }
+
+    /// <summary>When a delayed release goes live unless rejected (UTC); null when it waits for approval.</summary>
+    public DateTime? PublishAfter { get; init; }
+
+    /// <summary>Id of the publisher key that signed it; null for a draft.</summary>
+    public string? KeyId { get; init; }
+
+    /// <summary>The label the key is registered with on the server.</summary>
+    public string? KeyLabel { get; init; }
+
+    /// <summary>Name of the API key that uploaded it.</summary>
+    public string? UploadedBy { get; init; }
+
+    /// <summary>Lowercase hex SHA-256 of the release manifest bytes: what an approval confirms.</summary>
+    public string? ManifestSha256 { get; init; }
+
+    /// <summary>Number of files.</summary>
+    public int FileCount { get; init; }
+
+    /// <summary>Total size in bytes.</summary>
+    public long TotalSize { get; init; }
+}
+
+/// <summary>Response of GET <see cref="ApiRoutes.Approval"/>.</summary>
+public sealed record UnpublishedReleaseResponse
+{
+    /// <summary>The build.</summary>
+    public required UnpublishedReleaseSummary Summary { get; init; }
+
+    /// <summary>Base64 of the exact release manifest bytes (signed, or unsigned for a draft).</summary>
+    public required string Manifest { get; init; }
+
+    /// <summary>Changelog of the version.</summary>
+    public string? Changelog { get; init; }
+}
+
+/// <summary>Body of POST <see cref="ApiRoutes.ApproveRelease"/>.</summary>
+public sealed record ApproveReleaseRequest
+{
+    /// <summary>
+    /// SHA-256 of the manifest bytes the approver reviewed; the server refuses (409) when the build's
+    /// manifest is different.
+    /// </summary>
+    public required string ManifestSha256 { get; init; }
+}
+
+/// <summary>Body of POST <see cref="ApiRoutes.RejectRelease"/>.</summary>
+public sealed record RejectReleaseRequest
+{
+    /// <summary>SHA-256 of the manifest bytes the rejecter reviewed; optional.</summary>
+    public string? ManifestSha256 { get; init; }
+
+    /// <summary>Why, for the audit log.</summary>
+    public string? Reason { get; init; }
+}
+
 /// <summary>Source-generated JSON context for every wire DTO. Used by clients and server alike.</summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -268,4 +382,9 @@ public sealed record MessageResponse
 [JsonSerializable(typeof(PatchManifest))]
 [JsonSerializable(typeof(SignedRelease))]
 [JsonSerializable(typeof(DraftResponse))]
+[JsonSerializable(typeof(PublishDraftResponse))]
+[JsonSerializable(typeof(UnpublishedReleaseSummary[]))]
+[JsonSerializable(typeof(UnpublishedReleaseResponse))]
+[JsonSerializable(typeof(ApproveReleaseRequest))]
+[JsonSerializable(typeof(RejectReleaseRequest))]
 internal sealed partial class WireJsonContext : JsonSerializerContext;

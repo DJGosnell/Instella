@@ -8,6 +8,8 @@ namespace Instella.Server.Services;
 
 public class PackageService(AppDbContext db, ContentStorageService contentStorage)
 {
+    private readonly BuildPurger _purger = new(db, contentStorage);
+
     // Package operations
     public async Task<List<Package>> GetAllPackagesAsync(CancellationToken ct = default)
     {
@@ -81,11 +83,11 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
             .ToListAsync(ct);
     }
 
-    /// <summary>Registers a publisher key for a package.</summary>
+    /// <summary>Registers a publisher key for a package; logged as <see cref="SecurityEventType.PublisherKeyAdded"/>.</summary>
     /// <exception cref="ArgumentException">The value is not a base64 ECDSA P-256 public key.</exception>
     /// <exception cref="InvalidOperationException">The key is already registered for the package.</exception>
     public async Task<PackagePublisherKey> AddPublisherKeyAsync(
-        long packageId, string publicKeyBase64, string? label, CancellationToken ct = default)
+        long packageId, string publicKeyBase64, string? label, string? actor = null, CancellationToken ct = default)
     {
         var key = Instella.Core.Trust.KeyIds.FromPublicKey(publicKeyBase64);
         if (await db.PackagePublisherKeys.AnyAsync(k => k.PackageId == packageId && k.KeyId == key.KeyId, ct))
@@ -99,34 +101,67 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
             Label = string.IsNullOrWhiteSpace(label) ? null : label.Trim()
         };
         db.PackagePublisherKeys.Add(entity);
+        await LogKeyChangeAsync(SecurityEventType.PublisherKeyAdded, entity, actor, ct);
         await db.SaveChangesAsync(ct);
         return entity;
     }
 
-    public async Task<bool> RemovePublisherKeyAsync(long keyId, CancellationToken ct = default)
+    /// <summary>
+    /// Removes a publisher key; logged as <see cref="SecurityEventType.PublisherKeyRemoved"/>. Releases
+    /// already published are not affected; pending ones signed by it can then only be rejected.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// It is the package's last key while its release approval is not Automatic or a release is pending:
+    /// held releases must keep a key to verify against.
+    /// </exception>
+    public async Task<bool> RemovePublisherKeyAsync(long keyId, string? actor = null, CancellationToken ct = default)
     {
         var key = await db.PackagePublisherKeys.FindAsync([keyId], ct);
         if (key == null) return false;
+        if (!await db.PackagePublisherKeys.AnyAsync(k => k.PackageId == key.PackageId && k.Id != key.Id, ct))
+        {
+            var approval = await db.Packages.Where(p => p.Id == key.PackageId).Select(p => p.ReleaseApproval).FirstAsync(ct);
+            if (approval != ReleaseApproval.Automatic)
+                throw new InvalidOperationException(
+                    $"This is the package's last publisher key and its release approval is {approval}. Add another key, or set release approval to Automatic, first.");
+            if (await db.VersionBuilds.AnyAsync(b => b.Version.PackageId == key.PackageId && b.State == BuildState.Pending, ct))
+                throw new InvalidOperationException(
+                    "This is the package's last publisher key and releases are pending approval. Approve or reject them first.");
+        }
         db.PackagePublisherKeys.Remove(key);
+        await LogKeyChangeAsync(SecurityEventType.PublisherKeyRemoved, key, actor, ct);
         await db.SaveChangesAsync(ct);
         return true;
+    }
+
+    private async Task LogKeyChangeAsync(SecurityEventType type, PackagePublisherKey key, string? actor, CancellationToken ct)
+    {
+        var packageId = await db.Packages.Where(p => p.Id == key.PackageId).Select(p => p.PackageId).FirstAsync(ct);
+        db.SecurityEvents.Add(new SecurityEvent
+        {
+            EventType = type,
+            IpAddress = "admin UI",
+            Username = actor,
+            PackageId = packageId,
+            Details = key.Label is null ? key.KeyId : $"{key.KeyId} ({key.Label})",
+        });
     }
 
     public async Task<bool> DeletePackageAsync(long id, CancellationToken ct = default)
     {
         // The content locks are taken before the transaction and held until the blobs are gone.
-        await using var locks = await LockContentAsync(db.VersionBuilds.Where(b => b.Version.PackageId == id), ct);
+        await using var locks = await _purger.LockContentAsync(db.VersionBuilds.Where(b => b.Version.PackageId == id), ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (!await db.Packages.AnyAsync(p => p.Id == id, ct)) return false;
 
         var buildIds = await db.VersionBuilds.Where(b => b.Version.PackageId == id).Select(b => b.Id).ToListAsync(ct);
-        var blobs = await PurgeBuildsAsync(buildIds, ct);
+        var blobs = await _purger.PurgeBuildsAsync(buildIds, ct);
         await db.PackageVersions.Where(v => v.PackageId == id).ExecuteDeleteAsync(ct);
         await db.Packages.Where(p => p.Id == id).ExecuteDeleteAsync(ct);   // keys and publisher keys cascade
         await tx.CommitAsync(ct);
         db.ChangeTracker.Clear();
 
-        await DeleteBlobsAsync(blobs, ct);
+        await _purger.DeleteBlobsAsync(blobs, ct);
         return true;
     }
 
@@ -155,11 +190,11 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
 
     /// <summary>
     /// The versions "latest" is chosen from: on <paramref name="channel"/>, not deprecated,
-    /// with a published (non-draft) build for <paramref name="os"/>/<paramref name="arch"/> when given.
+    /// with a published (not draft or pending) build for <paramref name="os"/>/<paramref name="arch"/> when given.
     /// </summary>
     private IQueryable<PackageVersion> Releasable(long packageDbId, string channel, TargetOS? os, Architecture? arch) =>
         db.PackageVersions.Where(v => v.PackageId == packageDbId && v.Channel == channel && !v.IsDeprecated
-            && v.Builds.Any(b => !b.IsDraft && (os == null || b.OS == os) && (arch == null || b.Architecture == arch)));
+            && v.Builds.Any(b => b.State == BuildState.Published && (os == null || b.OS == os) && (arch == null || b.Architecture == arch)));
 
     /// <summary>
     /// "Latest" on a channel: the highest version (by <see cref="PackageVersion.VersionKey"/>,
@@ -261,24 +296,24 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
     /// </summary>
     public async Task<bool> DeleteVersionAsync(long id, CancellationToken ct = default)
     {
-        await using var locks = await LockContentAsync(db.VersionBuilds.Where(b => b.VersionId == id), ct);
+        await using var locks = await _purger.LockContentAsync(db.VersionBuilds.Where(b => b.VersionId == id), ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (!await db.PackageVersions.AnyAsync(v => v.Id == id, ct)) return false;
 
         var buildIds = await db.VersionBuilds.Where(b => b.VersionId == id).Select(b => b.Id).ToListAsync(ct);
-        var blobs = await PurgeBuildsAsync(buildIds, ct);
+        var blobs = await _purger.PurgeBuildsAsync(buildIds, ct);
         await db.PackageVersions.Where(v => v.Id == id).ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
         db.ChangeTracker.Clear();
 
-        await DeleteBlobsAsync(blobs, ct);
+        await _purger.DeleteBlobsAsync(blobs, ct);
         return true;
     }
 
     // Build operations
-    /// <summary>One published build; a draft only with <paramref name="includeDrafts"/>.</summary>
+    /// <summary>One published build; a draft or pending one only with <paramref name="includeUnpublished"/>.</summary>
     public async Task<VersionBuild?> GetBuildAsync(string packageId, string versionString, TargetOS os, Architecture arch,
-        CancellationToken ct = default, bool includeDrafts = false)
+        CancellationToken ct = default, bool includeUnpublished = false)
     {
         return await db.VersionBuilds
             .Include(b => b.Version)
@@ -290,7 +325,7 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
                 b.Version.VersionString == versionString &&
                 b.OS == os &&
                 b.Architecture == arch &&
-                (includeDrafts || !b.IsDraft), ct);
+                (includeUnpublished || b.State == BuildState.Published), ct);
     }
 
     public async Task<VersionBuild?> GetBuildByIdAsync(long id, CancellationToken ct = default)
@@ -305,76 +340,16 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
 
     public async Task<bool> DeleteBuildAsync(long id, CancellationToken ct = default)
     {
-        await using var locks = await LockContentAsync(db.VersionBuilds.Where(b => b.Id == id), ct);
+        await using var locks = await _purger.LockContentAsync(db.VersionBuilds.Where(b => b.Id == id), ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (!await db.VersionBuilds.AnyAsync(b => b.Id == id, ct)) return false;
 
-        var blobs = await PurgeBuildsAsync([id], ct);
+        var blobs = await _purger.PurgeBuildsAsync([id], ct);
         await tx.CommitAsync(ct);
         db.ChangeTracker.Clear();
 
-        await DeleteBlobsAsync(blobs, ct);
+        await _purger.DeleteBlobsAsync(blobs, ct);
         return true;
-    }
-
-    /// <summary>
-    /// Inside the caller's transaction: removes the builds' patches and patch jobs, their file
-    /// rows (one reference-count decrement per row, grouped by hash), content no build references
-    /// any more, and the builds themselves (download logs cascade). Returns the storage paths to
-    /// delete after commit.
-    /// </summary>
-    private async Task<List<string>> PurgeBuildsAsync(List<long> buildIds, CancellationToken ct)
-    {
-        if (buildIds.Count == 0) return [];
-
-        var patchPaths = await db.BuildPatches
-            .Where(p => buildIds.Contains(p.FromBuildId) || buildIds.Contains(p.ToBuildId))
-            .Select(p => p.StoragePath).ToListAsync(ct);
-        await db.BuildPatches
-            .Where(p => buildIds.Contains(p.FromBuildId) || buildIds.Contains(p.ToBuildId))
-            .ExecuteDeleteAsync(ct);
-        await db.PendingPatchJobs
-            .Where(j => buildIds.Contains(j.ToBuildId) || (j.FromBuildId != null && buildIds.Contains(j.FromBuildId.Value)))
-            .ExecuteDeleteAsync(ct);
-
-        var fileHashes = await db.BuildFiles.Where(f => buildIds.Contains(f.BuildId)).Select(f => f.ContentHash).ToListAsync(ct);
-        var installerHashes = await db.BuildInstallers.Where(i => buildIds.Contains(i.BuildId)).Select(i => i.ContentHash).ToListAsync(ct);
-        var hashCounts = fileHashes.Concat(installerHashes).GroupBy(h => h).Select(g => new { Hash = g.Key, Count = g.Count() }).ToList();
-        await db.BuildFiles.Where(f => buildIds.Contains(f.BuildId)).ExecuteDeleteAsync(ct);
-        await db.BuildInstallers.Where(i => buildIds.Contains(i.BuildId)).ExecuteDeleteAsync(ct);
-        foreach (var h in hashCounts)
-            await db.StoredFiles.Where(f => f.ContentHash == h.Hash)
-                .ExecuteUpdateAsync(u => u.SetProperty(f => f.ReferenceCount, f => f.ReferenceCount - h.Count), ct);
-
-        // Content no build references, unless an open upload session is about to reuse it.
-        var touched = hashCounts.Select(h => h.Hash).ToList();
-        var orphans = db.StoredFiles.Where(f => touched.Contains(f.ContentHash) && f.ReferenceCount <= 0
-                                                && !db.UploadSessionFiles.Any(u => u.ContentHash == f.ContentHash)
-                                                && !db.UploadSessionInstallers.Any(u => u.ContentHash == f.ContentHash));
-        var orphanPaths = await orphans.Select(f => f.StoragePath).ToListAsync(ct);
-        await orphans.ExecuteDeleteAsync(ct);
-
-        await db.VersionBuilds.Where(b => buildIds.Contains(b.Id)).ExecuteDeleteAsync(ct);
-        return [.. orphanPaths, .. patchPaths];
-    }
-
-    /// <summary>
-    /// Takes the <see cref="ContentLocks"/> of every content hash the <paramref name="builds"/>
-    /// reference (files and installers). Called before the purge's transaction starts.
-    /// </summary>
-    private async Task<IAsyncDisposable> LockContentAsync(IQueryable<VersionBuild> builds, CancellationToken ct)
-    {
-        var ids = builds.Select(b => b.Id);
-        var hashes = await db.BuildFiles.Where(f => ids.Contains(f.BuildId)).Select(f => f.ContentHash)
-            .Concat(db.BuildInstallers.Where(i => ids.Contains(i.BuildId)).Select(i => i.ContentHash))
-            .Distinct().ToListAsync(ct);
-        return await ContentLocks.Shared.AcquireAsync(hashes, ct);
-    }
-
-    private async Task DeleteBlobsAsync(IEnumerable<string> paths, CancellationToken ct)
-    {
-        foreach (var path in paths)
-            await contentStorage.TryDeleteBlobAsync(path, ct);
     }
 
     public async Task<bool> BuildExistsAsync(string packageId, string versionString, TargetOS os, Architecture arch, CancellationToken ct = default)
@@ -397,7 +372,7 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
         CancellationToken ct = default)
     {
         var builds = db.VersionBuilds.Where(b =>
-            b.Version.Package.PackageId == packageId && b.OS == os && b.Architecture == arch && !b.IsDraft);
+            b.Version.Package.PackageId == packageId && b.OS == os && b.Architecture == arch && b.State == BuildState.Published);
         if (versionString == ApiRoutes.LatestVersion)
         {
             // The same "latest" as check-update, including the channel's pin.
@@ -552,7 +527,9 @@ public class PackageService(AppDbContext db, ContentStorageService contentStorag
             Downloads = build.DownloadCount,
             FileCount = build.Files.Count,
             // Relative to the site root; the admin UI navigates to it directly.
-            DownloadPath = Api.SiteLinks.DownloadBuild(packageId, versionString, build.OS, build.Architecture)
+            DownloadPath = Api.SiteLinks.DownloadBuild(packageId, versionString, build.OS, build.Architecture),
+            State = build.State,
+            PublishAfter = build.PublishAfter,
         };
     }
 }

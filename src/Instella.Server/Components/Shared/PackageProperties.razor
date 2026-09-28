@@ -2,6 +2,8 @@
 @using Instella.Server.Data.Entities
 @inject PackageService PackageService
 @inject DownloadTokenService DownloadTokens
+@inject ReleaseApprovalService Approvals
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JS
 
 <div class="properties">
@@ -184,6 +186,72 @@
         }
 
         <div class="info-section">
+            <h4>Release approval</h4>
+            <small>
+                Whether a signed upload goes live at once. This only holds releases back: installations still
+                verify every release against the publisher keys compiled into their installer.
+            </small>
+            @if (!string.IsNullOrEmpty(_approvalError))
+            {
+                <div class="error">@_approvalError</div>
+            }
+            <div class="form-group">
+                <select id="release-approval" class="form-control" @bind="_approval">
+                    <option value="@ReleaseApproval.Automatic">Automatic: goes live on upload</option>
+                    <option value="@ReleaseApproval.Delayed">Delayed: goes live after a delay unless rejected</option>
+                    <option value="@ReleaseApproval.Required">Required: waits until someone approves it</option>
+                </select>
+            </div>
+            @if (_approval == ReleaseApproval.Delayed)
+            {
+                <div class="form-group">
+                    <label>Delay</label>
+                    <select id="release-delay" class="form-control" @bind="_delayMinutes">
+                        @foreach (var minutes in DelayPresets(_delayMinutes))
+                        {
+                            <option value="@minutes">@ReleaseApprovalService.FormatDelay(minutes)</option>
+                        }
+                    </select>
+                </div>
+            }
+            <p><small>
+                Tier with a CI signer: <strong>@(_approval == ReleaseApproval.Required ? "Approved" : "Automatic")</strong>.
+                A hand-signed release (<code>instella publish</code>) follows the same setting once it is signed.
+                @if (_approval != ReleaseApproval.Automatic && _keys.Count == 0)
+                {
+                    <span class="warning-text">Register a publisher key first: held releases are verified against it.</span>
+                }
+            </small></p>
+            <button type="button" class="btn-secondary" @onclick="HandleSaveApproval"
+                    disabled="@(_approval == Package.ReleaseApproval && _delayMinutes == Package.ReleaseDelayMinutes)">Save release approval</button>
+
+            @if (_unpublished.Count > 0)
+            {
+                <h4 class="sub-heading">Awaiting a decision</h4>
+                <table class="keys">
+                    <thead><tr><th>Version</th><th>Platform</th><th>State</th><th>Uploaded</th><th>By key</th><th>Signed by</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var build in _unpublished)
+                        {
+                            <tr>
+                                <td>@build.Version</td>
+                                <td>@build.OS/@build.Architecture</td>
+                                <td>
+                                    @(build.State == BuildState.Draft ? "draft (unsigned)"
+                                        : build.PublishAfter is { } at ? $"pending, publishes {at:g} UTC" : "pending approval")
+                                </td>
+                                <td>@build.UploadedAt.ToString("g")</td>
+                                <td>@build.UploadedByKeyName</td>
+                                <td>@(build.KeyId is null ? "-" : build.KeyLabel ?? build.KeyId)</td>
+                                <td><button type="button" class="btn-secondary" @onclick="() => OnSelectBuild.InvokeAsync(build.BuildId)">Review</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <div class="info-section">
             <h4>Publisher keys</h4>
             <small>
                 When at least one key is registered, uploads must be signed by one of them. This catches
@@ -313,6 +381,8 @@
         border-collapse: collapse;
         margin: 10px 0;
     }
+    .warning-text { color: #e65100; }
+    .sub-heading { margin-top: 20px; }
     table.keys th, table.keys td {
         text-align: left;
         padding: 4px 6px;
@@ -327,6 +397,14 @@
     [Parameter] public EventCallback OnDelete { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public EventCallback OnNewVersion { get; set; }
+
+    /// <summary>Asks the page to select a build (the Review button of a release awaiting a decision).</summary>
+    [Parameter] public EventCallback<long> OnSelectBuild { get; set; }
+
+    private ReleaseApproval _approval;
+    private int _delayMinutes = ReleaseApprovalService.DefaultDelayMinutes;
+    private string? _approvalError;
+    private List<UnpublishedBuild> _unpublished = [];
 
     private PackageModel _model = new();
     private string? _error;
@@ -356,6 +434,10 @@
         _tokenError = null;
         _newToken = null;
         _tokens = Package != null && !IsNew ? await DownloadTokens.ListAsync(Package.Id) : [];
+        _approvalError = null;
+        _approval = Package?.ReleaseApproval ?? ReleaseApproval.Automatic;
+        _delayMinutes = Package?.ReleaseDelayMinutes ?? ReleaseApprovalService.DefaultDelayMinutes;
+        _unpublished = Package != null && !IsNew ? await Approvals.ListUnpublishedAsync(Package.Id) : [];
     }
 
     private async Task HandleCreateToken()
@@ -417,7 +499,7 @@
     /// <summary>The channel's versions with a published build, highest first: what a cap can be.</summary>
     private IEnumerable<string> PublishedVersions(string channel) =>
         (Package?.Versions ?? [])
-            .Where(v => v.Channel == channel && v.Builds.Any(b => !b.IsDraft))
+            .Where(v => v.Channel == channel && v.Builds.Any(b => b.State == BuildState.Published))
             .OrderByDescending(v => v.VersionKey, StringComparer.Ordinal)
             .Select(v => v.VersionString);
 
@@ -446,7 +528,7 @@
 
         try
         {
-            await PackageService.AddPublisherKeyAsync(Package.Id, _newKey, _newKeyLabel);
+            await PackageService.AddPublisherKeyAsync(Package.Id, _newKey, _newKeyLabel, await UserNameAsync());
             _newKey = null;
             _newKeyLabel = null;
             _keys = await PackageService.GetPublisherKeysAsync(Package.Id);
@@ -460,10 +542,41 @@
     private async Task HandleRemoveKey(PackagePublisherKey key)
     {
         _keyError = null;
-        await PackageService.RemovePublisherKeyAsync(key.Id);
+        try
+        {
+            await PackageService.RemovePublisherKeyAsync(key.Id, await UserNameAsync());
+        }
+        catch (InvalidOperationException ex)
+        {
+            _keyError = ex.Message;
+        }
         if (Package != null)
             _keys = await PackageService.GetPublisherKeysAsync(Package.Id);
     }
+
+    private async Task HandleSaveApproval()
+    {
+        _approvalError = null;
+        if (Package == null) return;
+        try
+        {
+            await Approvals.SetReleaseApprovalAsync(Package.Id, _approval, _delayMinutes, await UserNameAsync());
+            Package.ReleaseApproval = _approval;
+            Package.ReleaseDelayMinutes = _delayMinutes;
+            _unpublished = await Approvals.ListUnpublishedAsync(Package.Id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _approvalError = ex.Message;
+        }
+    }
+
+    /// <summary>The delay choices, including a stored value that is not a preset.</summary>
+    private static IEnumerable<int> DelayPresets(int current) =>
+        new[] { 60, 360, 720, 1440, 2880, 4320, 10080, current }.Distinct().Order();
+
+    private async Task<string?> UserNameAsync() =>
+        (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name;
 
     protected override void OnParametersSet()
     {

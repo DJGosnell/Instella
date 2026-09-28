@@ -35,6 +35,8 @@ Related documents:
 |---|---|
 | Publisher | Holds the publisher private key(s) and the Authenticode certificate. Trusted. |
 | Update server operator, or anyone who compromises the server or its storage | Full control over what the server returns. Not trusted for integrity. |
+| CI pipeline and its upload API key | Builds and uploads releases, and in the Automatic and Approved tiers signs them with the online publisher key. Trusted to sign; a compromised CI or repository account is what release approval (`Delayed`, `Required`) guards against. |
+| Approver (an admin UI user, or an API key with the Approve releases permission) | Publishes or rejects releases the server holds back. Cannot make installations accept anything that is not signed by a trusted key. An approve key cannot also upload, and never approves its own upload. |
 | Network attacker | Can observe and modify traffic that is not protected by TLS. |
 | Other local users | No write access to another user's profile or to Program Files. |
 | Processes running as the installing user | Can modify anything that user can modify, including a per-user installation. Instella does not defend against these (see Known limitations). |
@@ -182,6 +184,17 @@ one key is registered for a package, the server rejects an upload whose release 
 does not verify against a registered key. At upload completion the server also checks that the
 release names the session's app, version, platform and channel and lists exactly the uploaded
 `(path, sha256, size)` set. None of this is part of the client trust chain.
+
+**Release approval** (admin UI, package properties: `Automatic`, `Delayed`, `Required`) can only
+hold a correctly signed release back until someone approves it or a delay ends; it never changes
+what clients verify. That is deliberate: no server setting reduces client-side checks, because a
+compromised server could flip it. Whether an installation verifies releases at all is compiled into
+its installer (`WithPublisherKey` versus `AllowUnsignedUpdates()`). Release approval guards against
+a compromised CI or repository account, not a compromised server: the server holds the pending
+release and can publish it, as it could serve any release CI signed. Each decision (pending,
+approved, rejected, published after a delay, blocked because the key was removed, setting changed,
+publisher key added or removed) is written to the security log with the admin or API key that made
+it.
 
 ### Private packages don't reveal that they exist
 
@@ -414,6 +427,13 @@ Do not ship production installers with either builder switch.
   cannot detect a withheld update.
 - **Unsigned metadata.** Changelog text, the `mandatory` flag and sizes in `check-update` are not
   signed.
+- **Release approval is enforced by the server.** A compromised server can publish a pending release
+  (it is signed, so installations accept it). An approve key and an upload key both held by CI defeat
+  `Required`; the server cannot detect that, so keep approve keys on people's machines. There are no
+  notifications for pending releases yet: check the admin dashboard or `instella pending`.
+- **Audit retention.** Security log entries, including release decisions, are deleted after
+  `Retention:SecurityEventDays` (default 90). A rejected release is deleted, so the log is its only
+  record.
 - **The installer is the root of trust.** Instella does not verify the Authenticode signature of
   the installer that is running (only of installers it hands over to). A first
   install, or an installer for a newer version, writes that installer's compiled-in keys to

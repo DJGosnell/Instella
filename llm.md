@@ -911,8 +911,11 @@ instella upload --server URL --package com.example.app --version 1.0.0 --path ./
                 [--sign-command CMD --signing-public-key B64 | $INSTELLA_SIGN_COMMAND + $INSTELLA_SIGNING_PUBLIC_KEY] [--draft]
 instella publish --server URL --package ID --version V --os OS --arch ARCH [--path DIR] \
                 [--installer F] [--offline-installer F] [--yes] [--signing-key ... | --sign-command ... --signing-public-key ...]
-instella ci init --host github|gitea --signing kms-azure|kms-aws|kms-gcp|draft|secret --app-project P \
-                --installer-project P --package ID --server URL [--name N] [--rid win-x64] [--output .] [--force]
+instella pending --server URL --package ID [--api-key KEY]
+instella approve --server URL --package ID --version V --os OS --arch ARCH [--path DIR] [--installer F] [--offline-installer F] [--yes]
+instella reject  --server URL --package ID --version V --os OS --arch ARCH [--reason TEXT] [--yes]
+instella ci init --host github|gitea --signing secret|kms-azure|kms-aws|kms-gcp|manual --app-project P \
+                --installer-project P --package ID --server URL [--name N] [--rid win-x64] [--output .] [--force] [--no-environment]
 instella list packages --server URL [--allow-insecure]
 instella list versions --server URL --package ID [--api-key KEY] [--allow-insecure]
 instella delete --server URL --package ID --version V [--api-key KEY] [--yes] [--allow-insecure]
@@ -956,7 +959,7 @@ instella delete --server URL --package ID --version V [--api-key KEY] [--yes] [-
   the process list shows it.
 - `upload --draft` (no key; refused together with a signing key or `--unsigned`) sends the unsigned
   manifest bytes as `CompleteUploadRequest.draftManifest`; the server checks them against the session
-  like a signed release and stores the build with `VersionBuild.IsDraft`. Drafts are invisible to
+  like a signed release and stores the build with `VersionBuild.State = Draft`. Drafts are invisible to
   clients: not in `packages/{id}/versions`, check-update, `release`, `download`, `installer`, the
   download page, and never a patch source. `publish` fetches `GET api/v1/drafts/{id}/{v}/{os}/{arch}`
   (`DraftResponse{manifest, uploadedAt, changelog}`, upload permission), checks identity and — with
@@ -964,7 +967,17 @@ instella delete --server URL --package ID --version V [--api-key KEY] [--yes] [-
   difference; without `--path` it warns that it signs the server's list), asks unless `--yes`, signs
   the exact bytes and `POST …/publish` with the `SignedRelease`. The server requires byte equality
   with the stored draft and, if the package has registered publisher keys, a signature by one of them;
-  the version's `ReleasedAt` becomes the publish time when it is its first published build.
+  the signed build then takes the package's release approval (published, or pending;
+  `PublishDraftResponse{message, state, publishAfter}`, and `publish` prints the pending line); the version's
+  `ReleasedAt` becomes the publish time when it is its first published build.
+- `upload` and `publish` print the state the server reports (`CompleteUploadResponse.state`: published, pending,
+  draft; `UploadCommand.SuccessMessage`, `ReleaseDescription.PendingMessage`). A pending release still exits 0.
+- `pending` / `approve` / `reject` (`Commands/ReviewCommands.cs`; a key with the Approve releases permission) use
+  `GET api/v1/approvals/{id}`, `GET …/{v}/{os}/{arch}` (`UnpublishedReleaseResponse`: summary plus base64 manifest),
+  and `POST …/approve` (`{manifestSha256}` of the bytes it showed) or `…/reject` (`{manifestSha256?, reason?}`).
+  `approve` refuses a draft, compares `--path` and the installers through `PublishCommand.Check`, and asks unless
+  `--yes`. The logic lives in `RunAsync(ApiClient, …, CommandConsole)` so tests can drive it. 403 → exit 3; 409
+  (manifest changed, not pending) → exit 2.
 - `ci init` (`Templates/CiTemplate.cs`) writes `.github/workflows/instella-release.yml` or
   `.gitea/workflows/instella-release.yml` and prints the secrets/variables to create: on `v[0-9]*` tags a
   `build` job with no credentials (step `tag` derives VERSION and CHANNEL from the tag, `CiTemplate.TagParseBash`
@@ -975,8 +988,11 @@ instella delete --server URL --package ID --version V [--api-key KEY] [--yes] [-
   takes VERSION/CHANNEL from the build job's outputs, installs `instella-cli` at the CLI's own version and runs
   `upload --channel "$CHANNEL"` with both installers. Signing: KMS variants set
   `INSTELLA_SIGN_COMMAND` + `INSTELLA_SIGNING_PUBLIC_KEY` and sign in with OIDC (`id-token: write`,
-  `environment: release`) on GitHub, with secrets on Gitea (no OIDC); `draft` adds `--draft` and no key;
-  `secret` passes `INSTELLA_SIGNING_KEY` from secrets. Guide: `docs/publishing.md`.
+  `environment: release` unless `--no-environment`) on GitHub, with secrets on Gitea (no OIDC); `manual` adds
+  `--draft` and no key (`draft` is its deprecated alias: `TryParseSigning(value, out signing, out deprecatedAlias)`
+  warns on stderr); `secret` passes `INSTELLA_SIGNING_KEY` from secrets, and its notes make an offline backup key the
+  default. With `--no-environment` the notes give tag-ref OIDC subjects (`repo:<o>/<r>:ref:refs/tags/v*`) and point
+  to release approval. Every workflow has a `# Tier:` comment, and the notes explain release approval. Guide: `docs/publishing.md`.
 - `list` uses `GET api/v1/packages[/{id}/versions]` (`list versions` sends `--api-key` /
   `INSTELLA_API_KEY` when set, for private packages); `delete` uses `DELETE
   api/v1/packages/{id}/versions/{v}`, falls back to `INSTELLA_API_KEY`, prompts unless `--yes`
@@ -1029,7 +1045,12 @@ api/v1/release/{packageId}/{version}/{os}/{arch}`; `check-update` embeds the tar
 `SignedRelease`), checks at upload completion that the release names the session's
 app/version/platform/channel and exactly the uploaded `(path, sha256, size)` set, and — when a
 package has registered publisher keys (admin UI, package properties) — rejects unsigned or
-wrongly signed uploads. Clients never rely on the server for integrity. Full reference:
+wrongly signed uploads. **Release approval** (package setting `Automatic` / `Delayed` / `Required`)
+can hold a signed upload back as `Pending` (`VersionBuild.State`: Published, Draft, Pending) until an
+admin or an API key with `CanApproveReleases` approves it (never its own upload), or until a delay
+ends (`DelayedReleaseWorker`). Reject deletes it. Only Published builds are visible to clients.
+Release approval only adds a gate; it never changes what clients verify. Clients never rely on the
+server for integrity. Full reference:
 **`src/Instella.Server/llm.md`**; deployment: `docs/server-deployment.md`.
 
 ## Compatibility before 1.0

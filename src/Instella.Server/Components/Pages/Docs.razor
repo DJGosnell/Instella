@@ -85,6 +85,13 @@ instella --help</pre>
             <p>Open the package on the <a href="/packages">Packages</a> page and add the public key under <strong>Publisher keys</strong>.
                Once at least one key is registered, the server rejects uploads that are unsigned or signed by another key.
                With no key registered, signed and unsigned uploads are both accepted, so register the key to catch misconfigured pipelines early.</p>
+
+            <h3>4. Choose the release approval</h3>
+            <p>In the same pane, <strong>Release approval</strong> decides whether a signed upload goes live at once (<em>Automatic</em>),
+               after a delay unless someone rejects it (<em>Delayed</em>), or only after someone approves it (<em>Required</em>).
+               Held releases are listed under <strong>Awaiting a decision</strong>; approve or reject them on the build, or with
+               <code>instella approve</code> / <code>instella reject</code> and an API key that has the <em>Approve releases</em> permission
+               (never the CI upload key). Release approval only holds releases back: installers still verify every release.</p>
         </section>
 
         <section id="cli-commands">
@@ -272,7 +279,8 @@ instella list versions --server &lt;server-url&gt; --package &lt;package-id&gt;<
             <ul>
                 <li><strong>Use package-scoped keys</strong> - Create separate API keys for each package in CI/CD to limit the damage if a key is compromised.</li>
                 <li><strong>Register the publisher key on the package</strong> - The server then rejects unsigned or wrongly signed uploads instead of publishing releases that installers will refuse.</li>
-                <li><strong>Keep a backup signing key</strong> - Generate it once, keep it offline, and add it to the installer with a second <code>.WithPublisherKey(...)</code>.</li>
+                <li><strong>Keep a backup signing key</strong> - Generate it once, keep it offline (never in CI), and add it to the installer with a second <code>.WithPublisherKey(...)</code> before the first release.</li>
+                <li><strong>Keep approve keys off CI</strong> - An API key with <em>Approve releases</em> belongs on a person's machine; a pipeline that can approve its own uploads makes release approval pointless.</li>
                 <li><strong>Use increasing numeric versions</strong> - MAJOR.MINOR.PATCH (e.g. 1.2.0); each release must be newer than the installed one.</li>
                 <li><strong>Include changelogs</strong> - Users appreciate knowing what changed in each release.</li>
                 <li><strong>Use channels appropriately</strong> - <code>stable</code> for production, and names you choose (such as <code>beta</code>, <code>rc</code> or <code>nightly</code>) for everything else. An installed app follows one channel.</li>

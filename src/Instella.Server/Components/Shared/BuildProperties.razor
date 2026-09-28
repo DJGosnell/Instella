@@ -3,23 +3,107 @@
 @using Instella.Server.Data
 @using Microsoft.EntityFrameworkCore
 @inject PackageService PackageService
+@inject ReleaseApprovalService Approvals
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject AppDbContext Db
 @inject NavigationManager Navigation
 
 <div class="properties">
     <h3>@Build.OS / @Build.Architecture</h3>
 
-    @if (Build.IsDraft)
+    @if (Build.State == BuildState.Draft)
     {
         <div class="info-notice">
             <strong>Draft.</strong> Uploaded with <code>instella upload --draft</code> and not visible to installers or apps
             until someone with the publisher key runs <code>instella publish</code> for it.
+            @if (Package.ReleaseApproval == ReleaseApproval.Required)
+            {
+                <span>Once signed, it still waits for approval here.</span>
+            }
+        </div>
+    }
+    else if (Build.State == BuildState.Pending)
+    {
+        <div class="info-notice pending-notice">
+            @if (Build.PublishAfter is { } at)
+            {
+                <span><strong>Pending: delayed release.</strong> Not visible to installers or apps yet. It publishes
+                automatically at <strong>@at.ToString("g") UTC</strong> unless someone rejects it. Approve publishes it now.</span>
+            }
+            else
+            {
+                <span><strong>Pending approval.</strong> Signed and uploaded, but not visible to installers or apps until
+                someone approves it here or with <code>instella approve</code>.</span>
+            }
         </div>
     }
 
     @if (!string.IsNullOrEmpty(_error))
     {
         <div class="error">@_error</div>
+    }
+
+    @if (_release is not null)
+    {
+        <div class="info-group">
+            <label>Signed by</label>
+            <div class="info-value">
+                @if (_release.KeyId is null)
+                {
+                    <span>not signed yet</span>
+                }
+                else
+                {
+                    <span><code>@_release.KeyId</code>@(_release.KeyLabel is null ? "" : $" ({_release.KeyLabel})")</span>
+                }
+            </div>
+        </div>
+        <div class="info-group">
+            <label>Uploaded by</label>
+            <div class="info-value">@(_release.UploadedByKeyName ?? "unknown key")</div>
+        </div>
+        @if (_release.ManifestSha256 is not null)
+        {
+            <div class="info-group">
+                <label>Release manifest SHA-256</label>
+                <div class="info-value mono">@_release.ManifestSha256</div>
+            </div>
+        }
+
+        @if (_confirm == "approve")
+        {
+            <div class="confirm-panel">
+                <p>Approve <strong>@Version.VersionString @Build.OS/@Build.Architecture</strong>? Installations can update to it
+                immediately, and it becomes the channel's latest if it is the highest version.</p>
+                <div class="button-group">
+                    <button type="button" class="btn-primary" @onclick="ConfirmApprove" disabled="@_busy">Approve</button>
+                    <button type="button" class="btn-secondary" @onclick="CancelConfirm">Cancel</button>
+                </div>
+            </div>
+        }
+        else if (_confirm == "reject")
+        {
+            <div class="confirm-panel">
+                <p>Reject <strong>@Version.VersionString @Build.OS/@Build.Architecture</strong>? This deletes the build; the
+                version number can be uploaded again.</p>
+                <label>Reason (for the security log)</label>
+                <input class="form-control" @bind="_rejectReason" maxlength="300" />
+                <div class="button-group">
+                    <button type="button" class="btn-danger" @onclick="ConfirmReject" disabled="@_busy">Reject and delete</button>
+                    <button type="button" class="btn-secondary" @onclick="CancelConfirm">Cancel</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="button-group">
+                @if (Build.State == BuildState.Pending)
+                {
+                    <button type="button" class="btn-primary" @onclick='() => _confirm = "approve"'>Approve…</button>
+                }
+                <button type="button" class="btn-danger" @onclick='() => _confirm = "reject"'>Reject…</button>
+            </div>
+        }
     }
 
     <div class="info-group">
@@ -193,7 +277,7 @@
         gap: 10px;
         margin-top: 20px;
     }
-    .btn-secondary, .btn-danger {
+    .btn-primary, .btn-secondary, .btn-danger {
         padding: 8px 16px;
         border: none;
         border-radius: 4px;
@@ -203,6 +287,18 @@
     }
     .btn-secondary { background: #eee; color: #333; }
     .btn-danger { background: #d32f2f; color: #fff; }
+    .btn-primary { background: #0078d4; color: #fff; }
+    .btn-primary:disabled, .btn-danger:disabled { opacity: 0.6; cursor: default; }
+    .pending-notice { background: #fff8e1; }
+    .confirm-panel {
+        margin: 15px 0;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fafafa;
+    }
+    .confirm-panel label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+    .form-control { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
     .error {
         background: #fee;
         color: #c00;
@@ -218,15 +314,84 @@
     [Parameter] public required Package Package { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
 
+    /// <summary>The build changed state (approved).</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
     private string? _error;
     private BuildPatch? _patchInfo;
     private List<BuildInstaller> _installers = [];
+    private UnpublishedBuild? _release;
+    private string? _confirm;
+    private string? _rejectReason;
+    private bool _busy;
 
     protected override async Task OnParametersSetAsync()
     {
         // Check if there's a patch to this build
         _patchInfo = await Db.BuildPatches.FirstOrDefaultAsync(p => p.ToBuildId == Build.Id);
         _installers = await Db.BuildInstallers.AsNoTracking().Where(i => i.BuildId == Build.Id).OrderBy(i => i.Kind).ToListAsync();
+        // The manifest hash shown here is the one an approval confirms, so a build replaced after this
+        // render is not approved unseen.
+        _release = Build.State == BuildState.Published ? null : await Approvals.GetUnpublishedAsync(Build.Id);
+        _confirm = null;
+    }
+
+    private void CancelConfirm() => _confirm = null;
+
+    private async Task<string?> UserNameAsync() =>
+        (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.Identity?.Name;
+
+    private async Task ConfirmApprove()
+    {
+        if (_release is null) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            var decision = await Approvals.ApproveAsync(Build.Id, _release.ManifestSha256 ?? "", ReleaseActor.Admin(await UserNameAsync()));
+            if (decision.Status != ReleaseDecisionStatus.Done)
+            {
+                _error = decision.Message;
+                return;
+            }
+            _confirm = null;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to approve: " + ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ConfirmReject()
+    {
+        if (_release is null) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            var decision = await Approvals.RejectAsync(Build.Id, _release.ManifestSha256, _rejectReason,
+                ReleaseActor.Admin(await UserNameAsync()));
+            if (decision.Status != ReleaseDecisionStatus.Done)
+            {
+                _error = decision.Message;
+                return;
+            }
+            _confirm = null;
+            await OnDelete.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to reject: " + ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task HandleDelete()

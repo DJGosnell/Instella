@@ -28,4 +28,10 @@ public class BuildGridItem
 
     /// <summary>Site-relative URL of the full-build download.</summary>
     public string DownloadPath { get; set; } = "";
+
+    /// <summary>Published, a draft, or pending approval.</summary>
+    public Instella.Server.Data.Entities.BuildState State { get; set; }
+
+    /// <summary>When a delayed release goes live unless rejected (UTC).</summary>
+    public DateTime? PublishAfter { get; set; }
 }

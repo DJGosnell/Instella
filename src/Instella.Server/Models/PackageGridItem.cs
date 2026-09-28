@@ -32,4 +32,7 @@ public class PackageGridItem
 
     /// <summary>Child versions, pre-sorted by ReleasedAt descending.</summary>
     public List<VersionGridItem> Versions { get; set; } = [];
+
+    /// <summary>Builds pending approval, across versions.</summary>
+    public int PendingCount => Versions.Sum(v => v.PendingCount);
 }

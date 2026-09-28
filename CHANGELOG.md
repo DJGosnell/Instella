@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+A `v*` tag can now become a release with no manual signing step, and projects that want oversight
+get an approval step on the server instead ([docs/publishing.md](docs/publishing.md#publishing-tiers-and-release-approval)).
+
+### Added
+
+- **Release approval**, a package setting in the admin UI: `Automatic` (the default, unchanged
+  behaviour), `Delayed` (a signed upload goes live after a hold of 1 hour to 7 days unless someone
+  rejects it) or `Required` (it waits until someone approves it). A held release is invisible to
+  installers, apps, the download page and "latest". Release approval only holds releases back; it
+  never changes what installations verify. `Delayed` and `Required` need a registered publisher key.
+- **Publishing tiers** in the docs, the admin UI and `ci init`: Automatic (a CI signer with
+  `Automatic` or `Delayed`), Approved (a CI signer with `Required`), Hand-signed (`--signing manual`).
+- Approve and Reject in the admin UI: the package pane lists what awaits a decision, the build pane
+  has Approve and Reject behind a confirmation, the tree marks pending and draft builds, and the
+  dashboard counts pending releases. Reject deletes the build; the version number can be uploaded
+  again.
+- `instella pending`, `instella approve` and `instella reject`, with an API key that has the new
+  **Approve releases** permission. A key cannot have both Upload and Approve releases, and a key never
+  approves its own upload. `approve` shows the release, compares it with `--path`, `--installer` and
+  `--offline-installer`, and approves exactly the manifest it showed.
+- `instella ci init --no-environment` for GitHub repositories without deployment environments (such as
+  private repositories on the free plan): no `environment: release` line, and OIDC subjects on the `v*`
+  tag ref.
+- Security log entries for pending, approved, rejected and automatically published releases, a
+  blocked automatic publish, release approval changes, publisher key changes and signed drafts. These
+  are never collapsed into "(+N similar)".
+- New API routes `api/v1/approvals/{packageId}[/{version}/{os}/{arch}[/approve|/reject]]`.
+
+### Changed
+
+- `instella upload` and `instella publish` report the state the server gives the release: published,
+  pending approval (with the automatic publish time under `Delayed`) or draft. A pending release is a
+  successful upload (exit 0).
+- A signed draft (`instella publish`) follows the package's release approval, so with `Required` it
+  still waits for approval.
+- Approving a release, and publishing it at the end of a delay, check its signature again against the
+  publisher keys registered at that moment: removing a leaked key stops its pending releases. A
+  package's last publisher key cannot be removed while release approval is `Delayed` or `Required`,
+  or while a release is pending.
+- `ci init --signing secret` notes, and the docs, present a CI secret plus an offline backup key
+  compiled into the installer as the default for a solo maintainer.
+- The server database gains the `ReleaseApproval` migration, applied at startup. Existing data is kept
+  (drafts stay drafts, existing packages stay `Automatic`); no empty database is needed.
+
+### Deprecated
+
+- `instella ci init --signing draft` is now `--signing manual`. `draft` still works in this release,
+  with a warning, and will be removed in the next one. "Draft" remains the name of an unsigned upload
+  (`upload --draft`).
+
+### Breaking changes (wire protocol)
+
+- `POST api/v1/drafts/.../publish` answers with `PublishDraftResponse` (`message`, `state`,
+  `publishAfter`) instead of `MessageResponse`. `message` is kept, so older CLIs still print it.
+- `CompleteUploadResponse` gains `state` and `publishAfter`; older clients ignore them.
+
 ## [0.1.0] - 2026-09-27
 
 The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are

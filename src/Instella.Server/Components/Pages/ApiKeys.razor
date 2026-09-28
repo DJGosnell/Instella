@@ -61,7 +61,7 @@
                     <label>Permissions</label>
                     <div class="checkbox-row">
                         <label class="checkbox-label">
-                            <InputCheckbox @bind-Value="_model.CanUpload" />
+                            <InputCheckbox @bind-Value="_model.CanUpload" disabled="@_model.CanApproveReleases" />
                             Can Upload
                         </label>
                         <label class="checkbox-label">
@@ -71,6 +71,10 @@
                         <label class="checkbox-label">
                             <InputCheckbox @bind-Value="_model.CanManageVersions" />
                             Manage versions (edit, deprecate, delete)
+                        </label>
+                        <label class="checkbox-label" title="For a person's machine (instella approve). A key cannot both upload and approve.">
+                            <InputCheckbox @bind-Value="_model.CanApproveReleases" disabled="@_model.CanUpload" />
+                            Approve releases (not with Upload)
                         </label>
                     </div>
                 </div>
@@ -140,7 +144,11 @@
                                 {
                                     <span class="badge permission manage">Manage versions</span>
                                 }
-                                @if (!key.CanUpload && !key.CanDownload && !key.CanManageVersions)
+                                @if (key.CanApproveReleases)
+                                {
+                                    <span class="badge permission approve">Approve releases</span>
+                                }
+                                @if (!key.CanUpload && !key.CanDownload && !key.CanManageVersions && !key.CanApproveReleases)
                                 {
                                     <span class="no-permissions">None</span>
                                 }
@@ -255,6 +263,7 @@
     .badge.permission.upload { background: #ff9800; color: #fff; }
     .badge.permission.download { background: #4caf50; color: #fff; }
     .badge.permission.manage { background: #d32f2f; color: #fff; }
+    .badge.permission.approve { background: #6a1b9a; color: #fff; }
     .no-permissions { color: #999; font-style: italic; }
     .permissions-group { min-width: 200px; }
     .checkbox-row {
@@ -351,7 +360,8 @@
                 _model.CanUpload,
                 _model.CanDownload,
                 packageId,
-                _model.CanManageVersions);
+                _model.CanManageVersions,
+                _model.CanApproveReleases);
             _newKey = plainKey;
             _model = new CreateKeyModel();
             await LoadKeys();
@@ -391,5 +401,6 @@
         public bool CanUpload { get; set; } = true;
         public bool CanDownload { get; set; } = false;
         public bool CanManageVersions { get; set; }
+        public bool CanApproveReleases { get; set; }
     }
 }

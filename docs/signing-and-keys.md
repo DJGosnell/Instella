@@ -71,11 +71,12 @@ instella keys show --key publisher.key.pem [--password-env VAR]
 An encrypted key needs `--password-env`; without it the command fails with "The signing key is
 encrypted; a password is required."
 
-## Generate a backup key on day one
+## Two keys: an online key and an offline backup key
 
-Generate **two** keys before your first release: a primary key for day-to-day signing, and a
-backup key that you store offline (encrypted, in a password manager or a safe, not on a CI
-runner). Put both public keys into the installer:
+Generate **two** keys before your first release: an online key that signs every release (a CI
+secret, a KMS key, or a key on your machine), and a backup key that you store offline (encrypted,
+in a password manager or a safe) and that **never goes to CI**. Put both public keys into the
+installer:
 
 ```bash
 instella keys generate --out publisher.key.pem --password-env QN_KEY_PASSWORD
@@ -84,8 +85,17 @@ instella keys generate --out publisher-backup.key.pem --password-env QN_BACKUP_P
 
 Installations trust the keys of the installer they were installed with. A key that was not in
 the installer cannot later be added by an ordinary update (see
-[Rotation](#rotation)). The backup key is what lets you recover from losing or leaking the primary
+[Rotation](#rotation)). The backup key is what lets you recover from losing or leaking the online
 key without asking every user to download a new installer.
+
+This is the recommended default for a solo maintainer who wants fully automated releases: the
+online key as a CI secret (`instella ci init --signing secret`), the backup key offline. If the CI
+key leaks, one release signed with the backup key and `--trusted-key` listing only the keys you
+keep makes installations stop trusting the leaked key, without reinstalling (see
+[Revocation](#revocation)). Set it up **before the first release**: an installation trusts only
+the keys compiled into the installer it came from. For oversight on top, set the package's
+[release approval](publishing.md#publishing-tiers-and-release-approval) on the server to `Delayed`
+or `Required`.
 
 ## Putting the public key into the installer
 
@@ -211,10 +221,11 @@ Put the same public key into the installer with `.WithPublisherKey("<base64>")`.
 
 The command times out after two minutes. Its standard error is shown when it fails.
 
-### Drafts: CI uploads, a person signs (`upload --draft` + `instella publish`)
+### Hand-signed releases: CI uploads a draft, a person signs (`upload --draft` + `instella publish`)
 
-When no pipeline should be able to publish on its own, CI uploads without any key and a person
-who holds the key publishes:
+When no pipeline may sign at all (the Hand-signed tier, `instella ci init --signing manual`), CI
+uploads without any key and a person who holds the key signs. "Draft" is the name of such an
+unsigned upload:
 
 ```bash
 # CI (no signing key anywhere):
@@ -232,17 +243,26 @@ download page) until it is published. `instella publish` downloads the draft's r
 compares it with `--path` and the installers you pass, and refuses to sign when anything differs;
 without `--path` it can only sign the list the server holds, and it says so. It signs exactly the
 stored bytes (with `--signing-key` or `--sign-command`), and the server accepts the signature only
-for those bytes and, when the package has registered publisher keys, only from one of them.
+for those bytes and, when the package has registered publisher keys, only from one of them. Without
+registered keys the server cannot check the signature (it holds no public key to check it with);
+installations still do.
+
+After signing, the release follows the package's
+[release approval](publishing.md#publishing-tiers-and-release-approval): with `Automatic` it is
+published at once; with `Delayed` the delay starts at signing; with `Required` it waits for Approve,
+and `publish` says so.
 
 ### CI secrets
 
 If the key has to be a file (`--signing-key`), store the PEM text (or a path to a file your
 pipeline materialises from a secret) in `INSTELLA_SIGNING_KEY`, and the password in
-`INSTELLA_SIGNING_KEY_PASSWORD`, using your CI system's secret store, in a protected environment
-that only release jobs can use. Prefer the environment variables over `--signing-key <PEM text>`: a
-command-line argument can show up in process listings and build logs. Keep the backup key out of
-CI entirely. A key in a KMS (`--sign-command`) is better: the pipeline can use it only while it
-runs, cannot copy it, and every signature is in the key service's audit log.
+`INSTELLA_SIGNING_KEY_PASSWORD`, using your CI system's secret store; on GitHub, in a protected
+environment that only release jobs can use when your plan has environments, otherwise as repository
+secrets with the `v*` tags protected. Prefer the environment variables over
+`--signing-key <PEM text>`: a command-line argument can show up in process listings and build logs.
+Keep the backup key out of CI entirely: it is what makes a leaked CI key recoverable. A key in a KMS
+(`--sign-command`) goes further: the pipeline can use it only while it runs, cannot copy it, and
+every signature is in the key service's audit log.
 
 ## Registering publisher keys on the server
 
@@ -259,7 +279,20 @@ installations never rely on it.
 While a package has no registered keys, both signed and unsigned uploads are accepted. Once at
 least one key is registered, an upload whose release is unsigned, or does not verify against a
 registered key, is rejected. Register your backup key too, so switching to it does not require a
-server change. **Remove** takes a key off the list; releases already stored are not affected.
+server change. **Remove** takes a key off the list; releases already published are not affected.
+
+Registered keys also back [release approval](publishing.md#publishing-tiers-and-release-approval):
+
+- Release approval `Delayed` or `Required` needs at least one registered key, so every held release
+  has a signature the server has verified.
+- Approving a held release, and the automatic publish at the end of a delay, check its signature
+  again against the keys registered **now**. Removing a leaked key therefore stops its pending
+  releases: they can only be rejected.
+- The last key cannot be removed while release approval is `Delayed` or `Required`, or while a
+  release is pending.
+
+Adding and removing keys is recorded in the security log (Settings > Security) with the admin who
+did it.
 
 ## Rotation
 

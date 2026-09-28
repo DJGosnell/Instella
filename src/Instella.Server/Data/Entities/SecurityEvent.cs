@@ -22,7 +22,28 @@ public enum SecurityEventType
     DownloadDeniedInsufficientPermission,
     ChannelPinChanged,
     DownloadTokenCreated,
-    DownloadTokenRevoked
+    DownloadTokenRevoked,
+
+    // Release approval. Stored as numbers: append only.
+
+    /// <summary>A build is held back by the package's release approval.</summary>
+    ReleasePending,
+    ReleaseApproved,
+
+    /// <summary>An unpublished build was rejected (deleted).</summary>
+    ReleaseRejected,
+
+    /// <summary>A delayed release's hold ended and the server published it.</summary>
+    ReleaseAutoPublished,
+
+    /// <summary>The server did not publish a delayed release: its key is no longer registered.</summary>
+    ReleaseAutoPublishBlocked,
+    ReleaseApprovalChanged,
+    PublisherKeyAdded,
+    PublisherKeyRemoved,
+
+    /// <summary><c>instella publish</c> signed a draft.</summary>
+    DraftSigned
 }
 
 /// <summary>
