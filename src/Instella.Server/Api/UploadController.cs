@@ -268,7 +268,7 @@ public class UploadController(
 
         try
         {
-            if (!await uploadService.PublishDraftAsync(packageId, version, targetOs, targetArch, release, ct))
+            if (await uploadService.PublishDraftAsync(packageId, version, targetOs, targetArch, release, ct) is null)
                 return NotFound(new ApiError { Error = $"No draft of {packageId} {version} {os}/{arch}" });
         }
         catch (UploadConflictException ex)

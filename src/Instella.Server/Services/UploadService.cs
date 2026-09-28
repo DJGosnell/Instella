@@ -285,9 +285,9 @@ public class UploadService(
     /// <summary>
     /// Publishes a draft build: <paramref name="release"/> must sign exactly the draft's manifest
     /// bytes and, when the package has registered publisher keys, verify against one of them.
-    /// Returns false when there is no such draft.
+    /// The signed build then takes the package's release approval. Returns null when there is no such draft.
     /// </summary>
-    public async Task<bool> PublishDraftAsync(
+    public async Task<DraftPublishResult?> PublishDraftAsync(
         string packageId, string version, TargetOS os, Architecture arch, SignedRelease release, CancellationToken ct = default)
     {
         version = Canonical(version);
@@ -295,7 +295,7 @@ public class UploadService(
             .Include(b => b.Version).ThenInclude(v => v.Package)
             .FirstOrDefaultAsync(b => b.State == BuildState.Draft && b.Version.Package.PackageId == packageId
                                       && b.Version.VersionString == version && b.OS == os && b.Architecture == arch, ct);
-        if (build is null) return false;
+        if (build is null) return null;
 
         byte[] bytes;
         try
@@ -328,16 +328,22 @@ public class UploadService(
             }
         }
 
+        // The signed draft takes the package's release approval like a fresh signed upload: published
+        // now, or pending (a delay starts at signing).
+        var now = DateTime.UtcNow;
+        var (state, publishAfter) = ReleaseApprovalService.InitialState(build.Version.Package, isDraft: false, now);
         // The version is "released" when its first build is published, so "latest" follows publishing.
-        if (!await db.VersionBuilds.AnyAsync(b => b.VersionId == build.VersionId && b.Id != build.Id && b.State == BuildState.Published, ct))
-            build.Version.ReleasedAt = DateTime.UtcNow;
-        build.State = BuildState.Published;
+        if (state == BuildState.Published
+            && !await db.VersionBuilds.AnyAsync(b => b.VersionId == build.VersionId && b.Id != build.Id && b.State == BuildState.Published, ct))
+            build.Version.ReleasedAt = now;
+        build.State = state;
+        build.PublishAfter = publishAfter;
         build.ReleaseSignature = release.Signature;
         build.ReleaseKeyId = release.KeyId;
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Published draft build {BuildId} of {PackageId} {Version} {OS}/{Arch} (key {KeyId})",
-            build.Id, packageId, version, os, arch, release.KeyId);
-        return true;
+        logger.LogInformation("Signed draft build {BuildId} of {PackageId} {Version} {OS}/{Arch} (key {KeyId}): {State}",
+            build.Id, packageId, version, os, arch, release.KeyId, state);
+        return new DraftPublishResult(state, publishAfter);
     }
 
     /// <summary>The draft build of one platform, or null.</summary>
@@ -402,6 +408,13 @@ public class UploadService(
 
         var files = session.Files.Values.ToList();
         var totalSize = files.Sum(f => f.Size);
+        // Signed uploads follow the package's release approval: published now, or held as pending.
+        var package = await db.Packages.AsNoTracking().FirstAsync(p => p.Id == session.PackageDbId, ct);
+        var now = DateTime.UtcNow;
+        var (state, publishAfter) = ReleaseApprovalService.InitialState(package, isDraft, now);
+        var uploaderName = session.ApiKeyId is { } uploaderId
+            ? await db.ApiKeys.Where(k => k.Id == uploaderId).Select(k => k.Name).FirstOrDefaultAsync(ct)
+            : null;
         var build = new VersionBuild
         {
             VersionId = versionEntity.Id,
@@ -409,11 +422,14 @@ public class UploadService(
             Architecture = session.Architecture,
             TotalSize = totalSize,
             ManifestHash = ComputeManifestHash(files),
-            UploadedAt = DateTime.UtcNow,
+            UploadedAt = now,
             ReleaseManifestBytes = releaseBytes,
             ReleaseSignature = signature,
             ReleaseKeyId = keyId,
-            State = isDraft ? BuildState.Draft : BuildState.Published,
+            State = state,
+            PublishAfter = publishAfter,
+            UploadedByApiKeyId = session.ApiKeyId,
+            UploadedByKeyName = uploaderName,
         };
         db.VersionBuilds.Add(build);
         await db.SaveChangesAsync(ct);
@@ -470,6 +486,8 @@ public class UploadService(
             FileCount = files.Count,
             TotalSize = totalSize,
             DeduplicatedCount = files.Count(f => f.Deduplicated),
+            State = state,
+            PublishAfter = publishAfter,
         };
     }
 
@@ -716,4 +734,15 @@ public record UploadCompleteResult
     public int FileCount { get; init; }
     public long TotalSize { get; init; }
     public int DeduplicatedCount { get; init; }
+
+    /// <summary>Whether clients see the build now, or it is a draft or held for approval.</summary>
+    public BuildState State { get; init; }
+
+    /// <summary>When a delayed release goes live unless rejected (UTC).</summary>
+    public DateTime? PublishAfter { get; init; }
 }
+
+/// <summary>The state of a draft after <c>instella publish</c> signed it.</summary>
+/// <param name="State">Published, or pending under the package's release approval.</param>
+/// <param name="PublishAfter">When a delayed release goes live unless rejected (UTC).</param>
+public sealed record DraftPublishResult(BuildState State, DateTime? PublishAfter);

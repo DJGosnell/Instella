@@ -118,6 +118,7 @@ builder.Services.AddScoped<ISecurityLogService, SecurityLogService>();
 builder.Services.AddScoped<IIpBanService, IpBanService>();
 builder.Services.AddSingleton<IpBanCache>();
 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
+builder.Services.AddScoped<ReleaseApprovalService>();
 builder.Services.AddHostedService<PatchJobWorker>();
 builder.Services.AddHostedService<OrphanSweeper>();
 

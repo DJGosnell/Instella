@@ -13,6 +13,12 @@ public enum ApiPermission
 
     /// <summary><c>download/*</c>, <c>patch*</c>, <c>release/*</c> and <c>check-update</c> of a private package.</summary>
     Download,
+
+    /// <summary>
+    /// Approving or rejecting releases held by the package's release approval: keys with
+    /// <see cref="ApiKey.CanApproveReleases"/>.
+    /// </summary>
+    ApproveReleases,
 }
 
 /// <summary>The single permission matrix for API keys; every API check goes through it.</summary>
@@ -31,6 +37,7 @@ public static class ApiPermissions
             ApiPermission.Upload => key.CanUpload,
             ApiPermission.ManageVersions => key.CanManageVersions,
             ApiPermission.Download => key.CanDownload,
+            ApiPermission.ApproveReleases => key.CanApproveReleases,
             _ => false,
         };
 }

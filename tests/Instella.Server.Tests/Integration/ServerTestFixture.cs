@@ -29,6 +29,7 @@ public class ServerTestFixture : IDisposable
     public DiffService DiffService { get; }
     public AuthService AuthService { get; }
     public PackageService PackageService { get; }
+    public ReleaseApprovalService ReleaseApprovals { get; }
 
     /// <summary>Scopes over the same database, for services that create their own (background workers).</summary>
     public IServiceScopeFactory ScopeFactory => _serviceProvider.GetRequiredService<IServiceScopeFactory>();
@@ -61,6 +62,8 @@ public class ServerTestFixture : IDisposable
         // Add logging
         services.AddLogging();
         services.AddScoped<DiffService>();
+        services.AddScoped<ContentStorageService>();
+        services.AddScoped<ReleaseApprovalService>();
 
         _serviceProvider = services.BuildServiceProvider();
         _scope = _serviceProvider.CreateScope();
@@ -87,6 +90,7 @@ public class ServerTestFixture : IDisposable
 
         AuthService = new AuthService(Db);
         PackageService = new PackageService(Db, ContentStorage);
+        ReleaseApprovals = new ReleaseApprovalService(Db, ContentStorage, NullLogger<ReleaseApprovalService>.Instance);
     }
 
     public async Task<Package> SeedPackageAsync(
