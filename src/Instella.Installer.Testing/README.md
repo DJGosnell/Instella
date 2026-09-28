@@ -31,4 +31,13 @@ Assert.That(result.Outcome, Is.EqualTo(MigrationOutcome.Completed));
 Assert.That(result.FileExists(KnownFolder.LocalAppData, "ExampleApp/ExampleApp.exe"), Is.False);
 ```
 
+Full runs never start real programs: `WhenProgramRuns` decides what the app's upgrade program does
+(`ProgramOutcome.Exit(0)`, `Exit(1)`, `TimeOut()`, `CannotStart(…)`), and `ProgramRuns` records how it was started:
+
+```csharp
+harness.WhenProgramRuns(run => ProgramOutcome.Exit(1).WithErrorOutput("the database is locked"));
+Assert.That(await harness.RunFullWithArgsAsync(["--install", "--silent", "--path", path]), Is.EqualTo(15));
+Assert.That(harness.ProgramRuns.Single().Arguments[4], Is.EqualTo("first-install"));
+```
+
 Works with any test framework. See `llm.md` in the [repository]({{RepositoryUrl}}) for the full harness surface.

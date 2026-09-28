@@ -34,6 +34,22 @@ get an approval step on the server instead ([docs/publishing.md](docs/publishing
   blocked automatic publish, release approval changes, publisher key changes and signed drafts. These
   are never collapsed into "(+N similar)".
 - New API routes `api/v1/approvals/{packageId}[/{version}/{os}/{arch}[/approve|/reject]]`.
+- **App upgrade programs** ([docs/app-upgrade.md](docs/app-upgrade.md)): the app's own upgrade code
+  (a database schema migration, a settings conversion) as a separate exe in the app's publish output.
+  The installer (first install, upgrade, repair, downgrade) and the in-app updater run it headless on
+  the new files, before the operation completes; a non-zero exit, a crash or the time limit (default
+  30 minutes) rolls the operation back. With `handlesUninstall` it also runs before an uninstall. A
+  crash while it runs is rolled back by the next run's recovery.
+- `InstellaUpgrade.RunAsync` in Instella.Sdk: parses the launch contract, reports progress
+  (`##instella progress` lines) and maps exceptions to exit codes (`AppUpgradeRefusedException` → 2).
+  `AppUpgradeContext.ToArguments()` builds the exact arguments for tests.
+- Instella.Sdk MSBuild properties `InstellaUpgradeProgram`, `InstellaUpgradeArguments`,
+  `InstellaUpgradeTimeoutMinutes` and `InstellaUpgradeHandlesUninstall`, which generate
+  `instella-upgrade.json` into the output and publish folders (errors INSTELLA0301–0303, warning
+  INSTELLA0304).
+- Exit codes **15** (`InstallAppUpgradeFailed`) and **25** (`UpdateAppUpgradeFailed`).
+- `InstellaTestHarness.WhenProgramRuns` and `ProgramRuns`, with `ProgramRun` and `ProgramOutcome`: full
+  harness runs never start real programs (the app's upgrade program or programs install migrations run).
 
 ### Changed
 
@@ -48,6 +64,12 @@ get an approval step on the server instead ([docs/publishing.md](docs/publishing
   or while a release is pending.
 - `ci init --signing secret` notes, and the docs, present a CI secret plus an offline backup key
   compiled into the installer as the default for a solo maintainer.
+- The install pipeline has a new built-in step, `app-upgrade`, right after `commit-transaction` and
+  before custom Finalize steps. `app-upgrade` is a reserved step name, and a point-of-no-return step cannot
+  be ordered before it.
+- `InstellaTestHarness.LogSink` now also captures the log of a `RunFullAsync` run.
+- Installations updated in-app by a 0.1.0-rc.1 or rc.2 stub do not run app upgrade programs until an
+  installer runs on them (the stub is never replaced by an update).
 - The server database gains the `ReleaseApproval` migration, applied at startup. Existing data is kept
   (drafts stay drafts, existing packages stay `Automatic`); no empty database is needed.
 
