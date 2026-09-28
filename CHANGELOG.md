@@ -5,9 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-09-27
 
-### Added
+The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are
+experimental (silent installs only). Instella is tested but not yet field-tested: until 1.0 there
+is no compatibility promise. Formats, the updater command line, the wire protocol and the public API
+may change between 0.x releases, and this changelog says when a change needs installations to be
+reinstalled ([docs/compatibility.md](docs/compatibility.md)).
+
+### Added since 0.1.0-rc.1
 
 - **Install migrations** ([docs/migrations.md](docs/migrations.md)): classes derived from
   `InstallMigration`, registered with `InstallerBuilder.AddMigration<T>()` or `AddMigration(instance)`,
@@ -35,18 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the next installer run on the folder finishes an interrupted install's undo, or deletes the
   copies if the install was committed.
 
-### Changed
+### Changed since 0.1.0-rc.1
 
 - The installed manifest (`.instella-manifest.json`) gains two optional fields, `completedMigrations`
   and `adoptedItems`. `manifestVersion` stays 4; no reinstall is needed.
-
-## [0.1.0] - 2026-09-27
-
-The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are
-experimental (silent installs only). Instella is tested but not yet field-tested: until 1.0 there
-is no compatibility promise. Formats, the updater command line, the wire protocol and the public API
-may change between 0.x releases, and this changelog says when a change needs installations to be
-reinstalled ([docs/compatibility.md](docs/compatibility.md)).
+- Server images are published only by release tags: every release publishes `:<version>` (and a
+  release without a suffix `:latest`) together with the NuGet packages. The automatic `:edge` and
+  `:sha-<commit>` images from pushes to `master` are gone; `:edge` is now a one-off build started by
+  hand (`server-image.yml`).
 
 ### Features
 

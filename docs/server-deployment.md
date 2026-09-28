@@ -28,20 +28,21 @@ over the same S3 bucket with copies of the database, can lose files. Scale up th
 
 ### From ghcr.io (recommended)
 
-Every push to `master` that touches the server publishes `ghcr.io/djgosnell/instella-server:edge` and
-`:sha-<commit>` (`.github/workflows/server-image.yml`). Each release adds `:<version>` (for example
-`:0.1.0`) and, for a release without a suffix, `:latest` (`.github/workflows/release.yml`). The images are
-public and linux/amd64 only. Point the compose file at the registry in `.env`:
+Images are published by release tags only (`.github/workflows/release.yml`): each release, including a
+pre-release such as `0.2.0-rc.1`, publishes `ghcr.io/djgosnell/instella-server:<version>`, and a release
+without a suffix also moves `:latest`. `:edge` is a one-off build of an unreleased commit that a
+maintainer starts by hand (`.github/workflows/server-image.yml`); it is replaced each time and may not
+exist. The images are public and linux/amd64 only. Point the compose file at the registry in `.env`:
 
 ```sh
 INSTELLA_IMAGE=ghcr.io/djgosnell/instella-server
-VERSION=0.1.0        # or latest, or edge to follow master, or sha-<commit> to pin one build
+VERSION=0.1.0        # or latest; edge only when a maintainer has built one to try
 INSTELLA_PORT=8580
 ```
 
 and deploy or update with `scripts/deploy.sh <tag> --pull`. It pulls the image, backs up `.env`, the
-compose file, `config/` and `packages/`, restarts the container and waits for it to report healthy. `edge`
-is the newest build of `master`: good for trying changes, but pin a version for a server others depend on.
+compose file, `config/` and `packages/`, restarts the container and waits for it to report healthy.
+Pin a version for a server others depend on; `edge` is only for trying an unreleased build.
 
 ### Building it yourself
 
@@ -432,7 +433,7 @@ With the registry image, an upgrade is `scripts/deploy.sh <tag> --pull`. By hand
 
 1. **Back up first** (above). Migrations change the database in place, and an older image cannot be
    expected to run against a database a newer one has migrated. Rolling back means restoring that backup
-   and deploying the previous tag (a `sha-<commit>` tag names one build exactly; `edge` moves).
+   and deploying the previous tag (a `<version>` tag names one release exactly).
 2. Pull, build or load the new image (`docker compose pull`, `scripts/build.ps1`, `docker load`), then set
    `VERSION` in `.env`.
 3. `docker compose up -d`. On start the server applies any pending EF Core migrations, then serves requests.
