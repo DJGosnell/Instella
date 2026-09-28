@@ -88,9 +88,10 @@ stages.
 GitHub Actions runs `.github/workflows/ci.yml` (`verify.ps1 -Stage Build,Test,Migrations,Audit,Pack
 -NoSkip` on `windows-latest`) for every push to master and every pull request. The other stages
 (Signing, Aot, E2E, Docker) run in the release workflow; run them locally for changes that touch them
-and paste the summary into the pull request. `.github/workflows/server-image.yml` publishes the server
-image `:edge` for every server change on master. Nothing is published from a pull request: PR runs
-only verify, with read-only permissions ([server-deployment.md](server-deployment.md#getting-the-image)).
+and paste the summary into the pull request. Server images are published only by release tags;
+`.github/workflows/server-image.yml` builds a one-off `:edge` image when run by hand. Nothing is published
+from a pull request: PR runs only verify, with read-only permissions
+([server-deployment.md](server-deployment.md#getting-the-image)).
 
 ### Making a release
 

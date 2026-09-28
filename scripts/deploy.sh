@@ -21,7 +21,7 @@ usage() {
     echo "       $0 --restore <backup-folder>"
     echo ""
     echo "Arguments:"
-    echo "  version         Image tag to deploy (e.g., 0.1.0, latest, edge, sha-1a2b3c4)"
+    echo "  version         Image tag to deploy (e.g., 0.1.0, 0.2.0-rc.1, latest, or edge when one was built by hand)"
     echo ""
     echo "Options:"
     echo "  --pull          Pull the image from its registry (INSTELLA_IMAGE in .env, e.g. ghcr.io/djgosnell/instella-server)"
@@ -33,7 +33,7 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0 0.1.0 --pull                               # Pull version 0.1.0 from the registry and deploy"
-    echo "  $0 edge --pull                                # Pull the newest build of master and deploy"
+    echo "  $0 latest --pull                              # Pull the newest release and deploy"
     echo "  $0 0.1.0 --load                               # Load image from tar and deploy"
     echo "  $0 --restore instella-0.1.0-20260131_123456   # Restore from backup"
     exit 1

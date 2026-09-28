@@ -1,20 +1,11 @@
-# The server image for self-hosting. Every push to master that touches the server publishes
-# ghcr.io/djgosnell/instella-server:edge and :sha-<commit>. Release tags come from release.yml.
+# A one-off server image for trying an unreleased build: run it by hand from the Actions tab
+# ("Run workflow", on any branch). It publishes ghcr.io/djgosnell/instella-server:edge, replacing
+# the previous :edge. Nothing builds it automatically: release images (:<version>, :latest) come
+# only from release tags (release.yml).
 # Update a host with: scripts/deploy.sh edge --pull
 name: server-image
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - 'src/Instella.Server/**'
-      - 'src/Instella.Core/**'
-      - 'tests/Instella.Server.Tests/**'
-      - 'Directory.Build.props'
-      - 'Directory.Build.targets'
-      - 'Directory.Packages.props'
-      - 'global.json'
-      - '.github/workflows/server-image.yml'
   workflow_dispatch:
 
 permissions:
@@ -39,5 +30,5 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: docker build -t $IMAGE:edge -t $IMAGE:sha-${{ github.sha }} src/Instella.Server
-      - run: docker push --all-tags $IMAGE
+      - run: docker build -t $IMAGE:edge src/Instella.Server
+      - run: docker push $IMAGE:edge
