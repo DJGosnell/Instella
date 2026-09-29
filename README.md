@@ -15,6 +15,9 @@ app as `instella.exe`, later updates, repairs and uninstalls it.
 - **Install migrations.** Small classes that deal with what came before: replacing a copy installed
   without Instella, moving old settings, cleaning up after an older version. They run once, under a
   condition, inside safety rules, and can be tested on fakes.
+- **App upgrade programs.** Your app's own upgrade code (a database schema migration, a settings
+  conversion) as a small exe beside the app. The installer and the in-app updater both run it on every
+  version change, and roll back to the previous files if it fails.
 - **Signed updates.** Every release is signed with your publisher key. An installed app accepts
   an update only if the signature verifies, it is for this app, OS and architecture, and it is
   newer than what is installed. The update server cannot forge or downgrade a release.
@@ -197,6 +200,7 @@ Details, including what is out of scope, are in [security-model.md](docs/securit
 | [security-model.md](docs/security-model.md) | Trust chain, what the server can and cannot do, elevation |
 | [publishing.md](docs/publishing.md) | Publishing releases and installers by hand or from GitHub/Gitea Actions (`instella ci init`) |
 | [migrations.md](docs/migrations.md) | Install migrations, and replacing an existing (pre-Instella) installation |
+| [app-upgrade.md](docs/app-upgrade.md) | App upgrade programs: the app's own data upgrades, run by the installer and the updater |
 | [signing-and-keys.md](docs/signing-and-keys.md) | Publisher keys: generation, storage, rotation, loss, KMS signing |
 | [distribution-and-signing.md](docs/distribution-and-signing.md) | Authenticode signing of installers and the stub |
 | [server-deployment.md](docs/server-deployment.md) | Docker, reverse proxy and TLS, backups, upgrades |

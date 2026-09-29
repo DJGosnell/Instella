@@ -1,1 +1,43 @@
 #nullable enable
+Instella.Sdk.AppUpgradeContext
+Instella.Sdk.AppUpgradeContext.AppId.get -> string!
+Instella.Sdk.AppUpgradeContext.AppId.init -> void
+Instella.Sdk.AppUpgradeContext.AppUpgradeContext() -> void
+Instella.Sdk.AppUpgradeContext.ContractVersion.get -> int
+Instella.Sdk.AppUpgradeContext.ContractVersion.init -> void
+Instella.Sdk.AppUpgradeContext.ExtraArguments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Sdk.AppUpgradeContext.ExtraArguments.init -> void
+Instella.Sdk.AppUpgradeContext.FromVersion.get -> System.Version?
+Instella.Sdk.AppUpgradeContext.FromVersion.init -> void
+Instella.Sdk.AppUpgradeContext.InstallPath.get -> string!
+Instella.Sdk.AppUpgradeContext.InstallPath.init -> void
+Instella.Sdk.AppUpgradeContext.IsDowngrade.get -> bool
+Instella.Sdk.AppUpgradeContext.IsRepair.get -> bool
+Instella.Sdk.AppUpgradeContext.Mode.get -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeContext.Mode.init -> void
+Instella.Sdk.AppUpgradeContext.Scope.get -> Instella.Sdk.AppUpgradeScope
+Instella.Sdk.AppUpgradeContext.Scope.init -> void
+Instella.Sdk.AppUpgradeContext.ToArguments() -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Sdk.AppUpgradeContext.ToVersion.get -> System.Version?
+Instella.Sdk.AppUpgradeContext.ToVersion.init -> void
+Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeMode.Downgrade = 3 -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeMode.FirstInstall = 0 -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeMode.Repair = 2 -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeMode.Uninstall = 5 -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeMode.Update = 4 -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeMode.Upgrade = 1 -> Instella.Sdk.AppUpgradeMode
+Instella.Sdk.AppUpgradeRefusedException
+Instella.Sdk.AppUpgradeRefusedException.AppUpgradeRefusedException(string! message) -> void
+Instella.Sdk.AppUpgradeRefusedException.AppUpgradeRefusedException(string! message, System.Exception? innerException) -> void
+Instella.Sdk.AppUpgradeScope
+Instella.Sdk.AppUpgradeScope.Machine = 1 -> Instella.Sdk.AppUpgradeScope
+Instella.Sdk.AppUpgradeScope.PerUser = 0 -> Instella.Sdk.AppUpgradeScope
+Instella.Sdk.IAppUpgradeProgress
+Instella.Sdk.IAppUpgradeProgress.Report(int percent, string? text = null) -> void
+Instella.Sdk.InstellaUpgrade
+static Instella.Sdk.InstellaUpgrade.IsInstellaInvocation(System.Collections.Generic.IReadOnlyList<string!>! args) -> bool
+static Instella.Sdk.InstellaUpgrade.RunAsync(string![]! args, System.Func<Instella.Sdk.AppUpgradeContext!, Instella.Sdk.IAppUpgradeProgress!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! upgrade) -> System.Threading.Tasks.Task<int>!
+static Instella.Sdk.InstellaUpgrade.RunAsync(string![]! args, System.Func<Instella.Sdk.AppUpgradeContext!, Instella.Sdk.IAppUpgradeProgress!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! upgrade, System.Func<Instella.Sdk.AppUpgradeContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>? uninstall) -> System.Threading.Tasks.Task<int>!
+static Instella.Sdk.InstellaUpgrade.RunAsync(string![]! args, System.Func<Instella.Sdk.AppUpgradeContext!, Instella.Sdk.IAppUpgradeProgress!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! upgrade, System.Func<Instella.Sdk.AppUpgradeContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>? uninstall, System.IO.TextWriter! output, System.IO.TextWriter! error, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<int>!
+static Instella.Sdk.InstellaUpgrade.TryParse(System.Collections.Generic.IReadOnlyList<string!>! args, out Instella.Sdk.AppUpgradeContext? context, out string? error) -> bool

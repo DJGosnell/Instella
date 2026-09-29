@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    Instella.Sdk.targets: generates instella-upgrade.json from the InstellaUpgrade* properties
+    (see Instella.Sdk.props) and copies it to the output and publish folders, at the root.
+    Nothing happens while InstellaUpgradeProgram is empty.
+  -->
+
+  <PropertyGroup>
+    <InstellaUpgradeTimeoutMinutes Condition="'$(InstellaUpgradeTimeoutMinutes)' == ''">30</InstellaUpgradeTimeoutMinutes>
+    <InstellaUpgradeHandlesUninstall Condition="'$(InstellaUpgradeHandlesUninstall)' == ''">false</InstellaUpgradeHandlesUninstall>
+    <_InstellaUpgradeDeclarationPath>$(IntermediateOutputPath)instella-upgrade.json</_InstellaUpgradeDeclarationPath>
+  </PropertyGroup>
+
+  <Target Name="InstellaGenerateUpgradeDeclaration"
+          BeforeTargets="AssignTargetPaths"
+          Condition="'$(InstellaUpgradeProgram)' != ''">
+
+    <Error Code="INSTELLA0301"
+           Condition="$([System.IO.Path]::IsPathRooted('$(InstellaUpgradeProgram)')) or $(InstellaUpgradeProgram.Contains('..')) or $(InstellaUpgradeProgram.Contains(':')) or $(InstellaUpgradeProgram.Contains('&quot;'))"
+           Text="InstellaUpgradeProgram '$(InstellaUpgradeProgram)' must be a path relative to the app's folder, without '..', ':' or quotes." />
+    <Error Code="INSTELLA0302"
+           Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(InstellaUpgradeTimeoutMinutes)', '^[0-9]{1,4}$')) or $(InstellaUpgradeTimeoutMinutes) &lt; 1 or $(InstellaUpgradeTimeoutMinutes) &gt; 1440"
+           Text="InstellaUpgradeTimeoutMinutes '$(InstellaUpgradeTimeoutMinutes)' must be a whole number of minutes from 1 to 1440." />
+    <Error Code="INSTELLA0303"
+           Condition="'$(InstellaUpgradeHandlesUninstall.ToLowerInvariant())' != 'true' and '$(InstellaUpgradeHandlesUninstall.ToLowerInvariant())' != 'false'"
+           Text="InstellaUpgradeHandlesUninstall '$(InstellaUpgradeHandlesUninstall)' must be true or false." />
+
+    <PropertyGroup>
+      <_InstellaUpgradeProgramJson>$(InstellaUpgradeProgram.Replace('\', '\\').Replace('&quot;', '\&quot;'))</_InstellaUpgradeProgramJson>
+      <_InstellaUpgradeHandlesUninstallJson>$(InstellaUpgradeHandlesUninstall.ToLowerInvariant())</_InstellaUpgradeHandlesUninstallJson>
+    </PropertyGroup>
+
+    <!-- The arguments are JSON-escaped and split by a property function, whose result MSBuild escapes:
+         the items then hold each argument literally, and never expand '*' or '?' into file names. -->
+    <PropertyGroup>
+      <_InstellaUpgradeArgumentsEscaped>$(InstellaUpgradeArguments.Replace('\', '\\').Replace('&quot;', '\&quot;').Replace('&#9;', '\t').Replace('&#13;', '\r').Replace('&#10;', '\n').Split(';'))</_InstellaUpgradeArgumentsEscaped>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_InstellaUpgradeArgument Include="$(_InstellaUpgradeArgumentsEscaped)" Condition="'$(InstellaUpgradeArguments)' != ''" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_InstellaUpgradeArgumentsJson>@(_InstellaUpgradeArgument->'&quot;%(Identity)&quot;', ', ')</_InstellaUpgradeArgumentsJson>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_InstellaUpgradeLine Include="{" />
+      <_InstellaUpgradeLine Include="  &quot;contractVersion&quot;: $(InstellaUpgradeContractVersion)," />
+      <_InstellaUpgradeLine Include="  &quot;program&quot;: &quot;$(_InstellaUpgradeProgramJson)&quot;," />
+      <_InstellaUpgradeLine Include="  &quot;arguments&quot;: [$(_InstellaUpgradeArgumentsJson)]," />
+      <_InstellaUpgradeLine Include="  &quot;timeoutMinutes&quot;: $(InstellaUpgradeTimeoutMinutes)," />
+      <_InstellaUpgradeLine Include="  &quot;handlesUninstall&quot;: $(_InstellaUpgradeHandlesUninstallJson)" />
+      <_InstellaUpgradeLine Include="}" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile File="$(_InstellaUpgradeDeclarationPath)" Lines="@(_InstellaUpgradeLine)" Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+
+    <ItemGroup>
+      <FileWrites Include="$(_InstellaUpgradeDeclarationPath)" />
+      <None Include="$(_InstellaUpgradeDeclarationPath)" Link="instella-upgrade.json"
+            CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
+  <!-- A declaration naming a program that is not in the publish output fails every install and
+       update of the release; warn at publish time (another step may still copy it in). -->
+  <Target Name="InstellaCheckUpgradeProgram"
+          AfterTargets="Publish"
+          Condition="'$(InstellaUpgradeProgram)' != ''">
+    <PropertyGroup>
+      <_InstellaUpgradeProgramBase>$(InstellaUpgradeProgram)</_InstellaUpgradeProgramBase>
+      <_InstellaUpgradeProgramBase Condition="$(InstellaUpgradeProgram.EndsWith('.exe', System.StringComparison.OrdinalIgnoreCase))">$(InstellaUpgradeProgram.Substring(0, $([MSBuild]::Subtract($(InstellaUpgradeProgram.Length), 4))))</_InstellaUpgradeProgramBase>
+    </PropertyGroup>
+    <Warning Code="INSTELLA0304"
+             Condition="!Exists('$(PublishDir)$(_InstellaUpgradeProgramBase)') and !Exists('$(PublishDir)$(_InstellaUpgradeProgramBase).exe')"
+             Text="InstellaUpgradeProgram '$(InstellaUpgradeProgram)' is not in the publish output ($(PublishDir)). Every install and update of this release will fail until it is: reference the upgrade project from the app, or publish it into the same folder." />
+  </Target>
+</Project>

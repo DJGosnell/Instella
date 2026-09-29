@@ -355,6 +355,35 @@ The updater takes the server URL, package id and trusted keys from the installed
 machine install that file is in Program Files and writable only by administrators, so an
 unprivileged user cannot redirect an elevated update.
 
+## App upgrade programs
+
+An app can ship an [upgrade program](app-upgrade.md): its own exe, named by `instella-upgrade.json` at
+the app's root, which the installer and the updater run on every version change and, when it opts in,
+before an uninstall.
+
+- **Trust.** The program and the declaration are ordinary release files: they are in the signed release
+  manifest, hashed while staging, and trusted exactly as much as the app's other files. The updater
+  already trusts those files enough to install them; running one is no wider trust. No release-manifest
+  or trust-rule change was needed.
+- **Rights.** The program runs with the installer's or updater's rights and nothing more: elevated for a
+  machine-wide installation (the updater relaunches elevated for one), the user's rights for a per-user
+  installation. It never runs elevated for a per-user install.
+- **Which file.** The declaration names a path relative to the install folder, checked with `SafePath`,
+  never under `.instella/` and never the stub. It must be one of the app's files for the version being
+  installed (payload, signed release or installed manifest); a declaration naming anything else fails the
+  operation. On install and update the program runs from the new, just-verified files, after the commit.
+- **Uninstall.** Before running the program (elevated, for a machine install), uninstall hashes it and
+  `instella-upgrade.json` and compares both with the installed manifest's record; if either changed since
+  it was installed, nothing runs.
+- **Containment.** No shell, arguments as a list, stdin closed, the install folder as working directory.
+  A time limit (default 30 minutes, at most a day) ends the whole process tree. On Windows the program
+  runs in a job object that ends it if the installer or updater dies, so it cannot keep changing data
+  after recovery has rolled the files back. Its output goes to the log with size caps (4,096 characters
+  per line, 1 MiB per run).
+- **Rollback.** A failure rolls the files back. The commit stays journalled as `Committing` while the
+  program runs, so a crash is rolled back by the next run's recovery. The app's data is the program's
+  responsibility: it must leave data the old version can use when it fails.
+
 ## Path containment
 
 Every relative path that comes from outside the process goes through `SafePath` before it becomes
@@ -455,6 +484,8 @@ Do not ship production installers with either builder switch.
   critical system processes are never closed; a process it may not close keeps its files in use, and
   the update exits 24 when files stay locked. If a commit rename still fails, the update rolls back
   (exit 22).
+- **App upgrade programs outside Windows.** Linux and macOS (experimental) have no job object: an
+  upgrade program can outlive an installer that is killed while it runs.
 - **Prerequisite elevation.** A prerequisite with `RequiresElevation` (the default) that runs
   from a per-user install without administrator rights raises a UAC prompt of its own. A silent
   install never prompts, so it fails with exit 11 instead; run it from an elevated prompt.

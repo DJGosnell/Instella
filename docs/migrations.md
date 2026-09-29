@@ -8,6 +8,10 @@ condition you declare, during an install, upgrade, repair or uninstall.
 This page explains migrations, then walks through the most common case: [replacing an existing
 installation](#replacing-an-existing-installation).
 
+Migrations are for machine state around the app. For the app's **own data** (a database schema, a
+settings format, a cache) use an [app upgrade program](app-upgrade.md): the app's own code, which the
+installer and the in-app updater both run on every version change.
+
 ## A migration
 
 ```csharp
@@ -213,8 +217,10 @@ Two consequences:
   is the auto-updated one and the run may be a repair. `FileExists(...)` and `RunValuePointsInto(...)`
   still describe the situation correctly; `UpgradingFrom("<3")` or `IsFirstInstallOrUpgrade()` may
   not. Keep migrations idempotent.
-- **Changes that must happen on update belong in the app.** On the first start after an update,
-  `InstellaClient.IsPostUpdate` is true; do update-time fix-ups there.
+- **Changes that must happen on every update belong in the app.** For the app's data, ship an
+  [app upgrade program](app-upgrade.md): the updater runs it on every in-app update (and the installer
+  on every install), with a rollback if it fails. For per-user fix-ups on the app's first start,
+  `InstellaClient.IsPostUpdate` is true after an update.
 
 ## Uninstall
 

@@ -175,7 +175,7 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
             appId: _config.AppId,
             modeName: dispatch.Mode.ToString().ToLowerInvariant());
 
-        var log = new LogsmithLoggerAdapter();
+        Instella.Core.Logging.IInstellaLogger log = services.Log ?? new LogsmithLoggerAdapter();
 
         if (ignoredOptions.Count > 0)
             log.Info($"ignoring options this updater does not know ({string.Join(", ", ignoredOptions)}); they may come from a newer SDK");
@@ -318,7 +318,7 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
                     await new UninstallModeRunner(_config, log, platform, fileSystem)
                     {
                         Messages = messages, ProcessFinder = services.ProcessFinder,
-                        KnownFolders = services.KnownFolders, ProcessCloser = services.ProcessCloser,
+                        KnownFolders = services.KnownFolders, ProcessCloser = services.ProcessCloser, Programs = services.Programs,
                     }.RunAsync(dispatch, ct),
                 InstallerMode.Manage =>
                     await new ManageModeRunner(_config, log, platform, fileSystem,

@@ -195,7 +195,12 @@ internal sealed class InstallTransaction
     /// Throws when a rename keeps failing; the caller then calls <see cref="RollbackAsync"/>.
     /// </summary>
     /// <param name="onOperation">Called after each operation with (operations done, total).</param>
-    public async Task CommitAsync(Action<int, int>? onOperation = null)
+    /// <param name="hold">
+    /// Leave the journal (and <see cref="State"/>) at <see cref="TxnState.Committing"/> once every
+    /// file has moved, until <see cref="ConfirmCommitAsync"/>. A crash in between is then rolled
+    /// back by <see cref="RecoverAsync"/>: used while the app's upgrade program runs on the new files.
+    /// </param>
+    public async Task CommitAsync(Action<int, int>? onOperation = null, bool hold = false)
     {
         var ct = CancellationToken.None;
         if (State == TxnState.Staging)
@@ -240,7 +245,30 @@ internal sealed class InstallTransaction
             onOperation?.Invoke(++done, _ops.Count);
         }
 
+        if (hold)
+        {
+            IsHeld = true;
+            return;
+        }
         await WriteJournalAsync(TxnState.Committed, ct);
+    }
+
+    /// <summary>
+    /// True after <see cref="CommitAsync"/> with <c>hold</c>, until <see cref="ConfirmCommitAsync"/>
+    /// or a rollback: every file has moved, but the journal still says
+    /// <see cref="TxnState.Committing"/>, so recovery would roll the files back.
+    /// </summary>
+    public bool IsHeld { get; private set; }
+
+    /// <summary>
+    /// Makes a held commit final (<see cref="TxnState.Committed"/>). A no-op when the commit was
+    /// not held, was already confirmed, or was rolled back.
+    /// </summary>
+    public async Task ConfirmCommitAsync()
+    {
+        if (!IsHeld) return;
+        await WriteJournalAsync(TxnState.Committed, CancellationToken.None);
+        IsHeld = false;
     }
 
     /// <summary>
@@ -257,6 +285,7 @@ internal sealed class InstallTransaction
         }
         await UndoOperationsAsync(_ops, _createdDirs);
         await WriteJournalAsync(TxnState.RolledBack, CancellationToken.None);
+        IsHeld = false;
     }
 
     /// <summary>

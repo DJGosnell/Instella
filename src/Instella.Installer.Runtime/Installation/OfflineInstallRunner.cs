@@ -96,6 +96,7 @@ internal sealed class OfflineInstallRunner
         new RegisterUninstallEntryStep(),
         new WriteManifestStep(),
         new CommitTransactionStep(),
+        new AppUpgradeStep(),
     };
 
     /// <summary>

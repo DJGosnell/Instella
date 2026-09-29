@@ -140,6 +140,24 @@ function Get-PayloadEntries {
     finally { $zip.Dispose() }
 }
 
+# The text of one entry of an installer's payload.
+function Get-PayloadEntryText {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Entry)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $footer = $bytes.Length - 80
+    $offset = [System.BitConverter]::ToInt64($bytes, $footer + 16)
+    $length = [System.BitConverter]::ToInt64($bytes, $footer + 24)
+    $zipStream = [System.IO.MemoryStream]::new($bytes, [int]$offset, [int]$length)
+    $zip = [System.IO.Compression.ZipArchive]::new($zipStream, [System.IO.Compression.ZipArchiveMode]::Read)
+    try {
+        $item = $zip.GetEntry($Entry)
+        if (-not $item) { return $null }
+        $reader = [System.IO.StreamReader]::new($item.Open())
+        try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+    }
+    finally { $zip.Dispose() }
+}
+
 # Id, version and licence recorded in a .nupkg's .nuspec, plus the raw .nuspec and README text.
 function Get-PackageMetadata {
     param([Parameter(Mandatory)][string]$Path)
@@ -321,15 +339,47 @@ function Invoke-PackStage {
 </configuration>
 "@ | Set-Content -Path (Join-Path $consumerRoot 'NuGet.config') -Encoding UTF8
 
-    @'
+    $plainAppProject = @'
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 </Project>
-'@ | Set-Content -Path (Join-Path $payloadDir 'PayloadApp.csproj') -Encoding UTF8
+'@
+    # The payload app declares an upgrade program (Instella.Sdk's MSBuild properties) and references
+    # the upgrade project, so its exe lands in the app's publish output beside instella-upgrade.json.
+    @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <InstellaUpgradeProgram>PayloadApp.Upgrade</InstellaUpgradeProgram>
+    <InstellaUpgradeTimeoutMinutes>45</InstellaUpgradeTimeoutMinutes>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Instella.Sdk" Version="$expectedVersion" />
+    <ProjectReference Include="..\PayloadApp.Upgrade\PayloadApp.Upgrade.csproj" />
+  </ItemGroup>
+</Project>
+"@ | Set-Content -Path (Join-Path $payloadDir 'PayloadApp.csproj') -Encoding UTF8
     'System.Console.WriteLine("payload app");' | Set-Content -Path (Join-Path $payloadDir 'Program.cs') -Encoding UTF8
+
+    $upgradeDir = Join-Path $consumerRoot 'PayloadApp.Upgrade'
+    New-Item -ItemType Directory -Path $upgradeDir -Force | Out-Null
+    @"
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Instella.Sdk" Version="$expectedVersion" />
+  </ItemGroup>
+</Project>
+"@ | Set-Content -Path (Join-Path $upgradeDir 'PayloadApp.Upgrade.csproj') -Encoding UTF8
+    'return await Instella.Sdk.InstellaUpgrade.RunAsync(args, (context, progress, ct) => System.Threading.Tasks.Task.CompletedTask);' |
+        Set-Content -Path (Join-Path $upgradeDir 'Program.cs') -Encoding UTF8
 
     # TargetFramework is declared in the project body on purpose: the package's
     # build/*.props is imported above the body, which once broke defaults.
@@ -388,6 +438,14 @@ return await InstellaInstaller.Create()
     if (-not (Test-FooterMagic -Path $consumedExe)) { Add-Result 'Pack' 'FAIL' 'consumer installer carries no INSTELLA footer'; return }
     $entries = Get-PayloadEntries -Path $consumedExe
     if ($entries -notcontains '.instella/instella.exe') { Add-Result 'Pack' 'FAIL' 'the payload carries no stub (.instella/instella.exe)'; return }
+    # App upgrade program: Instella.Sdk generated the declaration from the MSBuild properties, and the
+    # program it names is in the app's files.
+    if ($entries -notcontains 'instella-upgrade.json') { Add-Result 'Pack' 'FAIL' 'the payload carries no instella-upgrade.json (Instella.Sdk build assets)'; return }
+    if ($entries -notcontains 'PayloadApp.Upgrade.exe') { Add-Result 'Pack' 'FAIL' 'the payload carries no PayloadApp.Upgrade.exe (the upgrade program)'; return }
+    $declaration = (Get-PayloadEntryText -Path $consumedExe -Entry 'instella-upgrade.json') | ConvertFrom-Json
+    if ($declaration.contractVersion -ne 1 -or $declaration.program -ne 'PayloadApp.Upgrade' -or $declaration.timeoutMinutes -ne 45 -or $declaration.handlesUninstall -ne $false) {
+        Add-Result 'Pack' 'FAIL' "instella-upgrade.json does not match the MSBuild properties: $($declaration | ConvertTo-Json -Compress)"; return
+    }
 
     # Build pipeline robustness. A stale file in the payload
     # publish directory must not survive, and a republish must give identical bytes.
@@ -439,7 +497,7 @@ return await InstellaInstaller.Create()
     (Get-Content (Join-Path $consumerRoot 'NuGet.config') -Raw).Replace(
         '<package pattern="Instella.*" />', '<package pattern="Instella.*" /><package pattern="instella-cli" />') |
         Set-Content -Path (Join-Path $initRoot 'NuGet.config') -Encoding UTF8
-    Copy-Item (Join-Path $payloadDir 'PayloadApp.csproj') (Join-Path $initRoot 'QuickNotes\QuickNotes.csproj')
+    $plainAppProject | Set-Content -Path (Join-Path $initRoot 'QuickNotes\QuickNotes.csproj') -Encoding UTF8
     Copy-Item (Join-Path $payloadDir 'Program.cs') (Join-Path $initRoot 'QuickNotes\Program.cs')
     $tool = Invoke-Capture 'dotnet' @('tool', 'install', 'instella-cli', '--tool-path', $toolDir, '--version', $expectedVersion,
         '--configfile', (Join-Path $initRoot 'NuGet.config'))

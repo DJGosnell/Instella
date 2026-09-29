@@ -26,7 +26,7 @@ using NUnit.Framework;
 namespace Instella.Installer.Runtime.Tests.Transactions;
 
 [TestFixture]
-public class UpdaterEngineTests
+public partial class UpdaterEngineTests
 {
     private static readonly TimeSpan[] NoDelays = [TimeSpan.Zero];
     private static readonly Version V1 = new(1, 0, 0);

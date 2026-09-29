@@ -24,6 +24,7 @@ internal static class StepDisplayNames
         ["write-manifest"] = "Saving installation details",
         ["write-registry-specs"] = "Writing registry settings",
         [CommitTransactionStep.StepName] = "Moving files into place",
+        [AppUpgradeStep.StepName] = "Upgrading your data",
     };
 
     /// <summary>The display name of <paramref name="step"/>.</summary>

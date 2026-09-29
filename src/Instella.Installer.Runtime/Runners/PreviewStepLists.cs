@@ -46,6 +46,7 @@ internal static class PreviewStepLists
         new SyntheticStep("download-update", InstallStage.Prereqs, weight: 4),
         new SyntheticStep("extract-update", InstallStage.Extract, weight: 3),
         new SyntheticStep("replace-files", InstallStage.Register, weight: 2),
+        new SyntheticStep(Installation.BuiltIn.AppUpgradeStep.StepName, InstallStage.Finalize, weight: 1),
         new SyntheticStep("finalize-update", InstallStage.Finalize, weight: 1),
     };
 

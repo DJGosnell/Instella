@@ -43,7 +43,9 @@ internal sealed class CommitTransactionStep : IInstallStepExecution
         // the file system.
         const string moving = "moving files into place";
         progress.Report(0.5, moving);
-        await txn.CommitAsync((done, total) => progress.Report(0.5 + 0.5 * done / total, moving));
+        // Held while the app's upgrade program runs (app-upgrade confirms it): a crash in between
+        // must roll the files back, not keep them over data the program never upgraded.
+        await txn.CommitAsync((done, total) => progress.Report(0.5 + 0.5 * done / total, moving), hold: AppUpgradeStep.IsDeclared(context));
         context.Log.Info($"commit: moved the files into place in {clock.ElapsedMilliseconds} ms");
         progress.Report(1.0);
         return StepResult.Ok;

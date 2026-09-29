@@ -32,3 +32,29 @@ It then shows "{App} was updated", counts down (`UpdateOptions.RestartCountdown`
 and restarts the app **without administrator rights and without arguments**. What the app
 passed as `UpdateOptions.AdditionalArgs` arrives in `InstellaClient.PostUpdateArguments`.
 The SDK is trimming- and NativeAOT-compatible.
+
+## App upgrade programs
+
+The app's own upgrade code (a database schema migration, a settings conversion) can live in a small
+separate exe that the installer and the in-app updater run on every version change; a failure rolls
+the operation back. Its `Main` is one call:
+
+```csharp
+return await InstellaUpgrade.RunAsync(args, async (context, progress, ct) =>
+{
+    progress.Report(10, "Migrating the database");
+    // context.Mode, context.FromVersion, context.ToVersion, context.Scope, context.InstallPath
+});
+```
+
+Name it in the app's project, and reference it so it lands in the app's publish output:
+
+```xml
+<PropertyGroup>
+  <InstellaUpgradeProgram>App.Upgrade</InstellaUpgradeProgram>
+</PropertyGroup>
+```
+
+The build writes `instella-upgrade.json` beside the app. See `docs/app-upgrade.md` in the
+[repository]({{RepositoryUrl}}) for the launch contract and the rules (leave the data usable by the old
+version when you fail).

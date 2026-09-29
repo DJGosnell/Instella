@@ -21,6 +21,11 @@ installer, and older installers offering a newer version all check that signatur
 compiled into the installer before they use anything the server sends. The server only stores and
 relays; it never holds a signing key.
 
+If the app has an [upgrade program](app-upgrade.md) (`InstellaUpgradeProgram`), its exe and the
+generated `instella-upgrade.json` must be in the app's publish output (reference the upgrade project
+from the app), so they are uploaded and signed with the other files. A release whose declaration names
+a program that is not among its files fails every install and update; the build warns (`INSTELLA0304`).
+
 The installers themselves can also carry an **Authenticode** signature, which is what Windows and
 SmartScreen check when someone downloads them (see
 [distribution-and-signing.md](distribution-and-signing.md)). That signature is applied when you

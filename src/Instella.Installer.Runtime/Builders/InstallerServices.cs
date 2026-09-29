@@ -24,6 +24,8 @@ namespace Instella.Installer.Runtime.Builders;
 /// <param name="ManagerUi">The Modify / Repair / Uninstall window; null shows the Win32 one.</param>
 /// <param name="KnownFolders">Where install migrations find the known folders; null uses the host's.</param>
 /// <param name="ProcessCloser">Closes programs for install migrations; null asks them through the platform.</param>
+/// <param name="Programs">Starts the app's upgrade program and the programs install migrations run; null starts real processes.</param>
+/// <param name="Log">Where the run logs; null uses the configured log files (the harness records into its sink).</param>
 internal sealed record InstallerServices(
     IPlatformServices Platform,
     IFileSystem FileSystem,
@@ -38,7 +40,9 @@ internal sealed record InstallerServices(
     System.Func<string?>? StubDirectory = null,
     Runners.ManagerUiLauncher? ManagerUi = null,
     Migrations.KnownFolderResolver? KnownFolders = null,
-    Core.Processes.IProcessCloser? ProcessCloser = null)
+    Core.Processes.IProcessCloser? ProcessCloser = null,
+    Migrations.IProgramRunner? Programs = null,
+    Instella.Core.Logging.IInstellaLogger? Log = null)
 {
     /// <summary><see cref="StubDirectory"/>, or the folder of the running process.</summary>
     public string? StubDirectoryOrDefault() => (StubDirectory ?? Runners.InstallPaths.StubDirectory)();

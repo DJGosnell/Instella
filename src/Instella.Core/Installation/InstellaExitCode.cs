@@ -31,6 +31,11 @@ public enum InstellaExitCode
     InstallRollbackCompletedWithWarnings = 13,
     /// <summary>A silent install needed input no CLI flag supplied (for example the licence acceptance).</summary>
     InstallSilentMissingState = 14,
+    /// <summary>
+    /// The app's upgrade program failed, timed out or could not start, or its declaration could not be
+    /// honoured; the install was rolled back.
+    /// </summary>
+    InstallAppUpgradeFailed = 15,
 
     /// <summary>The update failed before anything was changed.</summary>
     UpdateGeneralFailure = 20,
@@ -42,6 +47,11 @@ public enum InstellaExitCode
     UpdateRollbackFailed = 23,
     /// <summary>The application would not close, so the update was not applied.</summary>
     UpdateAppCouldNotClose = 24,
+    /// <summary>
+    /// The app's upgrade program failed, timed out or could not start, or its declaration could not be
+    /// honoured; the update was rolled back and the previous version is intact.
+    /// </summary>
+    UpdateAppUpgradeFailed = 25,
 
     /// <summary>The uninstall failed.</summary>
     UninstallGeneralFailure = 30,

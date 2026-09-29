@@ -112,6 +112,7 @@ internal sealed class UpdateModeRunner
                     ? RunningAppGate.MessageBoxPrompt
                     : null,
                 ProcessFinder = Services?.ProcessFinder,
+                Programs = Services?.Programs ?? Migrations.ProcessProgramRunner.Instance,
             };
             engine.LogMessage += (_, msg) => _log.Info(msg);
 

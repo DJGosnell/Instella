@@ -68,6 +68,9 @@ internal enum UpdateFailure
 
     /// <summary>The application would not close (exit 24).</summary>
     AppWouldNotClose,
+
+    /// <summary>The app's upgrade program failed, timed out or could not run; the files were rolled back (exit 25).</summary>
+    AppUpgradeFailed,
 }
 
 /// <summary>
@@ -102,6 +105,7 @@ internal sealed record UpdateResult
         { Failure: UpdateFailure.RolledBack } => Instella.Core.Installation.InstellaExitCode.UpdateRolledBack,
         { Failure: UpdateFailure.RollbackFailed } => Instella.Core.Installation.InstellaExitCode.UpdateRollbackFailed,
         { Failure: UpdateFailure.AppWouldNotClose } => Instella.Core.Installation.InstellaExitCode.UpdateAppCouldNotClose,
+        { Failure: UpdateFailure.AppUpgradeFailed } => Instella.Core.Installation.InstellaExitCode.UpdateAppUpgradeFailed,
         _ => Instella.Core.Installation.InstellaExitCode.UpdateGeneralFailure,
     };
 

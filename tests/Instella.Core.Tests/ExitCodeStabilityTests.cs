@@ -15,22 +15,24 @@ public class ExitCodeStabilityTests
     [Test] public void Success_Is_0() => Assert.That((int)InstellaExitCode.Success, Is.EqualTo(0));
     [Test] public void UserCancelled_Is_1() => Assert.That((int)InstellaExitCode.UserCancelled, Is.EqualTo(1));
 
-    [Test] public void Install_Range_Is_10_To_14()
+    [Test] public void Install_Range_Is_10_To_15()
     {
         Assert.That((int)InstellaExitCode.InstallGeneralFailure, Is.EqualTo(10));
         Assert.That((int)InstellaExitCode.InstallPrereqFailed, Is.EqualTo(11));
         Assert.That((int)InstellaExitCode.InstallIntegrityFailed, Is.EqualTo(12));
         Assert.That((int)InstellaExitCode.InstallRollbackCompletedWithWarnings, Is.EqualTo(13));
         Assert.That((int)InstellaExitCode.InstallSilentMissingState, Is.EqualTo(14));
+        Assert.That((int)InstellaExitCode.InstallAppUpgradeFailed, Is.EqualTo(15));
     }
 
-    [Test] public void Update_Range_Is_20_To_24()
+    [Test] public void Update_Range_Is_20_To_25()
     {
         Assert.That((int)InstellaExitCode.UpdateGeneralFailure, Is.EqualTo(20));
         Assert.That((int)InstellaExitCode.UpdateServerUnreachable, Is.EqualTo(21));
         Assert.That((int)InstellaExitCode.UpdateRolledBack, Is.EqualTo(22));
         Assert.That((int)InstellaExitCode.UpdateRollbackFailed, Is.EqualTo(23));
         Assert.That((int)InstellaExitCode.UpdateAppCouldNotClose, Is.EqualTo(24));
+        Assert.That((int)InstellaExitCode.UpdateAppUpgradeFailed, Is.EqualTo(25));
     }
 
     [Test] public void Uninstall_Range_Is_30_To_32()

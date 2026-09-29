@@ -51,7 +51,7 @@ public sealed class PreviewStepListsTests
         var steps = PreviewStepLists.Build(Config(), InstallerMode.Update);
         Assert.That(steps.Select(s => s.Name), Is.EqualTo(new[]
         {
-            "download-update", "extract-update", "replace-files", "finalize-update",
+            "download-update", "extract-update", "replace-files", "app-upgrade", "finalize-update",
         }));
     }
 

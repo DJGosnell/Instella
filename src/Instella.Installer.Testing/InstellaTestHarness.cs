@@ -81,6 +81,23 @@ public sealed class InstellaTestHarness : IAsyncDisposable
     /// <summary>Whether a program started with <see cref="StartProcess"/> is still running.</summary>
     public bool IsProcessRunning(string exePath) => _processes.IsRunning(exePath);
 
+    /// <summary>
+    /// Decides what the programs started during <see cref="RunFullAsync"/> do: the app's upgrade program
+    /// (<c>instella-upgrade.json</c>) and programs install migrations run. The default is
+    /// <c>ProgramOutcome.Exit(0)</c>. <paramref name="behaviour"/> may change <see cref="FileSystem"/>, to
+    /// simulate what the program does to the app's data. Nothing is ever really started.
+    /// </summary>
+    public void WhenProgramRuns(Func<ProgramRun, ProgramOutcome> behaviour)
+    {
+        ArgumentNullException.ThrowIfNull(behaviour);
+        _programs.SetBehaviour(behaviour);
+    }
+
+    /// <summary>The programs <see cref="RunFullAsync"/> started, in order, with their arguments.</summary>
+    public IReadOnlyList<ProgramRun> ProgramRuns => _programs.Runs;
+
+    private readonly HarnessProgramRunner _programs = new();
+
     private string? FakeKnownFolders(KnownFolder folder, bool machine)
     {
         var profile = Path.Combine(_knownFolderRoot, "Users", "user");
@@ -132,7 +149,7 @@ public sealed class InstellaTestHarness : IAsyncDisposable
     /// <summary>The logger handed to steps as <c>ctx.Log</c>.</summary>
     public IInstellaLogger Logger { get; }
 
-    /// <summary>Every <see cref="InstellaLogEntry"/> captured during the run.</summary>
+    /// <summary>Every <see cref="InstellaLogEntry"/> captured during the run, including a <see cref="RunFullAsync"/> run's log.</summary>
     public RecordingSink LogSink { get; }
 
     /// <summary>Page-state bag keyed by page id. Seeded via <see cref="Builder.WithPageState"/>.</summary>
@@ -211,7 +228,9 @@ public sealed class InstellaTestHarness : IAsyncDisposable
                 StubDirectory: () => Context.InstallPath,
                 ManagerUi: (_, _, _, _, _, _) => throw new InvalidOperationException(NoWindowMessage),
                 KnownFolders: new Instella.Installer.Runtime.Migrations.KnownFolderResolver(FakeKnownFolders),
-                ProcessCloser: _processes), cancellationToken);
+                ProcessCloser: _processes,
+                Programs: _programs,
+                Log: Logger), cancellationToken);
         return _installer.RunAsync(argv, cancellationToken);
     }
 
