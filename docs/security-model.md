@@ -373,7 +373,8 @@ before an uninstall.
   installed (payload, signed release or installed manifest); a declaration naming anything else fails the
   operation. On install and update the program runs from the new, just-verified files, after the commit.
 - **Uninstall.** Before running the program (elevated, for a machine install), uninstall hashes it and
-  compares it with the installed manifest's record; a program changed since it was installed is not run.
+  `instella-upgrade.json` and compares both with the installed manifest's record; if either changed since
+  it was installed, nothing runs.
 - **Containment.** No shell, arguments as a list, stdin closed, the install folder as working directory.
   A time limit (default 30 minutes, at most a day) ends the whole process tree. On Windows the program
   runs in a job object that ends it if the installer or updater dies, so it cannot keep changing data

@@ -181,8 +181,8 @@ rolls the update back (exit 25), and the app is not told about an update (no pos
 
 **Uninstall.** With `handlesUninstall`, uninstall runs the program with `--instella-uninstall` first,
 before uninstall migrations, `OnUninstall` hooks and Instella's own clean-up, while every file is still
-there. A failure is logged and the uninstall continues. The program runs only if its bytes match the
-installed manifest's record.
+there. A failure is logged and the uninstall continues. The program runs only if its bytes, and those of
+`instella-upgrade.json`, match the installed manifest's record.
 
 **A declaration Instella cannot honour** (a newer `contractVersion`, a program that is not one of the
 app's files, an unusable path, not JSON) fails the install or update and rolls it back. The installation

@@ -223,13 +223,15 @@ internal class AppUpgradeRunnerTests
         Assert.That(_programs.CapturedRuns, Is.Empty);
     }
 
+    private const string UninstallDeclaration = """{"contractVersion":1,"program":"App.Upgrade","handlesUninstall":true}""";
+
     [Test]
     public async Task Uninstall_RunsTheProgram_WhenItsBytesMatchTheRecord()
     {
-        Seed("""{"contractVersion":1,"program":"App.Upgrade","handlesUninstall":true}""");
+        Seed(UninstallDeclaration);
         var request = Request(AppUpgradeLaunchMode.Uninstall) with
         {
-            ExpectedHashes = new Dictionary<string, string> { [Exe] = Sha("program") },
+            ExpectedHashes = new Dictionary<string, string> { [Exe] = Sha("program"), ["instella-upgrade.json"] = Sha(UninstallDeclaration) },
         };
         var result = await RunAsync(request);
         Assert.That(result.Outcome, Is.EqualTo(AppUpgradeOutcome.Succeeded));
@@ -242,10 +244,10 @@ internal class AppUpgradeRunnerTests
     [Test]
     public async Task Uninstall_NeverRunsAProgramThatChangedSinceItWasInstalled()
     {
-        Seed("""{"contractVersion":1,"program":"App.Upgrade","handlesUninstall":true}""");
+        Seed(UninstallDeclaration);
         var request = Request(AppUpgradeLaunchMode.Uninstall) with
         {
-            ExpectedHashes = new Dictionary<string, string> { [Exe] = Sha("the installed bytes") },
+            ExpectedHashes = new Dictionary<string, string> { [Exe] = Sha("the installed bytes"), ["instella-upgrade.json"] = Sha(UninstallDeclaration) },
         };
         var result = await RunAsync(request);
         Assert.That(result.Outcome, Is.EqualTo(AppUpgradeOutcome.Skipped));

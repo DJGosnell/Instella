@@ -418,6 +418,20 @@ public class AppUpgradeInstallTests
         Assert.That(Log(h), Does.Contain("changed since it was installed"));
     }
 
+    [Test]
+    public async Task Uninstall_NeverTrustsADeclarationThatWasChangedAfterInstall()
+    {
+        var h = Harness("1.0", HandlesUninstall);
+        Assert.That(await Install(h), Is.EqualTo(0));
+        // Another genuine app file (its hash still matches), with arguments of someone else's choosing.
+        _fs.AddFile(Path.Combine(_installPath, "instella-upgrade.json"), Encoding.UTF8.GetBytes(
+            """{"contractVersion":1,"program":"ExampleApp","arguments":["--chosen"],"handlesUninstall":true}"""));
+
+        Assert.That(await Uninstall(h), Is.EqualTo(0));
+        Assert.That(h.ProgramRuns, Has.Count.EqualTo(1), "only the install ran a program");
+        Assert.That(Log(h), Does.Contain("'instella-upgrade.json' changed since it was installed"));
+    }
+
     private string? JournalState()
     {
         var txnRoot = Path.GetFullPath(Path.Combine(_installPath, ".instella", "txn"));

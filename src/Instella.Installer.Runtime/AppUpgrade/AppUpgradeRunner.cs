@@ -32,7 +32,7 @@ internal sealed record AppUpgradeRequest
     public required TargetPlatform Platform { get; init; }
     /// <summary>The app's files for the version whose program runs (relative, either separator). The program must be one of them.</summary>
     public required IReadOnlyCollection<string> InstalledFiles { get; init; }
-    /// <summary>Uninstall only: the program's hash in the installed manifest; a program whose bytes differ is not run.</summary>
+    /// <summary>Uninstall only: the installed manifest's hashes. The program runs only when both it and the declaration have the recorded bytes.</summary>
     public IReadOnlyDictionary<string, string>? ExpectedHashes { get; init; }
 }
 
@@ -103,20 +103,21 @@ internal sealed class AppUpgradeRunner
     public async Task<AppUpgradeResult> RunAsync(AppUpgradeRequest request, IProgress<AppUpgradeProgress>? progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var comparer = request.Platform == TargetPlatform.Windows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
         var read = await ReadDeclarationAsync(request, ct);
-        switch (read)
-        {
-            case AppUpgradeDeclarationRead.Absent:
-                return Done(AppUpgradeOutcome.NotDeclared, null, "the app declares no upgrade program");
-            case AppUpgradeDeclarationRead.Refused refused:
-                return Done(AppUpgradeOutcome.InvalidDeclaration, null, refused.Reason);
-        }
+        if (read is AppUpgradeDeclarationRead.Absent)
+            return Done(AppUpgradeOutcome.NotDeclared, null, "the app declares no upgrade program");
+
+        // On uninstall the declaration decides what runs, and with which arguments: trust it only as installed.
+        if (await CheckInstalledHashAsync(request, AppUpgradeContract.DeclarationFileName, comparer, ct) is { } changedDeclaration)
+            return changedDeclaration;
+        if (read is AppUpgradeDeclarationRead.Refused refused)
+            return Done(AppUpgradeOutcome.InvalidDeclaration, null, refused.Reason);
 
         var (declaration, program) = (AppUpgradeDeclarationRead.Valid)read;
         if (request.Mode == AppUpgradeLaunchMode.Uninstall && !declaration.HandlesUninstall)
             return Done(AppUpgradeOutcome.Skipped, null, "the upgrade program does not handle uninstall");
 
-        var comparer = request.Platform == TargetPlatform.Windows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
         if (!request.InstalledFiles.Any(f => comparer.Equals(f.Replace('\\', '/'), program)))
             return Done(AppUpgradeOutcome.InvalidDeclaration, null,
                 $"{AppUpgradeContract.DeclarationFileName} names '{program}', which is not one of the app's files");
@@ -125,15 +126,8 @@ internal sealed class AppUpgradeRunner
         if (!_fs.Exists(exePath))
             return Done(AppUpgradeOutcome.NotStarted, null, $"the upgrade program '{program}' is missing from the install folder");
 
-        if (request.ExpectedHashes is { } hashes)
-        {
-            var expected = hashes.FirstOrDefault(h => comparer.Equals(h.Key.Replace('\\', '/'), program)).Value;
-            if (expected is null)
-                return Done(AppUpgradeOutcome.NotStarted, null, $"the installation has no record of '{program}'");
-            var actual = await _fs.ComputeSha256Async(exePath, ct);
-            if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
-                return Done(AppUpgradeOutcome.Skipped, null, $"'{program}' changed since it was installed, so it was not run");
-        }
+        if (await CheckInstalledHashAsync(request, program, comparer, ct) is { } changedProgram)
+            return changedProgram;
 
         var launch = new AppUpgradeLaunch(request.Mode, request.From, request.To, request.Scope, request.InstallPath,
             request.AppId, declaration.ContractVersion);
@@ -200,6 +194,22 @@ internal sealed class AppUpgradeRunner
 
     /// <summary>Test seam: overrides every declaration's time limit (a timeout test cannot wait a minute).</summary>
     internal TimeSpan? TimeoutOverride { get; init; }
+
+    /// <summary>
+    /// Uninstall only: null when <paramref name="relative"/> has the bytes the installed manifest
+    /// records; otherwise the result that stops the program.
+    /// </summary>
+    private async Task<AppUpgradeResult?> CheckInstalledHashAsync(AppUpgradeRequest request, string relative, StringComparer comparer, CancellationToken ct)
+    {
+        if (request.ExpectedHashes is not { } hashes)
+            return null;
+        var expected = hashes.FirstOrDefault(h => comparer.Equals(h.Key.Replace('\\', '/'), relative)).Value;
+        if (expected is null)
+            return Done(AppUpgradeOutcome.NotStarted, null, $"the installation has no record of '{relative}'");
+        var actual = await _fs.ComputeSha256Async(SafePath.Combine(request.InstallPath, relative), ct);
+        return string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase) ? null
+            : Done(AppUpgradeOutcome.Skipped, null, $"'{relative}' changed since it was installed, so the upgrade program was not run");
+    }
 
     private async Task<AppUpgradeDeclarationRead> ReadDeclarationAsync(AppUpgradeRequest request, CancellationToken ct)
     {
