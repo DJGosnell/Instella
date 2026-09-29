@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-A `v*` tag can now become a release with no manual signing step, and projects that want oversight
-get an approval step on the server instead ([docs/publishing.md](docs/publishing.md#publishing-tiers-and-release-approval)).
+## [0.1.0] - 2026-09-27
 
-### Added
+The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are
+experimental (silent installs only). Instella is tested but not yet field-tested: until 1.0 there
+is no compatibility promise. Formats, the updater command line, the wire protocol and the public API
+may change between 0.x releases, and this changelog says when a change needs installations to be
+reinstalled ([docs/compatibility.md](docs/compatibility.md)).
+
+Since 0.1.0-rc.2, a `v*` tag can become a release with no manual signing step, and projects that want
+oversight get an approval step on the server instead ([docs/publishing.md](docs/publishing.md#publishing-tiers-and-release-approval)).
+
+### Added since 0.1.0-rc.2
 
 - **Release approval**, a package setting in the admin UI: `Automatic` (the default, unchanged
   behaviour), `Delayed` (a signed upload goes live after a hold of 1 hour to 7 days unless someone
@@ -51,7 +59,7 @@ get an approval step on the server instead ([docs/publishing.md](docs/publishing
 - `InstellaTestHarness.WhenProgramRuns` and `ProgramRuns`, with `ProgramRun` and `ProgramOutcome`: full
   harness runs never start real programs (the app's upgrade program or programs install migrations run).
 
-### Changed
+### Changed since 0.1.0-rc.2
 
 - `instella upload` and `instella publish` report the state the server gives the release: published,
   pending approval (with the automatic publish time under `Delayed`) or draft. A pending release is a
@@ -73,25 +81,17 @@ get an approval step on the server instead ([docs/publishing.md](docs/publishing
 - The server database gains the `ReleaseApproval` migration, applied at startup. Existing data is kept
   (drafts stay drafts, existing packages stay `Automatic`); no empty database is needed.
 
-### Deprecated
+### Deprecated since 0.1.0-rc.2
 
 - `instella ci init --signing draft` is now `--signing manual`. `draft` still works in this release,
   with a warning, and will be removed in the next one. "Draft" remains the name of an unsigned upload
   (`upload --draft`).
 
-### Breaking changes (wire protocol)
+### Breaking changes (wire protocol) since 0.1.0-rc.2
 
 - `POST api/v1/drafts/.../publish` answers with `PublishDraftResponse` (`message`, `state`,
   `publishAfter`) instead of `MessageResponse`. `message` is kept, so older CLIs still print it.
 - `CompleteUploadResponse` gains `state` and `publishAfter`; older clients ignore them.
-
-## [0.1.0] - 2026-09-27
-
-The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are
-experimental (silent installs only). Instella is tested but not yet field-tested: until 1.0 there
-is no compatibility promise. Formats, the updater command line, the wire protocol and the public API
-may change between 0.x releases, and this changelog says when a change needs installations to be
-reinstalled ([docs/compatibility.md](docs/compatibility.md)).
 
 ### Added since 0.1.0-rc.1
 
