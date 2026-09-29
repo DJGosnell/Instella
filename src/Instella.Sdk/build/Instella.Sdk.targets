@@ -31,15 +31,18 @@
       <_InstellaUpgradeHandlesUninstallJson>$(InstellaUpgradeHandlesUninstall.ToLowerInvariant())</_InstellaUpgradeHandlesUninstallJson>
     </PropertyGroup>
 
+    <!-- The arguments are JSON-escaped and split by a property function, whose result MSBuild escapes:
+         the items then hold each argument literally, and never expand '*' or '?' into file names. -->
+    <PropertyGroup>
+      <_InstellaUpgradeArgumentsEscaped>$(InstellaUpgradeArguments.Replace('\', '\\').Replace('&quot;', '\&quot;').Replace('&#9;', '\t').Replace('&#13;', '\r').Replace('&#10;', '\n').Split(';'))</_InstellaUpgradeArgumentsEscaped>
+    </PropertyGroup>
+
     <ItemGroup>
-      <_InstellaUpgradeArgument Include="$(InstellaUpgradeArguments)" Condition="'$(InstellaUpgradeArguments)' != ''" />
-      <_InstellaUpgradeArgument Update="@(_InstellaUpgradeArgument)">
-        <Json>&quot;$([System.String]::Copy('%(Identity)').Replace('\', '\\').Replace('&quot;', '\&quot;'))&quot;</Json>
-      </_InstellaUpgradeArgument>
+      <_InstellaUpgradeArgument Include="$(_InstellaUpgradeArgumentsEscaped)" Condition="'$(InstellaUpgradeArguments)' != ''" />
     </ItemGroup>
 
     <PropertyGroup>
-      <_InstellaUpgradeArgumentsJson>@(_InstellaUpgradeArgument->'%(Json)', ', ')</_InstellaUpgradeArgumentsJson>
+      <_InstellaUpgradeArgumentsJson>@(_InstellaUpgradeArgument->'&quot;%(Identity)&quot;', ', ')</_InstellaUpgradeArgumentsJson>
     </PropertyGroup>
 
     <ItemGroup>

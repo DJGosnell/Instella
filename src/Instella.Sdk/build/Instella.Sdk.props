@@ -11,7 +11,8 @@
                                        App.Upgrade. ".exe" is added on Windows when missing and dropped
                                        elsewhere. Empty (the default): no declaration is generated.
       InstellaUpgradeArguments         Extra arguments, separated by ';', passed after the launch
-                                       contract's own.
+                                       contract's own. Taken literally (no wildcards); an argument
+                                       cannot contain ';', and empty ones are dropped.
       InstellaUpgradeTimeoutMinutes    Time limit, 1 to 1440 (default 30); the program's process tree
                                        is ended when it is reached, and the operation rolls back.
       InstellaUpgradeHandlesUninstall  true also runs the program with the instella-uninstall switch

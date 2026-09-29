@@ -96,6 +96,27 @@ public sealed class SdkBuildAssetsTests
     }
 
     [Test]
+    public void Arguments_AreTakenLiterally_NotAsWildcards()
+    {
+        File.WriteAllText(Path.Combine(_work, "Custom.props"), """
+            <Project>
+              <PropertyGroup>
+                <InstellaUpgradeProgram>Probe.Upgrade</InstellaUpgradeProgram>
+                <InstellaUpgradeArguments>--pattern=*.db;--one=?;--name=O'Brien;--tab=a&#9;b;  --spaced  ;;</InstellaUpgradeArguments>
+              </PropertyGroup>
+            </Project>
+            """);
+        var (exit, output) = BuildWith();
+
+        Assert.That(exit, Is.Zero, output);
+        var valid = (AppUpgradeDeclarationRead.Valid)AppUpgradeDeclarations.Parse(File.ReadAllBytes(OutputDeclaration), TargetPlatform.Windows);
+        Assert.That(valid.Declaration.Arguments, Is.EqualTo(new[]
+        {
+            "--pattern=*.db", "--one=?", "--name=O'Brien", "--tab=a\tb", "--spaced",
+        }));
+    }
+
+    [Test]
     public void TheDefaults_AreThirtyMinutes_NoArguments_NoUninstall()
     {
         var (exit, output) = Build("InstellaUpgradeProgram=Probe.Upgrade");

@@ -53,7 +53,7 @@ so its exe lands in the app's publish output, and name it:
 <PropertyGroup>
   <InstellaUpgradeProgram>App.Upgrade</InstellaUpgradeProgram>
   <!-- Optional: -->
-  <InstellaUpgradeArguments>--db;data.db</InstellaUpgradeArguments>          <!-- extra arguments, ';'-separated -->
+  <InstellaUpgradeArguments>--db;data.db</InstellaUpgradeArguments>          <!-- extra arguments, ';'-separated, taken literally -->
   <InstellaUpgradeTimeoutMinutes>30</InstellaUpgradeTimeoutMinutes>         <!-- 1 to 1440, default 30 -->
   <InstellaUpgradeHandlesUninstall>true</InstellaUpgradeHandlesUninstall>   <!-- default false -->
 </PropertyGroup>
