@@ -132,6 +132,27 @@ public partial class UpdaterEngineTests
     }
 
     [Test]
+    public async Task ACommitThatCannotBeConfirmed_AfterTheProgram_RollsBack_Exit22_NotBeforeCommit()
+    {
+        Install(V1Files());
+        var faulty = new FaultInjectingFileSystem(_fs);
+        // The program succeeds; the next write (the journal's "committed" record) fails once.
+        var programs = new FakePrograms { Behaviour = (_, _) => { faulty.Arm(0); return 0; } };
+        var engine = new UpdaterEngine(Args(V1, V2, usePatch: false, repair: false),
+            new FakeDownloader(Release(V2, V2Files())), new FakePlatformServices(), faulty, BsDiffEngine.Instance, NoDelays)
+        { Programs = programs };
+
+        var result = await engine.RunAsync(CancellationToken.None);
+
+        Assert.That(result.Failure, Is.EqualTo(UpdateFailure.RolledBack), result.Error);
+        Assert.That(result.ExitCode, Is.EqualTo(InstellaExitCode.UpdateRolledBack));
+        Assert.That(result.Error, Does.Contain("the app's upgrade program had already run"));
+        Assert.That(Text("App.exe"), Is.EqualTo("app-v1"));
+        Assert.That((await ReadManifest()).Version, Is.EqualTo(V1));
+        Assert.That(PostUpdateMarkerWritten(), Is.False);
+    }
+
+    [Test]
     public async Task ATimeout_RollsTheUpdateBack_Exit25()
     {
         Install(V1Files());

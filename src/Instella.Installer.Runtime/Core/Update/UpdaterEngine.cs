@@ -390,7 +390,8 @@ internal sealed class UpdaterEngine
     /// <summary>
     /// Runs the app's upgrade program after a held commit. Success confirms the commit and returns
     /// null. A failure rolls the files back and returns the failed result (exit 25), or a
-    /// rollback failure (exit 23) when the files cannot be put back.
+    /// rollback failure (exit 23) when the files cannot be put back. A commit that cannot be
+    /// confirmed after the program succeeded is rolled back too (exit 22).
     /// </summary>
     private async Task<UpdateResult?> UpgradeAppDataAsync(InstallTransaction txn, InstalledManifest installed, TargetRelease release)
     {
@@ -408,25 +409,43 @@ internal sealed class UpdaterEngine
             InstalledFiles = release.Files.Select(f => f.Path).ToList(),
         }, new UpgradeProgress(this), CancellationToken.None);
 
-        if (result.Success)
+        if (!result.Success)
+            return await RollBackHeldCommitAsync(txn, UpdateFailure.AppUpgradeFailed, result.Message);
+
+        try
         {
             await txn.ConfirmCommitAsync();
             return null;
         }
+        catch (Exception confirmEx)
+        {
+            // The journal still says "committing", so recovery would roll the files back anyway: do
+            // it now, and say that the app's data was already upgraded.
+            Log($"Could not confirm the update after the app's upgrade program: {confirmEx.Message}");
+            return await RollBackHeldCommitAsync(txn, UpdateFailure.RolledBack,
+                $"the update could not be confirmed ({confirmEx.Message}); the app's upgrade program had already run on its data");
+        }
+    }
 
+    /// <summary>
+    /// Rolls a held commit back: returns <paramref name="failure"/>, or a rollback failure (exit 23)
+    /// when the files cannot be put back.
+    /// </summary>
+    private async Task<UpdateResult> RollBackHeldCommitAsync(InstallTransaction txn, UpdateFailure failure, string message)
+    {
         SetState(UpdaterState.RollingBack);
         try
         {
             await txn.RollbackAsync();
             await txn.CompleteAsync();
             SetState(UpdaterState.Failed);
-            return Fail(UpdateFailure.AppUpgradeFailed, $"{result.Message} (rolled back)");
+            return Fail(failure, $"{message} (rolled back)");
         }
         catch (Exception rollbackEx)
         {
             SetState(UpdaterState.Failed);
             return Fail(UpdateFailure.RollbackFailed,
-                $"{result.Message}. Rollback also failed: {rollbackEx.Message}. Run the installer with --recover.");
+                $"{message}. Rollback also failed: {rollbackEx.Message}. Run the installer with --recover.");
         }
     }
 
