@@ -31,6 +31,12 @@ internal sealed class StepExecutor
         _steps = steps;
     }
 
+    /// <summary>
+    /// Called (on the pipeline's thread) when the executor stops honouring cancellation: the app's
+    /// upgrade program is about to change the app's data, which a rollback of the files cannot undo.
+    /// </summary>
+    public Action? CancellationEnded { get; init; }
+
     public async Task<ExecutionResult> ExecuteAsync(
         InstallContext context,
         IProgress<OverallProgress>? progress,
@@ -52,13 +58,14 @@ internal sealed class StepExecutor
         if (totalWeight == 0) totalWeight = 1;
 
         var weightRun = 0;
+        var token = cancellationToken;
 
         for (var i = 0; i < _steps.Count; i++)
         {
             var step = _steps[i];
             var bestEffort = step is Migrations.IBestEffortStep { IsBestEffort: true };
 
-            if (cancellationToken.IsCancellationRequested && bestEffort)
+            if (token.IsCancellationRequested && bestEffort)
             {
                 // After the commit: cancelling skips what is left, it never undoes the install.
                 context.Log.Info($"step[{step.Stage}] {step.Name}: skipped (cancelled; the install is complete)");
@@ -66,7 +73,7 @@ internal sealed class StepExecutor
                 continue;
             }
 
-            if (cancellationToken.IsCancellationRequested)
+            if (token.IsCancellationRequested)
             {
                 audit.Add(new StepExecutionRecord(step.Name, step.Stage, StepOutcome.Skipped, Error: "cancelled"));
                 await RollbackWithOwnTokenAsync(context, completed, warnings, ponrCompletedIndex, ponrLedgerIndex);
@@ -86,6 +93,15 @@ internal sealed class StepExecutor
                 continue;
             }
 
+            if (step is BuiltIn.AppUpgradeStep && token.CanBeCanceled)
+            {
+                // A cancel after the app's program has run would put the previous files back over
+                // data it already upgraded, so from here on the install runs to its end.
+                token = CancellationToken.None;
+                context.Log.Info($"step[{step.Stage}] {step.Name}: the app's data is about to change; the install can no longer be cancelled");
+                CancellationEnded?.Invoke();
+            }
+
             var stepProgress = new StepProgress(step, totalWeight, weightRun, progress);
             // Name the running step now: a step that reports nothing until it is done (a
             // commit of many files) would otherwise sit under the previous step's name.
@@ -100,7 +116,7 @@ internal sealed class StepExecutor
                     context.Ledger.RecordingUserStep = step is Builders.StepSpec;
                     try
                     {
-                        result = await step.ExecuteAsync(context, stepProgress, cancellationToken);
+                        result = await step.ExecuteAsync(context, stepProgress, token);
                     }
                     finally
                     {

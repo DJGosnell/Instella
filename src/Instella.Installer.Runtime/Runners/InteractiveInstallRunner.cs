@@ -221,6 +221,8 @@ internal sealed class InteractiveInstallRunner
         InstellaExitCode? failureExit = null;
         string? installedPath = null;
         var cancelRequested = false;
+        // Set by the executor once the app's upgrade program is about to run: Cancel is refused from then on.
+        var cancellationEnded = new System.Runtime.CompilerServices.StrongBox<bool>();
 
         var progressState = states[progressPageIdx];
         using var host = hostFactory(_config.AppName, pages, states);
@@ -269,6 +271,11 @@ internal sealed class InteractiveInstallRunner
         host.CancelInterceptor = () =>
         {
             if (pipelineTask is null || pipelineTask.IsCompleted) return false;
+            if (Volatile.Read(ref cancellationEnded.Value))
+            {
+                progressState.Set(InteractivePageStateKeys.Status, "Upgrading the app's data. The installation can no longer be cancelled.");
+                return true;
+            }
             if (!cancelRequested)
             {
                 cancelRequested = true;
@@ -333,7 +340,8 @@ internal sealed class InteractiveInstallRunner
                         Programs = Programs ?? Migrations.ProcessProgramRunner.Instance,
                     };
                     await Migrations.MigrationUndo.RecoverAsync(context, pipelineCts.Token);
-                    result = await RunStepPipelineAsync(context, host, progressState, pipelineCts.Token);
+                    result = await RunStepPipelineAsync(context, host, progressState,
+                        () => Volatile.Write(ref cancellationEnded.Value, true), pipelineCts.Token);
                 }
                 catch (InstallRefusedException ex)
                 {
@@ -372,10 +380,10 @@ internal sealed class InteractiveInstallRunner
 
                 host.PostToUiThread(() =>
                 {
-                    ApplyPipelineCompletion(progressState, result, pipelineCts.IsCancellationRequested,
+                    ApplyPipelineCompletion(progressState, result, pipelineCts.IsCancellationRequested && !result.Success,
                         outcome => pipelineOutcome = outcome,
                         err => pipelineError = err, _stepDisplayNames, Logging.InstellaLogInitializer.CurrentFilePath);
-                    if (cancelRequested)
+                    if (cancelRequested && !result.Success)
                     {
                         // Rollback is done: nothing left for the user to read.
                         host.Close();
@@ -412,13 +420,15 @@ internal sealed class InteractiveInstallRunner
             if (pipelineTask.IsCompletedSuccessfully)
             {
                 var result = pipelineTask.Result;
-                if (pipelineCts.IsCancellationRequested)
-                {
-                    pipelineOutcome = PipelineOutcome.Cancelled;
-                }
-                else if (result.Success)
+                // A cancel that came too late to stop the install (the app's data was already being
+                // upgraded) leaves a finished install: report it as one.
+                if (result.Success)
                 {
                     pipelineOutcome = PipelineOutcome.Succeeded;
+                }
+                else if (pipelineCts.IsCancellationRequested)
+                {
+                    pipelineOutcome = PipelineOutcome.Cancelled;
                 }
                 else
                 {
@@ -590,7 +600,8 @@ internal sealed class InteractiveInstallRunner
         };
     }
 
-    private async Task<ExecutionResult> RunStepPipelineAsync(InstallContext context, IInteractiveHost host, PageState progressState, CancellationToken ct)
+    private async Task<ExecutionResult> RunStepPipelineAsync(InstallContext context, IInteractiveHost host, PageState progressState,
+        Action cancellationEnded, CancellationToken ct)
     {
         Stream? payload = null;
         string? tempDownloadPath = null;
@@ -616,7 +627,7 @@ internal sealed class InteractiveInstallRunner
             var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
             _stepDisplayNames = StepDisplayNames.Map(steps);
             var progressSink = new HostProgressSink(host, progressState, _stepDisplayNames);
-            var executor = new StepExecutor(steps);
+            var executor = new StepExecutor(steps) { CancellationEnded = cancellationEnded };
             return await executor.ExecuteAsync(context, progressSink, ct);
         }
         finally

@@ -237,6 +237,27 @@ public class AppUpgradeInstallTests
         Assert.That(Log(v2), Does.Contain("the app's upgrade program already ran"));
     }
 
+    [Test]
+    public async Task ACancelWhileTheProgramRuns_DoesNotRollTheFilesBackOverUpgradedData()
+    {
+        Assert.That(await Install(Harness("1.0")), Is.EqualTo(0));
+        using var cts = new CancellationTokenSource();
+        var laterStepRan = false;
+        var v2 = Harness("2.0", configure: b => b
+            .AddStep("start-service", s => s.InStage(InstallStage.Finalize)
+                .Execute((_, _, _) => { laterStepRan = true; return Task.FromResult(StepResult.Ok); })
+                .NoRollbackNeeded("test")));
+        v2.WhenProgramRuns(_ => { cts.Cancel(); return ProgramOutcome.Exit(0); });
+
+        var exit = await v2.RunFullWithArgsAsync(["--install", "--silent", "--path", _installPath], cts.Token);
+
+        Assert.That(exit, Is.EqualTo(0), Log(v2));
+        Assert.That(laterStepRan, Is.True, "the install runs to its end");
+        Assert.That(Live("ExampleApp.exe"), Is.EqualTo("app 2.0"));
+        Assert.That((await Manifest())!.Version, Is.EqualTo(new Version(2, 0, 0)));
+        Assert.That(Log(v2), Does.Contain("can no longer be cancelled"));
+    }
+
     // ---- Ordering and configuration ---------------------------------------------------------
 
     private static FrozenConfig Config(InstallerBuilder builder) => ((InstellaInstallerImpl)builder.Build()).ConfigForTests;

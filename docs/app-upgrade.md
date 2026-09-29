@@ -171,6 +171,9 @@ custom Finalize step and the `AfterCommit` migrations. A failure rolls back the 
 - **A custom Finalize step that fails after the program succeeded** rolls the files back, but not your
   data: the log warns that the previous version starts on data the new version upgraded. Keep Finalize
   steps that can fail before `app-upgrade`, or make the upgrade readable by the previous version.
+- **Cancel stops working once `app-upgrade` starts.** A cancel after that point would put the previous
+  files back over data the program already upgraded, so the install runs to its end. The window says
+  so when Cancel is clicked.
 
 **In-app updates.** The updater runs the program after moving the new files into place and before
 completing the update. The window shows "Upgrading your data…" with the program's progress. A failure
