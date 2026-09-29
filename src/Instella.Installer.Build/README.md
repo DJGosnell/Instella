@@ -18,7 +18,8 @@ installer together with the manifest emitted from your fluent-builder code.
 </ItemGroup>
 
 <PropertyGroup>
-  <!-- Optional: Authenticode-sign the installed stub and the finished installer. -->
+  <!-- Optional: Authenticode-sign the installed stub and the finished installer
+       (with InstellaEnabled=false, the online installer). -->
   <InstellaSignCommand>signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /n "Example Corp" "{0}"</InstellaSignCommand>
   <!-- `dotnet run` dev loop without payload work. -->
   <InstellaEnabled Condition="'$(Configuration)' == 'Debug'">false</InstellaEnabled>

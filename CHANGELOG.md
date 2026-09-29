@@ -18,6 +18,14 @@ reinstalled ([docs/compatibility.md](docs/compatibility.md)).
 Since 0.1.0-rc.2, a `v*` tag can become a release with no manual signing step, and projects that want
 oversight get an approval step on the server instead ([docs/publishing.md](docs/publishing.md#publishing-tiers-and-release-approval)).
 
+### Fixed since 0.1.0-rc.3
+
+- `InstellaSignCommand` now signs the online installer. It is published with
+  `-p:InstellaEnabled=false`, which skipped the only target that signed, so the online installer
+  (and the `instella.exe` an online install stages) shipped unsigned even with the command passed
+  to both builds, as `ci init` workflows do. A new target signs the published exe. Any publish with
+  `InstellaEnabled=false` and `InstellaSignCommand` set now signs its exe.
+
 ### Added since 0.1.0-rc.2
 
 - **Release approval**, a package setting in the admin UI: `Automatic` (the default, unchanged

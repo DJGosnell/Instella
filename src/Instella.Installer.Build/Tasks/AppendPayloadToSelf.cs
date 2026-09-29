@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -309,35 +308,7 @@ public sealed class AppendPayloadToSelf : MSBuildTask
     }
 
     /// <summary>Runs <see cref="SignCommand"/> on <paramref name="path"/>.</summary>
-    private void Sign(string path)
-    {
-        if (string.IsNullOrWhiteSpace(SignCommand))
-            return;
-        if (!SignCommand.Contains("{0}", StringComparison.Ordinal))
-            throw new InstellaBuildException("INSTELLA0204", "InstellaSignCommand must contain {0} where the file path goes.");
-
-        var command = SignCommand.Replace("{0}", path, StringComparison.Ordinal);
-        // cmd /s strips exactly one pair of outer quotes and runs the rest verbatim, so the
-        // user's own quoting survives; ArgumentList would escape it for the C runtime instead.
-        var psi = OperatingSystem.IsWindows()
-            ? new ProcessStartInfo("cmd.exe", "/d /s /c \"" + command + "\"")
-            : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", command } };
-        psi.RedirectStandardOutput = true;
-        psi.RedirectStandardError = true;
-        psi.UseShellExecute = false;
-
-        Log.LogMessage(MessageImportance.High, $"Instella: signing {path}");
-        using var process = Process.Start(psi)
-            ?? throw new InstellaBuildException("INSTELLA0204", $"could not start the sign command for '{path}'.");
-        var stderr = process.StandardError.ReadToEndAsync();
-        var stdout = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        if (!string.IsNullOrWhiteSpace(stdout))
-            Log.LogMessage(MessageImportance.Normal, stdout.TrimEnd());
-        if (process.ExitCode != 0)
-            throw new InstellaBuildException("INSTELLA0204",
-                $"signing '{path}' failed (exit {process.ExitCode}): {stderr.Result.Trim()}");
-    }
+    private void Sign(string path) => SignCommandRunner.Run(SignCommand, path, Log);
 
     /// <summary>
     /// Everything that decides the installer's bytes apart from the exe itself: the resolved

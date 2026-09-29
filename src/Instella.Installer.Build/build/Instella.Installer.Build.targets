@@ -17,6 +17,8 @@
       4. Append the payload to the installer exe with AppendPayloadToSelf: strip an old
          payload, stamp the icon, embed a (signed) stub copy, zip deterministically, append,
          and sign the installer.
+      5. With InstellaEnabled=false (the online installer) nothing above runs; when
+         InstellaSignCommand is set, InstellaSignOnlineInstaller signs the published exe.
 
     Everything Instella writes lives under $(IntermediateOutputPath)instella-*, removed
     by Clean.
@@ -24,6 +26,8 @@
   -->
 
   <UsingTask TaskName="Instella.Installer.Build.Tasks.AppendPayloadToSelf"
+             AssemblyFile="$(InstellaBuildTasksAssembly)" />
+  <UsingTask TaskName="Instella.Installer.Build.Tasks.SignFile"
              AssemblyFile="$(InstellaBuildTasksAssembly)" />
 
   <!--
@@ -265,6 +269,29 @@
 
     <Message Importance="high"
              Text="Instella: installer ready at $(_InstellaBuiltInstallerPath)" />
+  </Target>
+
+  <!--
+    ===================================================================
+    Target: InstellaSignOnlineInstaller
+    The online installer (InstellaEnabled=false) has no payload, so
+    InstellaAppendPayload, which signs the offline installer, never runs.
+    With InstellaSignCommand set, this signs the published exe instead,
+    after the final exe is in place (CopyNativeBinary for AOT). The nested
+    host build also sets InstellaEnabled=false, but runs Build, not
+    Publish, so it is never signed.
+    ===================================================================
+  -->
+  <Target Name="InstellaSignOnlineInstaller"
+          AfterTargets="Publish"
+          DependsOnTargets="$(_InstellaCopyNativeBinaryDep)"
+          Condition="'$(InstellaEnabled)' != 'true' AND '$(InstellaSignCommand)' != ''">
+
+    <PropertyGroup>
+      <_InstellaOnlineInstallerPath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PublishDir)', '$(AssemblyName)$(_InstellaExeExtension)'))</_InstellaOnlineInstallerPath>
+    </PropertyGroup>
+
+    <SignFile FilePath="$(_InstellaOnlineInstallerPath)" SignCommand="$(InstellaSignCommand)" />
   </Target>
 
   <!--

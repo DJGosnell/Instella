@@ -49,6 +49,11 @@ Set `InstellaSignCommand` in the installer project (or pass it with `-p:`), a co
    compression).
 2. **The installer**, after the payload is appended.
 
+The **online installer** (published with `-p:InstellaEnabled=false`) has no payload, so neither
+step above runs; with `InstellaSignCommand` set, the `InstellaSignOnlineInstaller` target signs the
+published exe instead. Pass the same command to both installer builds. An online install stages
+the installer itself as `instella.exe`, so the installed stub carries that signature.
+
 Without `InstellaSignCommand` the same flow runs unsigned. The command runs through `cmd.exe`
 (Windows) or `/bin/sh`; a failure stops the build with `INSTELLA0204`. You can also sign the
 finished installer yourself afterwards; the installed stub is then unsigned.
@@ -75,7 +80,8 @@ Signing works because of three properties of footer format v3 (see
 
 `verify.ps1 -Stage Signing` publishes an installer with `InstellaSignCommand` and a throwaway
 self-signed certificate, installs it `--silent`, and checks the installed `instella.exe` with
-`Get-AuthenticodeSignature`. It proves that a signed installer accepts its own payload and
+`Get-AuthenticodeSignature`, then publishes the online installer (`InstellaEnabled=false`) with the
+same command and checks that it is signed. It proves that a signed installer accepts its own payload and
 installs a well-formed stub, since signing changes the file after the footer hash is written.
 
 ## The exe icon

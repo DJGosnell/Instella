@@ -20,7 +20,8 @@
 
     <!-- InstellaSignCommand: a command that signs one file, with {0} where the path goes,
          for example: signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /n "Example Corp" "{0}"
-         When set, the stub the payload carries and the finished installer are both signed. -->
+         When set, the stub the payload carries and the finished installer are both signed, and
+         so is the online installer (published with InstellaEnabled=false). -->
   </PropertyGroup>
 
   <!-- The payload is published on its own (InstellaPublishPayload), so the SDK's check that referenced

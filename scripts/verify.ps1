@@ -18,7 +18,8 @@
                   win-arm64, linux-x64 (INSTELLA0001) and UseArtifactsOutput work
       Signing     publish the Pack stage's consumer with InstellaSignCommand and a
                   throwaway certificate; it must install --silent and stage a
-                  signed instella.exe
+                  signed instella.exe; the online installer (InstellaEnabled=false)
+                  must come out signed too
       Aot         PublishAot of the sample installer; the exe must run alone
       E2E         tests/Instella.E2E.Tests: server on Kestrel, CLI, a real installer
                   and updater - install, update, crash recovery, tamper, uninstall,
@@ -601,7 +602,21 @@ function Invoke-SigningStage {
         Start-Process -FilePath $exe -ArgumentList @('--uninstall', '--silent', '--path', "`"$installDir`"") `
             -WorkingDirectory $signedDir -NoNewWindow -Wait | Out-Null
         if (-not $stubSigned) { Add-Result 'Signing' 'FAIL' 'the installed instella.exe does not carry an intact signature'; return }
-        Add-Result 'Signing' 'PASS' 'Authenticode reader; signed installer verified its payload, installed --silent, and staged a signed stub'
+
+        # The online installer: no payload, so InstellaAppendPayload never runs; InstellaSignOnlineInstaller signs it.
+        $onlineDir = Join-Path $tempRoot 'signed-publish-online'
+        $env:InstellaSignCommand = "`"$signtool`" sign /fd SHA256 /sha1 $($cert.Thumbprint) `"{0}`""
+        $online = Invoke-Capture 'dotnet' `
+            @('publish', '-c', $Configuration, '-r', 'win-x64', '-p:PublishAot=false', '-p:InstellaEnabled=false', '-nodeReuse:false',
+              "-p:RestorePackagesPath=$(Join-Path $tempRoot 'consumer\packages')", "-p:PublishDir=$onlineDir\") `
+            -WorkingDirectory $installerDir
+        Remove-Item Env:\InstellaSignCommand -ErrorAction SilentlyContinue
+        if ($online.ExitCode -ne 0) { Add-Result 'Signing' 'FAIL' "signed online publish exited $($online.ExitCode)"; return }
+        if (-not (Test-SignedBy -Path (Join-Path $onlineDir 'Verify.Installer.exe') -Thumbprint $cert.Thumbprint)) {
+            Add-Result 'Signing' 'FAIL' 'the published online installer (InstellaEnabled=false) is not signed'
+            return
+        }
+        Add-Result 'Signing' 'PASS' 'Authenticode reader; signed installer verified its payload, installed --silent, and staged a signed stub; online installer signed'
     }
     finally {
         Remove-Item Env:\InstellaSignCommand, Env:\INSTELLA_SIGNTOOL, Env:\INSTELLA_SIGN_CERT_A, Env:\INSTELLA_SIGN_CERT_B -ErrorAction SilentlyContinue

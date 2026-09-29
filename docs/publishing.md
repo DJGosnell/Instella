@@ -337,7 +337,8 @@ The generated workflow uses the same steps with these differences:
 ### Authenticode signing in CI
 
 To sign the installers, pass your signing command to both installer builds with
-`-p:InstellaSignCommand="..."`; the build signs the uninstaller stub and the finished installer
+`-p:InstellaSignCommand="..."`; the offline build signs the uninstaller stub and the finished
+installer, and the online build (`InstellaEnabled=false`) signs the published exe
 ([distribution-and-signing.md](distribution-and-signing.md)). New code-signing certificates live in
 hardware or a cloud signing service (Azure Trusted Signing, DigiCert KeyLocker, SSL.com eSigner),
 which all offer a command-line signer and OIDC sign-in, the same pattern as the publisher key

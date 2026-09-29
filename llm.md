@@ -285,6 +285,9 @@ build, stub, manifest, append stamp), removed by `InstellaClean` (`AfterTargets=
    installer. An unchanged republish (same content hashes, exe still carrying that payload) is a
    no-op, and any republish is byte-identical, except when `InstellaSignCommand` adds an
    Authenticode timestamp (the signature then differs per run; the payload and footer hash don't).
+   With `InstellaEnabled=false` (the online installer) none of the above runs;
+   **`InstellaSignOnlineInstaller`** (the `SignFile` task) signs the published exe when
+   `InstellaSignCommand` is set.
 
 ```xml
 <ItemGroup>
