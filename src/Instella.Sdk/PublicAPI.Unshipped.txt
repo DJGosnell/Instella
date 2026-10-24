@@ -41,3 +41,9 @@ static Instella.Sdk.InstellaUpgrade.RunAsync(string![]! args, System.Func<Instel
 static Instella.Sdk.InstellaUpgrade.RunAsync(string![]! args, System.Func<Instella.Sdk.AppUpgradeContext!, Instella.Sdk.IAppUpgradeProgress!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! upgrade, System.Func<Instella.Sdk.AppUpgradeContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>? uninstall) -> System.Threading.Tasks.Task<int>!
 static Instella.Sdk.InstellaUpgrade.RunAsync(string![]! args, System.Func<Instella.Sdk.AppUpgradeContext!, Instella.Sdk.IAppUpgradeProgress!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>! upgrade, System.Func<Instella.Sdk.AppUpgradeContext!, System.Threading.CancellationToken, System.Threading.Tasks.Task!>? uninstall, System.IO.TextWriter! output, System.IO.TextWriter! error, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<int>!
 static Instella.Sdk.InstellaUpgrade.TryParse(System.Collections.Generic.IReadOnlyList<string!>! args, out Instella.Sdk.AppUpgradeContext? context, out string? error) -> bool
+Instella.Sdk.ServiceUpdateStartResult
+Instella.Sdk.ServiceUpdateStartResult.IsStarted.get -> bool
+Instella.Sdk.ServiceUpdateStartResult.ProcessId.get -> int?
+Instella.Sdk.ServiceUpdateStartResult.RefusalReason.get -> string?
+static Instella.Sdk.InstellaClient.IsRunningAsServiceAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+static Instella.Sdk.InstellaClient.StartServiceUpdateAsync(Instella.Core.Update.UpdateInfo! update, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Instella.Sdk.ServiceUpdateStartResult!>!

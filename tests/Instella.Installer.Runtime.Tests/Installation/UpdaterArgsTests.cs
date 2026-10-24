@@ -21,7 +21,7 @@ public partial class UpdaterArgsTests
     [Test]
     public void Parse_OfToArgumentList_IsIdentity([Range(0, 199)] int seed)
     {
-        var original = Random(seed);
+        var original = RandomWithServiceUpdate(seed);
         var parsed = UpdaterArgs.Parse(original.ToArgumentList());
         Assert.That(parsed, Is.EqualTo(original), $"seed {seed}");
     }
@@ -30,7 +30,7 @@ public partial class UpdaterArgsTests
     public void RoundTrip_AcrossTheWindowsProcessBoundary([Range(0, 49)] int seed)
     {
         if (!OperatingSystem.IsWindows()) Assert.Ignore("CommandLineToArgvW is Windows-only");
-        var original = Random(seed);
+        var original = RandomWithServiceUpdate(seed);
 
         var commandLine = "instella.exe " + WindowsCommandLine.Join(original.ToArgumentList());
         var parsed = UpdaterArgs.Parse(SplitWithShell32(commandLine).Skip(1).ToArray());
@@ -60,11 +60,38 @@ public partial class UpdaterArgsTests
     }
 
     [Test]
+    public void Parse_ServiceUpdateFlag_RoundTrips()
+    {
+        // The SDK's StartServiceUpdateAsync sends --service-update (docs/compatibility.md): the
+        // shared parser must read it and the emitter write it back, before --extra-args.
+        var list = Random(5).ToArgumentList().ToList();
+        var extra = list.IndexOf("--extra-args");
+        list.Insert(extra < 0 ? list.Count : extra, "--service-update");
+
+        var parsed = UpdaterArgs.Parse(list);
+
+        Assert.That(parsed, Is.Not.Null);
+        var emitted = parsed!.ToArgumentList().ToList();
+        Assert.That(emitted, Does.Contain("--service-update"), "the flag survives Parse -> ToArgumentList");
+        var emittedExtra = emitted.IndexOf("--extra-args");
+        if (emittedExtra >= 0)
+            Assert.That(emitted.IndexOf("--service-update"), Is.LessThan(emittedExtra), "the flag is the updater's, not the app's");
+        Assert.That(UpdaterArgs.Parse(emitted), Is.EqualTo(parsed));
+        Assert.That(Random(5).ToArgumentList(), Does.Not.Contain("--service-update"), "absent unless set");
+    }
+
+    [Test]
     public void Parse_RejectsMissingOrMalformedRequiredValues()
     {
         Assert.That(UpdaterArgs.Parse(["--update", "--app-path", "x", "--app-exe", "a.exe", "--from-version", "1.0"]), Is.Null);
         Assert.That(UpdaterArgs.Parse(["--app-path", "x", "--app-exe", "a", "--from-version", "one", "--to-version", "2.0"]), Is.Null);
     }
+
+    /// <summary>
+    /// <see cref="Random"/> with <see cref="UpdaterArgs.ServiceUpdate"/> varied too; <see cref="Random"/>
+    /// itself leaves it unset, which <see cref="Parse_ServiceUpdateFlag_RoundTrips"/> relies on.
+    /// </summary>
+    private static UpdaterArgs RandomWithServiceUpdate(int seed) => Random(seed) with { ServiceUpdate = seed % 2 == 0 };
 
     private static UpdaterArgs Random(int seed)
     {

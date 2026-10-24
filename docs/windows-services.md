@@ -209,6 +209,85 @@ unchanged. When the rollback itself fails (exit 23) the services stay stopped un
 `--restart` (and the update window's restart) starts the services whose executable is the app's main
 executable instead of launching it as a desktop program.
 
+## Updating a service
+
+A service can update itself, opt-in, with `InstellaClient.StartServiceUpdateAsync(update)`. The
+desktop calls do not work there: `StartUpdaterAsync` and `LaunchUpdaterAndExitAsync` make the updater
+wait for the app to exit (the service manager would see a crash) and may show a window or a UAC prompt
+in session 0, where nobody can answer. Inside one of the installation's services they throw
+`InvalidOperationException` pointing to `StartServiceUpdateAsync`. `InstellaClient.IsRunningAsServiceAsync()`
+says whether the current process is one of the installation's recorded services, so code shared
+with a desktop build can choose:
+
+```csharp
+public sealed class UpdateWorker(ILogger<UpdateWorker> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var check = await InstellaClient.CheckForUpdateAsync(stoppingToken);
+            if (check.Update is { } update)
+            {
+                var start = await InstellaClient.StartServiceUpdateAsync(update, stoppingToken);
+                if (start.IsStarted)
+                    log.LogInformation("Updating to {Version} (updater pid {Pid})", update.Version, start.ProcessId);
+                else
+                    log.LogWarning("Cannot update to {Version}: {Reason}", update.Version, start.RefusalReason);
+            }
+            await Task.Delay(TimeSpan.FromHours(6), stoppingToken);
+        }
+    }
+}
+```
+
+`StartServiceUpdateAsync` starts the stub (`instella --update … --service-update --silent`) detached
+and returns at once; the service keeps running. The updater stops the recorded services through the
+service manager (this one included), updates the files, and starts the services again as described in
+[Updates and repair](#updates-and-repair). It never waits for a parent process, never shows a window
+or a message box, never asks for elevation (not elevated: exit 51) and never launches the app's
+executable; programs that hold the files open are not closed (exit 24, the services are started
+again). It never calls `Environment.Exit` and never throws for a refusal: the result's `IsStarted`
+is false and `RefusalReason` says why. Only a null `update` (`ArgumentNullException`) and
+cancellation before the start throw.
+
+### Which accounts can update
+
+The updater replaces files in the install folder and stops and starts the services, so the service
+must run elevated: as **LocalSystem** (the default of `RunAs`) or as an administrator account
+(a `FromInstaller` or managed service account only when it is in the Administrators group).
+`LocalService`, `NetworkService` and virtual accounts cannot: their update requests are refused
+before anything starts. Such a service can still be updated by the installer, or by a desktop
+companion app with `StartUpdaterAsync`.
+
+### The checks
+
+Before it starts anything, `StartServiceUpdateAsync` checks, in this order, and the first that fails
+is the refusal:
+
+| Check | Refusal reason (start) |
+|---|---|
+| The app was installed by Instella | `not installed by Instella …` |
+| The installed manifest has a `services` field (an installer without service support wrote none, and its stub would not stop the service) | `the installation records no services field …` |
+| It records at least one service | `the installation records no Windows service` |
+| Windows | `Windows services exist only on Windows` |
+| The process is elevated | `the service is not elevated …` |
+| It can write the install folder (and `.instella/`) | `the service account cannot write to {folder}: …` |
+| It can open every recorded service with stop and start rights | `the service account cannot stop and start service '{name}': …` |
+| It is not in a job object that forbids breakaway | `the service runs in a job object that does not allow breakaway …` |
+| The stub `instella.exe` is in the install folder | `the Instella stub instella.exe is missing …` |
+
+The checks are a snapshot: something can still change before the updater runs. A later failure is
+handled by the updater as any other: the update rolls back and the services are started again.
+
+### Job objects
+
+When a service stops, the service manager ends the processes of its job object, if it runs in one.
+The updater must outlive the service, so it is started with `CREATE_BREAKAWAY_FROM_JOB` when the
+service runs in a job that allows breakaway (`JOB_OBJECT_LIMIT_BREAKAWAY_OK` or
+`JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK`). A job that allows neither is refused, because the updater
+would die with the service. A service outside any job needs nothing.
+
 ## Uninstall
 
 Uninstall stops every recorded service (dependents first, ending the process of one stuck stopping)

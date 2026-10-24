@@ -54,6 +54,14 @@ public class InstallerHandoffTests
     }
 
     [Test]
+    public void ServiceUpdateFlag_IsReserved()
+    {
+        Assert.That(ReservedCliFlags.All, Does.Contain("--service-update"));
+        Assert.Throws<InvalidOperationException>(() =>
+            InstellaInstaller.Create().WithApp("App", "com.app", new Version(1, 0)).AddCliFlag<bool>("service-update").Build());
+    }
+
+    [Test]
     public void HandedOverInstaller_GetsTheArgumentsWithoutTheSelectionFlags()
     {
         string[] args = ["--silent", "--app-version", "1.2.0", "--channel", "beta", "--path", @"C:\x",

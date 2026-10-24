@@ -17,6 +17,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Sources of the apps the tests generate and build in a temp folder (ServiceSelfUpdateE2ETests). -->
+    <Compile Remove="Assets\**" />
+    <None Remove="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Instella.Server\Instella.Server.csproj" />
     <ProjectReference Include="..\..\src\Instella.Core\Instella.Core.csproj" />
     <ProjectReference Include="..\..\src\Instella.CLI\Instella.CLI.csproj" />

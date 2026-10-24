@@ -126,6 +126,15 @@ internal sealed partial class WindowsServiceManager : IServiceManager
         return Task.FromResult(ServiceResult.Ok);
     }
 
+    public Task<ServiceResult> CheckControlAccessAsync(string name, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ct.ThrowIfCancellationRequested();
+        // The rights StopAsync and StartAsync open the service with.
+        using var opened = Open(name, SERVICE_START | SERVICE_STOP | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS, out var error);
+        return Task.FromResult(opened is null ? Failure("open", name, error) : ServiceResult.Ok);
+    }
+
     public async Task<ServiceResult> EndStopPendingProcessAsync(string name, TimeSpan timeout, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);

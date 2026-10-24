@@ -84,6 +84,12 @@ meets SDKs from every later release. The command line between them follows these
 5. `--extra-args` is last, and everything after it belongs to the app: the stub never reads it.
 6. The same rules apply to `--recover`.
 
+`--service-update` (sent by the SDK's `StartServiceUpdateAsync` from inside a Windows service) is such an
+additive flag: it makes the updater headless even without `--silent`, refuses with exit 51 instead of asking
+for elevation, and never launches the app. A stub older than service support ignores it and would not stop the
+service, so the SDK refuses a service update when the installed manifest has no `services` field (only stubs
+that know the flag write it).
+
 Every other mode (install, manage, uninstall, preview) stays strict: an unknown flag is a usage error (exit 40).
 
 An updater that meets an app upgrade program it cannot run (a newer `contractVersion`, a failure, a

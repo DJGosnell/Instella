@@ -50,6 +50,40 @@ public sealed class RecoverAndUpdateRunnerTests
     }
 
     [Test]
+    public async Task Update_WithServiceUpdate_NeverOpensTheUpdateWindow()
+    {
+        var fs = new InMemoryFileSystem();
+        fs.AddFile(Path.Combine(_root, "app.exe"), Encoding.UTF8.GetBytes("v1"));
+        await new InstallManifestWriter(fs).WriteAsync(_root, new InstalledManifest
+        {
+            AppName = "App", AppId = "com.app", Version = new Version(1, 0), InstallDirectory = _root,
+            ExecutableName = "app.exe", InstalledAt = DateTime.UtcNow, Platform = Instella.Core.Platform.TargetPlatform.Windows,
+            // Nothing listens on port 1: the update fails fast at the release fetch.
+            ServerUrl = "http://127.0.0.1:1", AllowInsecureServer = true, Files = [],
+        }, CancellationToken.None);
+        // No --silent: --service-update alone must keep the updater headless (session 0).
+        var args = new UpdaterArgs
+        {
+            AppPath = _root, AppExecutable = "app.exe", FromVersion = new Version(1, 0), ToVersion = new Version(1, 1),
+        }.ToArgumentList().Append("--service-update").ToArray();
+        var windows = 0;
+        var config = ((InstellaInstallerImpl)InstellaInstaller.Create().WithApp("App", "com.app", new Version(1, 0)).Build()).ConfigForTests;
+        var runner = new UpdateModeRunner(config, new RecordingLogger(new RecordingSink()), new FakePlatformServices(), fs)
+        {
+            HostFactory = (_, _, _) =>
+            {
+                windows++;
+                throw new InvalidOperationException("the update window was opened");
+            },
+            LockTimeout = TimeSpan.FromSeconds(5),
+        };
+
+        await runner.RunAsync(args, CancellationToken.None);
+
+        Assert.That(windows, Is.Zero, "a service update shows no window");
+    }
+
+    [Test]
     public async Task Update_OfAnotherAppsInstallation_Exits20()
     {
         var fs = new InMemoryFileSystem();

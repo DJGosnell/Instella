@@ -57,6 +57,8 @@ internal static class ReservedCliFlags
         "--graceful-timeout",
         "--extra-args",
         "--repair",
+        // Started from inside a Windows service by the SDK's StartServiceUpdateAsync.
+        Instella.Core.Update.UpdaterArgs.ServiceUpdateFlag,
         // The account of ServiceAccount.FromInstaller services, for silent installs. There is
         // deliberately no --service-password: a password on the command line leaks.
         "--service-account",

@@ -32,6 +32,17 @@ public sealed class ModeDispatcherTests
     private static object KindOf(object result) => ResultType.GetProperty("Kind")!.GetValue(result)!;
 
     [Test]
+    public void ServiceUpdate_IsAlwaysSilent()
+    {
+        // Session 0 has no desktop: an updater started by a service never shows a window or a
+        // message box, even when --silent is missing.
+        var r = Resolve(new[] { "--update", "--app-path", @"C:\App", "--app-exe", "App.exe", "--from-version", "1.0",
+            "--to-version", "1.1", "--service-update" });
+        Assert.That(ModeOf(r), Is.EqualTo(InstallerMode.Update));
+        Assert.That(SilentOf(r), Is.True);
+    }
+
+    [Test]
     public void Help_short_circuits()
     {
         var r = Resolve(new[] { "--help" });

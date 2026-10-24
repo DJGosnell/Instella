@@ -41,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`UninstallServiceFailed`) and removes nothing. `--recover` starts again the services an interrupted
   update stopped, `--restart` starts the app's service instead of launching its executable, and an
   install over a service still marked for deletion exits 16 and says to restart Windows.
+- Self-update from inside a Windows service (opt-in): `InstellaClient.StartServiceUpdateAsync(update)`
+  starts the updater detached with the new `--service-update` flag and returns a
+  `ServiceUpdateStartResult` (started with its process id, or refused with the reason) without
+  exiting the process. It refuses unless the service runs elevated (LocalSystem or an administrator
+  account), can write the install folder, can stop and start every recorded service, does not run in a
+  job that forbids breakaway, and the installation was made by an installer with service support. The
+  updater then stays headless, exits 51 instead of asking for elevation, never launches the app, and
+  starts the stopped services again. `InstellaClient.IsRunningAsServiceAsync()` says whether the
+  process is one of the installation's services; inside one, `StartUpdaterAsync` and
+  `LaunchUpdaterAndExitAsync` now throw `InvalidOperationException`. Guide:
+  [docs/windows-services.md](docs/windows-services.md#updating-a-service).
 
 ### Fixed
 

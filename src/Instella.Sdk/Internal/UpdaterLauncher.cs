@@ -37,10 +37,17 @@ internal static class UpdaterLauncher
     /// <summary>
     /// Starts the updater and returns once it is running. <paramref name="ct"/> is observed only
     /// before the process starts: after that the operation is complete. There is no delay; the
-    /// updater waits for this process (by PID) to exit before touching files.
+    /// updater waits for this process (by PID) to exit before touching files. Inside one of the
+    /// installation's services it throws instead: that path is <see cref="ServiceUpdateLauncher"/>.
     /// </summary>
-    public static UpdaterStartResult Start(UpdateInfo update, UpdateOptions options, InstellaInfo info, CancellationToken ct)
+    public static async Task<UpdaterStartResult> StartAsync(
+        UpdateInfo update, UpdateOptions options, InstellaInfo info, IServiceUpdateSystem system, CancellationToken ct)
     {
+        if (await ServiceUpdateLauncher.IsRunningAsServiceAsync(info, system, ct).ConfigureAwait(false))
+            throw new InvalidOperationException(
+                $"This process is a Windows service: the desktop updater would wait for it to exit and end it as a crash. " +
+                $"Call {nameof(InstellaClient)}.{nameof(InstellaClient.StartServiceUpdateAsync)} instead.");
+
         var stub = FindUpdaterPath(info.InstallRoot);
         if (!File.Exists(stub))
             throw new InvalidOperationException(

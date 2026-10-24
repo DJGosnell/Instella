@@ -88,6 +88,8 @@ internal static class ModeDispatcher
                     explicitMode = InstallerMode.Recover;
                     break;
                 case "--silent":
+                // Started from inside a service: session 0 has no desktop, so never any UI.
+                case Instella.Core.Update.UpdaterArgs.ServiceUpdateFlag:
                     isSilent = true;
                     break;
                 case "--allow-downgrade":

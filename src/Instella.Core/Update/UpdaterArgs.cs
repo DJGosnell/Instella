@@ -63,6 +63,17 @@ internal sealed record UpdaterArgs
     /// <summary>The app process that launched the updater; it is waited on before any file is touched.</summary>
     public int? ParentPid { get; init; }
 
+    /// <summary>
+    /// The updater was started from inside a Windows service (<c>--service-update</c>, written by the
+    /// SDK's <c>StartServiceUpdateAsync</c>): it runs in session 0, so it shows no window, never asks
+    /// for elevation and never launches the app; the services it stopped are started again instead.
+    /// Additive: a stub that predates the flag ignores it.
+    /// </summary>
+    public bool ServiceUpdate { get; init; }
+
+    /// <summary>The flag that sets <see cref="ServiceUpdate"/>.</summary>
+    public const string ServiceUpdateFlag = "--service-update";
+
     /// <summary>Arguments for the restarted app. Everything after <c>--extra-args</c>, so it stays last.</summary>
     public IReadOnlyList<string> ExtraArgs { get; init; } = [];
 
@@ -87,6 +98,7 @@ internal sealed record UpdaterArgs
         if (Silent) a.Add("--silent");
         if (Repair) a.Add("--repair");
         if (ParentPid is { } pid) a.AddRange(["--parent-pid", pid.ToString(CultureInfo.InvariantCulture)]);
+        if (ServiceUpdate) a.Add(ServiceUpdateFlag);
         if (ExtraArgs.Count > 0)
         {
             a.Add("--extra-args");
@@ -107,7 +119,7 @@ internal sealed record UpdaterArgs
         int timeout = 30;
         int countdown = (int)DefaultRestartCountdown.TotalSeconds;
         int? parentPid = null;
-        bool usePatch = false, forceClose = false, restart = true, silent = false, repair = false;
+        bool usePatch = false, forceClose = false, restart = true, silent = false, repair = false, serviceUpdate = false;
         var extra = new List<string>();
 
         for (var i = 0; i < args.Count; i++)
@@ -147,6 +159,7 @@ internal sealed record UpdaterArgs
                 case "--no-restart": restart = false; break;
                 case "--silent": silent = true; break;
                 case "--repair": repair = true; break;
+                case ServiceUpdateFlag: serviceUpdate = true; break;
             }
         }
 
@@ -169,6 +182,7 @@ internal sealed record UpdaterArgs
             Silent = silent,
             Repair = repair,
             ParentPid = parentPid,
+            ServiceUpdate = serviceUpdate,
             ExtraArgs = extra,
         };
     }
@@ -181,7 +195,8 @@ internal sealed record UpdaterArgs
         && UsePatch == other.UsePatch && PatchSha256 == other.PatchSha256 && AllowForceClose == other.AllowForceClose
         && GracefulTimeout == other.GracefulTimeout && Restart == other.Restart && Silent == other.Silent
         && RestartCountdown == other.RestartCountdown
-        && Repair == other.Repair && ParentPid == other.ParentPid && ExtraArgs.SequenceEqual(other.ExtraArgs);
+        && Repair == other.Repair && ParentPid == other.ParentPid
+        && ServiceUpdate == other.ServiceUpdate && ExtraArgs.SequenceEqual(other.ExtraArgs);
 
     public override int GetHashCode() => HashCode.Combine(AppPath, AppVersions.Normalize(FromVersion), AppVersions.Normalize(ToVersion), ParentPid);
 }

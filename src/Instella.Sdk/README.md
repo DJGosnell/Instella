@@ -31,6 +31,9 @@ was built with, targets this app, OS and architecture, and is newer than the ins
 It then shows "{App} was updated", counts down (`UpdateOptions.RestartCountdown`, default 5 s)
 and restarts the app **without administrator rights and without arguments**. What the app
 passed as `UpdateOptions.AdditionalArgs` arrives in `InstellaClient.PostUpdateArguments`.
+An app running as a Windows service updates itself with `StartServiceUpdateAsync` instead (the
+desktop calls throw there; `IsRunningAsServiceAsync` tells them apart): see
+[Updating a service](../../docs/windows-services.md#updating-a-service).
 The SDK is trimming- and NativeAOT-compatible.
 
 ## App upgrade programs

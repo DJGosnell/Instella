@@ -53,6 +53,12 @@ public sealed record InstellaInfo
 
     /// <summary>The download token check-update sends: the override, else the installed one.</summary>
     internal string? DownloadToken { get; init; }
+
+    /// <summary>
+    /// The Windows services the installation records, in manifest order; null when the installed
+    /// manifest has no <c>services</c> field (an installer without service support wrote it).
+    /// </summary>
+    internal IReadOnlyList<string>? ServiceNames { get; init; }
 }
 
 /// <summary>
@@ -65,3 +71,29 @@ public sealed class InstellaNotInstalledException(string message) : InvalidOpera
 /// <summary>The updater process started by <see cref="InstellaClient.StartUpdaterAsync"/>.</summary>
 /// <param name="ProcessId">Its process id. The updater waits for the calling app to exit before touching files.</param>
 public sealed record UpdaterStartResult(int ProcessId);
+
+/// <summary>
+/// The outcome of <see cref="InstellaClient.StartServiceUpdateAsync"/>: the updater was started,
+/// or the update was refused before anything started.
+/// </summary>
+public sealed class ServiceUpdateStartResult
+{
+    private ServiceUpdateStartResult(int? processId, string? refusalReason)
+    {
+        ProcessId = processId;
+        RefusalReason = refusalReason;
+    }
+
+    /// <summary>Whether the updater was started. The service keeps running until the updater stops it.</summary>
+    public bool IsStarted => ProcessId is not null;
+
+    /// <summary>The updater's process id when it was started, else null.</summary>
+    public int? ProcessId { get; }
+
+    /// <summary>Why the update was refused, else null. Nothing was started; log it.</summary>
+    public string? RefusalReason { get; }
+
+    internal static ServiceUpdateStartResult Started(int processId) => new(processId, null);
+
+    internal static ServiceUpdateStartResult Refused(string reason) => new(null, reason);
+}

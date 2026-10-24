@@ -56,7 +56,10 @@ internal sealed class UpdateModeRunner
     public async Task<InstellaExitCode> RunAsync(string[] args, CancellationToken ct)
     {
         var updaterArgs = UpdaterArgs.Parse(args);
-        var messages = Messages ?? new UserMessages(updaterArgs?.Silent ?? true);
+        // Started from inside a service (--service-update): session 0 has no desktop, so no UI at all.
+        var serviceUpdate = updaterArgs?.ServiceUpdate == true;
+        var headless = updaterArgs is null || updaterArgs.Silent || serviceUpdate;
+        var messages = Messages ?? new UserMessages(headless);
         var title = $"Update {_config.AppName}";
         // A failure before the update window opens is logged and shown; the window shows
         // the rest.
@@ -111,7 +114,7 @@ internal sealed class UpdateModeRunner
 
             var engine = new UpdaterEngine(updaterArgs, downloader, _platform, _fileSystem, BsDiffEngine.Instance)
             {
-                AppRunningPrompt = OperatingSystem.IsWindows() && !updaterArgs.Silent && Services?.HostFactory is null
+                AppRunningPrompt = OperatingSystem.IsWindows() && !headless && Services?.HostFactory is null
                     ? RunningAppGate.MessageBoxPrompt
                     : null,
                 ProcessFinder = Services?.ProcessFinder,
@@ -121,21 +124,25 @@ internal sealed class UpdateModeRunner
             };
             engine.LogMessage += (_, msg) => _log.Info(msg);
 
-            // Interactive updates show a small progress window; silent ones run headless.
-            var hostFactory = HostFactory ?? Services?.HostFactory ?? (OperatingSystem.IsWindows() && !updaterArgs.Silent
-                ? InteractiveInstallRunner.CreateDefaultWin32Host
-                : null);
+            // Interactive updates show a small progress window; silent ones and service
+            // updates run headless.
+            var hostFactory = serviceUpdate
+                ? null
+                : HostFactory ?? Services?.HostFactory ?? (OperatingSystem.IsWindows() && !updaterArgs.Silent
+                    ? InteractiveInstallRunner.CreateDefaultWin32Host
+                    : null);
             // One Instella process per install folder: held for the update, released
             // before the app is restarted.
             await using var held = await Core.Transactions.InstallRootLock.AcquireOrReportAsync(
-                updaterArgs.AppPath, updaterArgs.Silent, LockTimeout, installed.AppName, _log, ct);
+                updaterArgs.AppPath, headless, LockTimeout, installed.AppName, _log, ct);
             if (held is null)
                 return Fail(InstellaExitCode.InstallationBusy, "another Instella process is using the installation",
                     Core.Transactions.InstallRootLock.BusyMessage(installed.AppName));
 
             // The app is restarted without elevation, and without arguments: the post-update
             // marker carries them (UpdaterArgs.ExtraArgs). When the app's executable is one of
-            // the installation's services, the services are started instead.
+            // the installation's services, the services are started instead. A service update
+            // never launches anything: the engine has already started the services it stopped.
             var launcher = Launcher ?? Services?.AppLauncher ?? new AppLauncher(_log);
             void Restart(UpdateResult r)
             {
@@ -149,7 +156,7 @@ internal sealed class UpdateModeRunner
             if (hostFactory is null)
             {
                 result = await engine.RunAsync(ct);
-                if (result.Success && updaterArgs.Restart) Restart(result);
+                if (result.Success && updaterArgs.Restart && !serviceUpdate) Restart(result);
             }
             else
             {

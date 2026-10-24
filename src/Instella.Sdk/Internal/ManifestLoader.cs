@@ -58,6 +58,7 @@ internal static class ManifestLoader
             AllowUnsignedUpdates = manifest.AllowUnsignedUpdates,
             AllowInsecureServer = manifest.AllowInsecureServer,
             DownloadToken = manifest.DownloadToken,
+            ServiceNames = manifest.Services?.Select(s => s.Name).ToList(),
         };
     }
 
