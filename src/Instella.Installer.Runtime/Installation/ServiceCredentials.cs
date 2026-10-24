@@ -56,8 +56,8 @@ internal sealed class ServiceCredentials : IDisposable
 
     /// <summary>
     /// The credentials of a silent run, before anything is written: null when no service uses
-    /// <see cref="ServiceAccount.FromInstaller"/>. The account is <c>--service-account</c>, else the
-    /// first such service's default user, else the account the existing installation records. The
+    /// <see cref="ServiceAccount.FromInstaller"/>. The account is <c>--service-account</c>, else (upgrade,
+    /// repair) the account the existing installation records, else the first such service's default user. The
     /// password is needed on a first install, or when the account differs from the one recorded for
     /// any such service; it is read from <c>--service-password-file</c> (one trailing newline
     /// trimmed), else from the configured environment variable (empty counts as absent).
@@ -73,10 +73,14 @@ internal sealed class ServiceCredentials : IDisposable
         var flagAccount = ValueOf(own, AccountFlag);
         var passwordFile = ValueOf(own, PasswordFileFlag);
 
+        // Like the wizard: an upgrade or repair keeps the account the installation records over the
+        // author's default, so an account chosen at install time survives a plain silent upgrade.
+        var recorded = mode is InstallerMode.Upgrade or InstallerMode.Repair
+            ? services.Select(s => ServiceAccountPage.RecordedAccount(existing, s.Name)).FirstOrDefault(a => a is not null)
+            : null;
         var account = !string.IsNullOrWhiteSpace(flagAccount)
             ? ServiceAccount.NormalizeUser(flagAccount)
-            : services[0].Account.DefaultUser
-              ?? services.Select(s => ServiceAccountPage.RecordedAccount(existing, s.Name)).FirstOrDefault(a => a is not null);
+            : recorded ?? services[0].Account.DefaultUser;
         if (string.IsNullOrEmpty(account))
             throw new SilentMissingStateException(
                 $"service '{services[0].Name}' runs as an account the installer supplies: pass {AccountFlag} <user> "
