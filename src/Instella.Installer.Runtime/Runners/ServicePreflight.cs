@@ -19,6 +19,8 @@ namespace Instella.Installer.Runtime.Runners;
 /// failure is an <see cref="InstallRefusedException"/> with exit 10. A declared service's
 /// executable must be in the payload; the install folder must be one only administrators can
 /// change; and a service of the same name that this installation does not record is never taken over.
+/// A same-named service that is only marked for deletion fails with exit 16 instead: it goes once
+/// whatever holds it open closes, or at a restart.
 /// </summary>
 internal static class ServicePreflight
 {
@@ -51,8 +53,15 @@ internal static class ServicePreflight
         foreach (var spec in run.Declared)
         {
             var found = await context.ServiceManager.QueryConfigurationAsync(spec.Name, ct);
-            if (found.Outcome.Success && ServiceRun.Recorded(context, spec.Name) is null)
-                Refuse($"a service named '{spec.Name}' already exists and is not part of this installation");
+            var exists = found.Outcome.Success || found.Failure == Instella.Core.Platform.ServiceFailure.MarkedForDeletion;
+            if (!exists || ServiceRun.Recorded(context, spec.Name) is not null) continue;
+            var marked = await context.ServiceManager.IsMarkedForDeletionAsync(spec.Name, ct);
+            if (found.Failure == Instella.Core.Platform.ServiceFailure.MarkedForDeletion || marked is { Outcome.Success: true, Value: true })
+                throw new InstallRefusedException(InstellaExitCode.InstallServiceFailed,
+                    $"the service '{spec.Name}' is marked for deletion (an earlier uninstall removed it while a program still " +
+                    "held it open); close the Services console, Event Viewer or any other program using it, or restart Windows, " +
+                    "then run the installer again");
+            Refuse($"a service named '{spec.Name}' already exists and is not part of this installation");
         }
     }
 

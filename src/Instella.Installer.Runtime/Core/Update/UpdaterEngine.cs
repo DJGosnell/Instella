@@ -11,8 +11,10 @@ using Instella.Core.Update;
 using Instella.Core.Utilities;
 using Instella.Core.Wire;
 using Instella.Installer.Runtime.AppUpgrade;
+using Instella.Installer.Runtime.Builders;
 using Instella.Installer.Runtime.Migrations;
 using Instella.Installer.Runtime.Core.Processes;
+using Instella.Installer.Runtime.Core.Services;
 using Instella.Installer.Runtime.Core.Transactions;
 
 namespace Instella.Installer.Runtime.Core.Update;
@@ -24,8 +26,8 @@ namespace Instella.Installer.Runtime.Core.Update;
 /// </summary>
 /// <remarks>
 /// Pipeline: recover → load installed state → resolve and verify the release → plan per
-/// file → close the app → stage (patch or download, every file hashed against the release)
-/// → commit (installed manifest last) → complete and restart.
+/// file → stop the installation's services and close the app → stage (patch or download, every file hashed against the release)
+/// → commit (installed manifest last) → start the services again → complete and restart.
 /// </remarks>
 internal sealed class UpdaterEngine
 {
@@ -40,6 +42,8 @@ internal sealed class UpdaterEngine
     private UpdaterState _currentState = UpdaterState.Initializing;
     private volatile bool _committing;
     private ZipArchive? _fullBuild;
+    private InstallationServices? _services;
+    private IReadOnlyList<string> _stoppedServices = [];
 
     public event EventHandler<UpdaterState>? StateChanged;
     public event EventHandler<UpdaterProgress>? ProgressChanged;
@@ -77,6 +81,27 @@ internal sealed class UpdaterEngine
     /// <summary>Runs the update. Never throws; the outcome and exit code are in the result.</summary>
     public async Task<UpdateResult> RunAsync(CancellationToken ct)
     {
+        var result = await RunCoreAsync(ct);
+        // Whatever failed after the services were stopped, the files are back (or were never
+        // touched): start the services again. Not after a failed rollback: the files are
+        // inconsistent until --recover, which starts them.
+        if (!result.Success && result.Failure != UpdateFailure.RollbackFailed && _services is { } services && _stoppedServices.Count > 0)
+        {
+            try
+            {
+                Log("Starting again the services the update stopped");
+                await services.StartAgainAsync(_stoppedServices, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Log($"Could not start the services again: {ex.Message}");
+            }
+        }
+        return result;
+    }
+
+    private async Task<UpdateResult> RunCoreAsync(CancellationToken ct)
+    {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var token = _cts.Token;
         InstallTransaction? txn = null;
@@ -85,8 +110,9 @@ internal sealed class UpdaterEngine
         {
             SetState(UpdaterState.Initializing);
 
-            // 1. Recover: finish or undo anything a previous run left half-done.
-            if (await InstallTransaction.RecoverAsync(_fs, _args.AppPath, token, retryDelays: _retryDelays))
+            // 1. Recover: finish or undo anything a previous run left half-done, and start again
+            // the services it had stopped.
+            if (await ServiceRecovery.RecoverAsync(_fs, _args.AppPath, DeclaredServices, ServiceManager, new EngineLog(this), token, _retryDelays))
                 Log("Rolled back an interrupted update before starting");
 
             // 2. Load state.
@@ -110,7 +136,19 @@ internal sealed class UpdaterEngine
             var plan = await PlanAsync(installed, release, token);
             Log($"Plan: {plan.Unchanged} unchanged, {plan.Patch.Count} patch, {plan.Download.Count} download, {plan.Delete.Count} delete");
 
-            // 5. Close the app.
+            // 5. Stop the installation's services, then close the app. The app that launched the
+            // updater exits on its own once the updater is running (the SDK passes its PID): wait
+            // for that first.
+            if (_args.ParentPid is { } parentPid)
+                await WaitForParentAsync(parentPid, token);
+            _services = InstallationServices.For(installed, DeclaredServices, ServiceManager, new EngineLog(this));
+            if (_services is not null)
+            {
+                var stop = await _services.StopAllAsync(token);
+                _stoppedServices = stop.Stopped;
+                if (stop.Error is not null)
+                    return Fail(UpdateFailure.ServiceFailed, $"{stop.Error}; the update was not applied");
+            }
             if (!await CloseAppAsync(installed, token))
                 return Fail(UpdateFailure.AppWouldNotClose, "the application would not close");
 
@@ -118,6 +156,8 @@ internal sealed class UpdaterEngine
             txn = await InstallTransaction.BeginAsync(
                 _fs, _args.AppPath, _args.Repair ? TxnKind.Repair : TxnKind.Update, installed.Version, target,
                 token, retryDelays: _retryDelays);
+            // So that --recover starts them again if this run never gets to.
+            await ServicesRunningFile.WriteAsync(_fs, txn, _stoppedServices, token);
             await StageAsync(txn, installed, release, plan, token);
 
             // 7. Commit: from here on the operation ignores cancellation. With an upgrade program the
@@ -151,6 +191,11 @@ internal sealed class UpdaterEngine
             // 7b. The app's upgrade program, on the new files, while the commit can still roll back.
             if (declared && await UpgradeAppDataAsync(txn, installed, release) is { } upgradeFailure)
                 return upgradeFailure;
+
+            // 7c. Start again the services that were running, on the new files, while the backup
+            // can still put the previous version back.
+            if (await StartServicesAsync(txn, declared) is { } serviceFailure)
+                return serviceFailure;
 
             // 8. Complete, then leave the post-update marker. The caller restarts the app (the
             // update window first shows the result), always without elevation.
@@ -384,6 +429,34 @@ internal sealed class UpdaterEngine
         }
     }
 
+    /// <summary>
+    /// Starts the services the update stopped, dependencies first. A service that will not start
+    /// (unless its declaration makes that a warning) stops whatever did start and rolls the update
+    /// back; the previous version's services are then started again by <see cref="RunAsync"/>.
+    /// </summary>
+    /// <returns>Null when every service started; otherwise the failed result (exit 26, or 23 when
+    /// the files cannot be put back).</returns>
+    private async Task<UpdateResult?> StartServicesAsync(InstallTransaction txn, bool upgraded)
+    {
+        if (_services is not { } services || _stoppedServices.Count == 0) return null;
+        string? error = null;
+        foreach (var (name, why) in await services.StartAsync(_stoppedServices, CancellationToken.None))
+        {
+            if (services.StartFailureIsWarning(name))
+                Log($"Warning: {why}");
+            else
+                error ??= why;
+        }
+        if (error is null) return null;
+
+        Log($"Update failed to start its services: {error}");
+        var stop = await services.StopAllAsync(CancellationToken.None);
+        if (stop.Error is not null)
+            Log($"Warning: before rolling back, {stop.Error}");
+        var message = upgraded ? $"{error}; the app's upgrade program had already run on its data" : error;
+        return await RollBackHeldCommitAsync(txn, UpdateFailure.ServiceFailed, message);
+    }
+
     /// <summary>Starts the app's upgrade program; the real process runner unless a test replaces it.</summary>
     internal IProgramRunner Programs { get; init; } = ProcessProgramRunner.Instance;
 
@@ -463,8 +536,17 @@ internal sealed class UpdaterEngine
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }
 
-    /// <summary>Tells the gate which processes are the installation's services; null uses the OS's own.</summary>
+    /// <summary>
+    /// Stops and starts the installation's services and tells the gate which processes are theirs;
+    /// null uses the OS's own (created only when the manifest records services).
+    /// </summary>
     internal Instella.Core.Platform.IServiceManager? ServiceManager { get; init; }
+
+    /// <summary>
+    /// The stub's service declarations: each recorded service's timeouts and whether a failed start
+    /// is only a warning. Null: every recorded service uses the defaults.
+    /// </summary>
+    internal IReadOnlyList<ServiceSpec>? DeclaredServices { get; init; }
 
     /// <summary>
     /// Asks the user about programs that would not close; null (silent) fails the update
@@ -478,15 +560,10 @@ internal sealed class UpdaterEngine
     /// </summary>
     private async Task<bool> CloseAppAsync(InstalledManifest installed, CancellationToken ct)
     {
-        // The app that launched the updater exits on its own once the updater is running
-        // (the SDK passes its PID); wait for that before asking anything else to close.
-        if (_args.ParentPid is { } parentPid)
-            await WaitForParentAsync(parentPid, ct);
-
         var gate = new RunningAppGate(_platform, new EngineLog(this), ProcessFinder, _fs)
         {
             CloseTimeout = TimeSpan.FromSeconds(2),
-            IgnoredProcessIds = await ServicePids.ForAsync(installed, ServiceManager, ct),
+            IgnoredProcessIds = await ServicePids.ForAsync(installed, _services?.Manager ?? ServiceManager, ct),
         };
         var running = Closable(gate, installed);
         if (running.Count == 0) return true;

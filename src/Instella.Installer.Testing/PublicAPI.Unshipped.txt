@@ -164,3 +164,4 @@ override Instella.Installer.Testing.FakeService.ToString() -> string!
 static Instella.Installer.Testing.FakeService.operator !=(Instella.Installer.Testing.FakeService? left, Instella.Installer.Testing.FakeService? right) -> bool
 static Instella.Installer.Testing.FakeService.operator ==(Instella.Installer.Testing.FakeService? left, Instella.Installer.Testing.FakeService? right) -> bool
 Instella.Installer.Testing.FakePlatformServices.MarkWritableByNonAdmins(string! folder) -> void
+Instella.Installer.Testing.FakeServiceManager.SetHeldOpen(string! name, bool held) -> void

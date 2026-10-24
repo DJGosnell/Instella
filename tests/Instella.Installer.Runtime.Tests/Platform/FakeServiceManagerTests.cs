@@ -340,4 +340,89 @@ public sealed class FakeServiceManagerTests
         Assert.That(stopped.Outcome.Success, Is.True, stopped.Outcome.Error);
         Assert.That(platform.ServiceManager.Services.Select(s => s.State), Is.All.EqualTo(FakeServiceState.Stopped));
     }
+
+    [Test]
+    public async Task EndStopPendingProcess_StopsAHungService_AndLogsKill()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        await services.CreateAsync(Config(), null, Ct);
+        await services.StartAsync("Svc", Timeout, Ct);
+        platform.ServiceManager.SetStopBehavior("Svc", FakeServiceBehavior.Hang);
+        await services.StopAsync("Svc", Timeout, Ct);
+        Assert.That(platform.ServiceManager.Find("Svc")!.State, Is.EqualTo(FakeServiceState.StopPending));
+
+        var ended = await services.EndStopPendingProcessAsync("Svc", Timeout, Ct);
+
+        Assert.That(ended.Outcome.Success, Is.True, ended.Outcome.Error);
+        Assert.That(platform.ServiceManager.Find("Svc")!.State, Is.EqualTo(FakeServiceState.Stopped));
+        Assert.That(platform.ServiceManager.Find("Svc")!.ProcessId, Is.EqualTo(0));
+        Assert.That(platform.ServiceManager.Calls.Last(), Is.EqualTo("kill:Svc"));
+    }
+
+    [Test]
+    public async Task EndStopPendingProcess_OfARunningService_FailsAndLeavesItRunning()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        await services.CreateAsync(Config(), null, Ct);
+        await services.StartAsync("Svc", Timeout, Ct);
+
+        var ended = await services.EndStopPendingProcessAsync("Svc", Timeout, Ct);
+
+        Assert.That(ended.Outcome.Success, Is.False);
+        Assert.That(platform.ServiceManager.Find("Svc")!.State, Is.EqualTo(FakeServiceState.Running));
+    }
+
+    [Test]
+    public async Task EndStopPendingProcess_OfAMarkedService_RemovesIt()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        await services.CreateAsync(Config(), null, Ct);
+        await services.StartAsync("Svc", Timeout, Ct);
+        platform.ServiceManager.SetStopBehavior("Svc", FakeServiceBehavior.Hang);
+        await services.DeleteAsync("Svc", Ct);
+        await services.StopAsync("Svc", Timeout, Ct);
+
+        var ended = await services.EndStopPendingProcessAsync("Svc", Timeout, Ct);
+
+        Assert.That(ended.Outcome.Success, Is.True, ended.Outcome.Error);
+        Assert.That(platform.ServiceManager.Find("Svc"), Is.Null);
+    }
+
+    [Test]
+    public async Task IsMarkedForDeletion_TellsADeletedRunningServiceFromALiveOne()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        await services.CreateAsync(Config("A"), null, Ct);
+        await services.CreateAsync(Config("B"), null, Ct);
+        await services.StartAsync("B", Timeout, Ct);
+        await services.DeleteAsync("B", Ct);
+
+        var a = await services.IsMarkedForDeletionAsync("A", Ct);
+        var b = await services.IsMarkedForDeletionAsync("B", Ct);
+        var missing = await services.IsMarkedForDeletionAsync("Nope", Ct);
+
+        Assert.That(a.Value, Is.False);
+        Assert.That(b.Value, Is.True);
+        Assert.That(missing.Failure, Is.EqualTo(ServiceFailure.NotFound));
+    }
+
+    [Test]
+    public async Task HeldOpen_KeepsADeletedStoppedService_UntilReleased()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        await services.CreateAsync(Config(), null, Ct);
+        platform.ServiceManager.SetHeldOpen("Svc", held: true);
+
+        await services.DeleteAsync("Svc", Ct);
+
+        Assert.That(platform.ServiceManager.Find("Svc")!.MarkedForDeletion, Is.True);
+        Assert.That((await services.CreateAsync(Config(), null, Ct)).Failure, Is.EqualTo(ServiceFailure.MarkedForDeletion));
+        platform.ServiceManager.SetHeldOpen("Svc", held: false);
+        Assert.That(platform.ServiceManager.Find("Svc"), Is.Null);
+    }
 }

@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `StartFailureIsWarning()` is set. The running-app gate no longer offers to close the installation's
   own services, and publishing fails with INSTELLA0105 when a service's executable is not in the
   payload. Guide: [docs/windows-services.md](docs/windows-services.md).
+- Windows services in updates, repair, uninstall and recovery: the updater and Manage → Repair stop
+  the installation's running services before the files change and start them again afterwards; a
+  service that will not stop, or a new version that will not start (rolled back, previous version
+  started again), exits with the new code 26 (`UpdateServiceFailed`). Uninstall stops and deletes
+  every service before anything else is removed, or exits with the new code 33
+  (`UninstallServiceFailed`) and removes nothing. `--recover` starts again the services an interrupted
+  update stopped, `--restart` starts the app's service instead of launching its executable, and an
+  install over a service still marked for deletion exits 16 and says to restart Windows.
 
 ### Fixed
 

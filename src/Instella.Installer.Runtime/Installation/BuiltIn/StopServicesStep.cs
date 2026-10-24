@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Instella.Core.Installation;
 using Instella.Installer.Runtime.Builders;
+using Instella.Installer.Runtime.Core.Services;
 
 namespace Instella.Installer.Runtime.Installation.BuiltIn;
 
@@ -59,6 +60,16 @@ internal sealed class StopServicesStep(ServiceRun run) : IInstallStepExecution
                 return await FailAsync(context, $"service '{name}' could not be stopped: {result.Outcome.Error}");
             run.Stopped.Add(name);
             context.Log.Info($"services: stopped '{name}' for the update of its files");
+        }
+
+        // So that --recover starts them again if the install is interrupted before start-services.
+        if (context.Transaction is { } txn)
+        {
+            try { await ServicesRunningFile.WriteAsync(context.FileSystem, txn, run.Stopped, cancellationToken); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                context.Log.Warn($"{Name}: {ex.Message}");
+            }
         }
 
         progress.Report(1.0);

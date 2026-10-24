@@ -39,4 +39,8 @@ internal sealed class UnsupportedServiceManager : IServiceManager
     public Task<ServiceResult<IReadOnlyList<string>>> QueryActiveDependentsAsync(string name, CancellationToken ct) => Fail<IReadOnlyList<string>>();
 
     public Task<ServiceResult> DeleteAsync(string name, CancellationToken ct) => Fail();
+
+    public Task<ServiceResult> EndStopPendingProcessAsync(string name, TimeSpan timeout, CancellationToken ct) => Fail();
+
+    public Task<ServiceResult<bool>> IsMarkedForDeletionAsync(string name, CancellationToken ct) => Fail<bool>();
 }

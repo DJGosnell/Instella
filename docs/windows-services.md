@@ -115,12 +115,72 @@ Every service step undoes its work when the install fails at any later point:
 When rollback cannot restore, re-create or restart a service, it tries everything else first and the
 failure is reported as a rollback warning (exit 13), unless a failed start already decided the exit code.
 
+## Updates and repair
+
+The updater (`--update`, Manage → Check for updates) and its repair (`--repair`, Manage → Repair)
+work on the services the installed manifest records, with the timeouts and `StartFailureIsWarning()`
+of the stub's declaration of the same name (a recorded service the stub does not declare uses the
+defaults: 30 s to stop, 60 s to start, and its start failure is an error):
+
+1. After the app that launched the updater has exited, and before the running-program check, every
+   recorded service that is running is stopped, dependents first. A service still stopping when its
+   `StopTimeout` ends has its process ended. A service that will not stop (access denied, an error,
+   still running) ends the update with exit 26 before anything is downloaded or staged; the services
+   already stopped are started again.
+2. The files are staged and committed, and the app's upgrade program runs.
+3. The services that were running are started again, dependencies first, each waited for up to its
+   `StartTimeout`. Services that were stopped before the update stay stopped.
+4. A service that does not start rolls the update back (the message says so when the app's upgrade
+   program already changed its data), starts the previous version's services and exits 26.
+   With `StartFailureIsWarning()` the update completes and logs a warning.
+
+Any other failure after step 1 (a download that fails, cancellation, programs that would not close,
+a commit rolled back) starts the stopped services again once the files are back; the exit code is
+unchanged. When the rollback itself fails (exit 23) the services stay stopped until `--recover`.
+
+`--restart` (and the update window's restart) starts the services whose executable is the app's main
+executable instead of launching it as a desktop program.
+
+## Uninstall
+
+Uninstall stops every recorded service (dependents first, ending the process of one stuck stopping)
+and deletes it right after the running-program check, before the app's uninstall handler, uninstall
+migrations, `OnUninstall` hooks, integrations and files. When a service cannot be stopped or deleted
+the uninstall exits 33, names the service, starts again the ones it had stopped and removes nothing
+else; the installation can be uninstalled later.
+
+A service that already existed when the installation was made (the manifest records it as not
+created by Instella) is stopped but never deleted: it stays registered, stopped.
+
+## Marked for deletion
+
+Windows removes a deleted service only once nothing holds it open. While the Services console, Event
+Viewer or another tool has it open, the service stays registered and **marked for deletion**:
+
+- Uninstall waits up to 30 s for it to go. If it is still there, the uninstall finishes (exit 0) and
+  says a restart may be needed to remove the service completely.
+- An install that meets a service of its name marked for deletion stops before it changes anything
+  (exit 16) and says to close the Services console and Event Viewer, or restart Windows, then run the
+  installer again.
+
+## Recovery
+
+The services an update or an upgrade stopped are written beside the transaction journal
+(`.instella/txn/{id}/services-running.json`). Recovery (`--recover`, and the recovery every updater,
+uninstall, Manage and install run does first) reads them before it rolls the interrupted transaction
+back, then starts each listed service the installation records that exists and is not running. A
+service that does not start there is a warning: the files are consistent and `--recover` exits 0.
+The journal format is unchanged.
+
 ## Exit codes
 
 | Code | Name | When |
 |---|---|---|
 | 16 | `InstallServiceFailed` | A service failed to start (an error, a crash while starting, or no Running within `StartTimeout`), and it has no `StartFailureIsWarning()`. The install rolled back. 16 wins over rollback warnings, as 15 does for a failed upgrade program |
+| 16 | `InstallServiceFailed` | Also: the install met a service of the same name that is **marked for deletion** (see below). Nothing was installed |
 | 10 | `InstallGeneralFailure` | A refusal before anything changed (see Security), a service executable missing from the payload, or a service that could not be stopped |
+| 26 | `UpdateServiceFailed` | The updater (or Manage → Repair) could not stop a service before the update (nothing was downloaded or changed, the services it had stopped run again), or the new version's service would not start (the update rolled back and the previous version's services were started again) |
+| 33 | `UninstallServiceFailed` | Uninstall could not stop or delete a service. Nothing else was removed; the installation is still there to uninstall later |
 
 The log and the silent run's stderr name the service and the reason, for example
 `service 'Contoso.Sync' could not be started: ... did not reach Running within 60 s`. With
@@ -170,6 +230,6 @@ setups that would let a non-administrator take it over:
 
 ## Limits
 
-- Uninstall and in-app updates do not stop, reconfigure or delete services yet; they only leave the
-  services' own processes out of the running-program check.
+- In-app updates never reconfigure a service (a new account, start type or dependency); run the new
+  version's installer for that. They only stop and start the services the installation records.
 - Custom accounts (a user name and password) are not supported.

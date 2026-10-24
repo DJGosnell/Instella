@@ -57,6 +57,12 @@ public enum InstellaExitCode
     /// honoured; the update was rolled back and the previous version is intact.
     /// </summary>
     UpdateAppUpgradeFailed = 25,
+    /// <summary>
+    /// A Windows service of the installation could not be stopped before the update, or the new
+    /// version's service could not be started; the update was not applied, or was rolled back and
+    /// the previous version's services started again.
+    /// </summary>
+    UpdateServiceFailed = 26,
 
     /// <summary>The uninstall failed.</summary>
     UninstallGeneralFailure = 30,
@@ -67,6 +73,11 @@ public enum InstellaExitCode
     /// the app's files and, without <c>--force-close</c>, changed nothing.
     /// </summary>
     UninstallFilesLocked = 32,
+    /// <summary>
+    /// A Windows service of the installation could not be stopped or deleted; nothing else was
+    /// removed and the installation is still there to uninstall later.
+    /// </summary>
+    UninstallServiceFailed = 33,
 
     /// <summary>The command line was invalid.</summary>
     UsageInvalidArgs = 40,
