@@ -11,5 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Instella.Core\Instella.Core.csproj" />
+    <!-- The throwaway service the [Explicit] elevated service-manager test installs. -->
+    <ProjectReference Include="..\Instella.TestServiceHost\Instella.TestServiceHost.csproj" />
   </ItemGroup>
 </Project>

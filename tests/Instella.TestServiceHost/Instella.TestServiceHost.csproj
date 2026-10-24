@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A throwaway own-process Windows service for the [Explicit] elevated service-manager test
+    (Instella.Core.Tests.WindowsServiceManagerElevatedTests). It reports Running when the SCM starts
+    it and Stopped when asked to stop; nothing else. Not a test project.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsTestProject>false</IsTestProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>
