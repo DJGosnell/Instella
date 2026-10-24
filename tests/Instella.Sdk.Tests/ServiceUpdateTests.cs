@@ -132,8 +132,8 @@ public class ServiceUpdateTests
         Assert.That(args.Restart, Is.False, "the updater starts the stopped services again; it never launches the app in session 0");
         Assert.That(args.AppPath, Is.EqualTo(_root));
         Assert.That(args.AppExecutable, Is.EqualTo("Svc.exe"));
-        Assert.That(args.FromVersion, Is.EqualTo(new Version(1, 0)));
-        Assert.That(args.ToVersion, Is.EqualTo(update.Version));
+        Assert.That(args.FromVersion, Is.EqualTo(new Version(1, 0, 0)));
+        Assert.That(args.ToVersion, Is.EqualTo(new Version(1, 1, 0)));
         Assert.That(args.Channel, Is.EqualTo("beta"));
         Assert.That(args.UsePatch, Is.True);
         Assert.That(args.PatchSha256, Is.EqualTo(update.PatchSha256));

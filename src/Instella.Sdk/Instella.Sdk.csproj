@@ -5,6 +5,8 @@
     <IsAotCompatible>true</IsAotCompatible>
     <OutputType>Library</OutputType>
     <RootNamespace>Instella.Sdk</RootNamespace>
+    <!-- LibraryImport (job object, CreateProcessW) generates unsafe marshalling code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>Instella.Sdk</AssemblyName>
     <Description>Runtime SDK for Instella update checking and triggering. Windows x64/arm64/x86 supported; Linux and macOS experimental.</Description>
     <PackageId>Instella.Sdk</PackageId>

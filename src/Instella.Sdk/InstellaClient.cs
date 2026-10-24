@@ -111,23 +111,63 @@ public static class InstellaClient
     /// <paramref name="ct"/> is only observed before the updater starts.
     /// </summary>
     /// <exception cref="InstellaNotInstalledException">The app was not installed by Instella.</exception>
-    /// <exception cref="InvalidOperationException">The Instella stub is missing or cannot be started.</exception>
-    public static Task<UpdaterStartResult> StartUpdaterAsync(UpdateInfo update, UpdateOptions? options = null, CancellationToken ct = default)
+    /// <exception cref="InvalidOperationException">
+    /// The Instella stub is missing or cannot be started, or this process is one of the
+    /// installation's Windows services (use <see cref="StartServiceUpdateAsync"/> there).
+    /// </exception>
+    public static async Task<UpdaterStartResult> StartUpdaterAsync(UpdateInfo update, UpdateOptions? options = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(update);
         ct.ThrowIfCancellationRequested();
-        return Task.FromResult(UpdaterLauncher.Start(update, options ?? new UpdateOptions(), GetCurrentInfo(), ct));
+        return await UpdaterLauncher.StartAsync(update, options ?? new UpdateOptions(), GetCurrentInfo(), ServiceSystem, ct).ConfigureAwait(false);
     }
 
     /// <summary>
     /// For apps without shutdown logic: <see cref="StartUpdaterAsync"/>, then
-    /// <see cref="Environment.Exit(int)"/> with code 0.
+    /// <see cref="Environment.Exit(int)"/> with code 0. Inside a Windows service it throws
+    /// before exiting, like <see cref="StartUpdaterAsync"/>.
     /// </summary>
     public static async Task LaunchUpdaterAndExitAsync(UpdateInfo update, UpdateOptions? options = null, CancellationToken ct = default)
     {
         await StartUpdaterAsync(update, options, ct).ConfigureAwait(false);
         Environment.Exit(0);
     }
+
+    /// <summary>
+    /// Starts the update from inside a Windows service the installation records. The updater stops
+    /// the recorded services through the Service Control Manager, updates the files, and starts the
+    /// services again; this process keeps running until its service is stopped, and it must not
+    /// exit by itself. The update is refused, and nothing started, unless the service runs elevated
+    /// (LocalSystem or an administrator account), can write to the installation and can stop and
+    /// start every recorded service, and the installation was made by an installer with service
+    /// support. <paramref name="ct"/> is only observed before the updater starts.
+    /// </summary>
+    /// <returns>The started updater's process id, or the refusal's reason (log it).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="update"/> is null.</exception>
+    public static Task<ServiceUpdateStartResult> StartServiceUpdateAsync(UpdateInfo update, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        ct.ThrowIfCancellationRequested();
+        if (!TryGetCurrentInfo(out var info))
+            return Task.FromResult(ServiceUpdateStartResult.Refused(_currentInfo.Value.Reason ?? "not installed by Instella"));
+        return ServiceUpdateLauncher.StartAsync(update, info, ServiceSystem, ct);
+    }
+
+    /// <summary>
+    /// Whether this process is one of the installation's recorded Windows services: then update with
+    /// <see cref="StartServiceUpdateAsync"/>, not <see cref="StartUpdaterAsync"/>. False when the app
+    /// was not installed by Instella, or off Windows.
+    /// </summary>
+    public static Task<bool> IsRunningAsServiceAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return TryGetCurrentInfo(out var info)
+            ? ServiceUpdateLauncher.IsRunningAsServiceAsync(info, ServiceSystem, ct)
+            : Task.FromResult(false);
+    }
+
+    /// <summary>What the service checks and the detached start ask the OS; tests replace it.</summary>
+    internal static IServiceUpdateSystem ServiceSystem { get; set; } = new WindowsServiceUpdateSystem();
 
     /// <summary>
     /// Reports whether the installation was left half-updated by a crash or power loss in the

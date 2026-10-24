@@ -56,4 +56,12 @@ internal interface IServiceManager
     /// <remarks>Implementations that cannot tell keep this default: not supported.</remarks>
     Task<ServiceResult<bool>> IsMarkedForDeletionAsync(string name, CancellationToken ct) =>
         Task.FromResult(ServiceResult<bool>.Fail(ServiceFailure.NotSupported, $"Cannot tell whether service '{name}' is marked for deletion here."));
+
+    /// <summary>
+    /// Whether the calling process may stop and start the service (and stop its dependents): it
+    /// opens the service with those rights and closes it again, changing nothing.
+    /// </summary>
+    /// <remarks>Implementations that cannot tell keep this default: not supported.</remarks>
+    Task<ServiceResult> CheckControlAccessAsync(string name, CancellationToken ct) =>
+        Task.FromResult(ServiceResult.Fail(ServiceFailure.NotSupported, $"Cannot check access to service '{name}' here."));
 }
