@@ -36,5 +36,7 @@ internal sealed class UnsupportedServiceManager : IServiceManager
 
     public Task<ServiceResult> StopAsync(string name, TimeSpan timeout, CancellationToken ct) => Fail();
 
+    public Task<ServiceResult<IReadOnlyList<string>>> QueryActiveDependentsAsync(string name, CancellationToken ct) => Fail<IReadOnlyList<string>>();
+
     public Task<ServiceResult> DeleteAsync(string name, CancellationToken ct) => Fail();
 }

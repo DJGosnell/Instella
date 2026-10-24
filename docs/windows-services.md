@@ -87,8 +87,8 @@ steps join the [install pipeline](../llm.md):
 |---|---|---|
 | `register-services` | Register, after the other Register steps | Creates each declared service that does not exist; reconfigures one this installation already owns, after taking a snapshot of its configuration. Services are handled in dependency order |
 | `remove-dropped-services` | Register, right after `register-services` | On an upgrade or repair, stops and deletes the services the previous version declared and this one does not |
-| `stop-services` | Finalize, right before `commit-transaction` | Stops the installation's running services, dependents first, each within its `StopTimeout` |
-| `start-services` | Finalize, right after `app-upgrade` | Starts every service that starts after install, plus every service `stop-services` stopped (unless it is now Disabled), in dependency order, each within its `StartTimeout` |
+| `stop-services` | Finalize, right before `commit-transaction` | Stops the installation's running services, dependents first, each within its `StopTimeout`. Running services of other products that depend on them are stopped too, and remembered |
+| `start-services` | Finalize, right after `app-upgrade` | Starts every service that starts after install, plus every service `stop-services` stopped (unless it is now Disabled), in dependency order, each within its `StartTimeout`; then starts again the other products' dependents `stop-services` stopped (one that does not start is a warning) |
 
 So on an upgrade the order is: new configuration (staged files) → stop → commit the new files → the
 app's [upgrade program](app-upgrade.md) → start. The old version never runs on the new files, and the
@@ -156,8 +156,9 @@ setups that would let a non-administrator take it over:
 - **The install folder must be one only administrators can change.** Before anything is created, the
   install folder (or, when it does not exist yet, its nearest existing parent, by the entries it would
   inherit) is checked: when its access list lets Users, Authenticated Users, Everyone, INTERACTIVE or
-  the installing user's own account write, append, delete children, or change permissions or owner,
-  the install is refused with exit 10. Anyone who could replace the service's exe could run code as
+  the installing user's own account write, append, delete, delete children, or change permissions or
+  owner (entries that reach only the folder's files count too), or when one of them owns the folder,
+  or owns or can delete children of the folder that holds it, the install is refused with exit 10. Anyone who could replace the service's exe could run code as
   the service. Program Files passes; a folder under the user's profile or `%TEMP%` does not.
 - **No takeover of foreign services.** A service of the same name that this installation's manifest
   does not record (another app's, or one created by hand) is never reconfigured, stopped or deleted:

@@ -30,6 +30,12 @@ internal interface IServiceManager
     /// <summary>Stops the service (its running dependents first) and waits up to <paramref name="timeout"/>.</summary>
     Task<ServiceResult> StopAsync(string name, TimeSpan timeout, CancellationToken ct);
 
+    /// <summary>
+    /// The services, direct and indirect, that depend on <paramref name="name"/> and are not
+    /// stopped: the ones <see cref="StopAsync"/> stops first, in the order it stops them.
+    /// </summary>
+    Task<ServiceResult<IReadOnlyList<string>>> QueryActiveDependentsAsync(string name, CancellationToken ct);
+
     /// <summary>Deletes the service; a running one is removed once it stops.</summary>
     Task<ServiceResult> DeleteAsync(string name, CancellationToken ct);
 }

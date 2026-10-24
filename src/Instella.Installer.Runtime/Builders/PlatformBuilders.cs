@@ -37,8 +37,9 @@ public sealed class WindowsBuilder
 
     /// <summary>
     /// Declare a Windows service that install, upgrade and repair register (or reconfigure), stop
-    /// before the files are replaced and start again afterwards; uninstall removes it. May be called
-    /// more than once. Needs <c>WithElevation(ElevationMode.SystemWide)</c>; the name (1–80 letters,
+    /// before the files are replaced and start again afterwards. Uninstall and the updater do not
+    /// stop or delete services yet: uninstall leaves the service registered. May be called more
+    /// than once. Needs <c>WithElevation(ElevationMode.SystemWide)</c>; the name (1–80 letters,
     /// digits, '.', '_' or '-') and the rest are checked by <see cref="InstallerBuilder.Build"/>.
     /// </summary>
     public WindowsBuilder AddService(string name, Action<ServiceBuilder> configure)

@@ -209,7 +209,11 @@ public sealed class AppendPayloadToSelf : MSBuildTask
         var filter = ReadPayloadFilter(manifest);
         var shipped = (filter is null ? entries : ApplyFilter(entries, filter))
             .Select(e => e.TargetPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var mainExe = (string?)manifest["executableName"];
+        // As the runtime resolves it: no executableName falls back to '<AppName>.exe' (INSTELLA0103),
+        // and a main executable not ending in '.exe' gets it (services are Windows-only).
+        var mainExe = (string?)manifest["executableName"] is { Length: > 0 } named
+            ? (named.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? named : named + ".exe")
+            : (string?)manifest["appName"] is { Length: > 0 } appName ? appName + ".exe" : null;
         var ok = true;
         foreach (var service in services.OfType<System.Text.Json.Nodes.JsonObject>())
         {

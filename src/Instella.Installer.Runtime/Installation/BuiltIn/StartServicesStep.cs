@@ -30,7 +30,10 @@ internal sealed class StartServicesStep(ServiceRun run) : IInstallStepExecution
         var toStart = run.InStartOrder()
             .Where(s => s.StartsAfterInstall || (wasStopped.Contains(s.Name) && s.StartMode != ServiceStartMode.Disabled))
             .ToList();
-        if (toStart.Count == 0)
+        // Services this installer does not declare that stop-services stopped (another product's
+        // dependents of ours), after ours, in reverse stop order.
+        var others = Enumerable.Reverse(run.Stopped).Where(n => run.Find(n) is null).ToList();
+        if (toStart.Count == 0 && others.Count == 0)
         {
             progress.Report(1.0);
             return StepResult.Ok;
@@ -60,7 +63,26 @@ internal sealed class StartServicesStep(ServiceRun run) : IInstallStepExecution
                 context.Log.Warn($"{message}; the install goes on (StartFailureIsWarning)");
                 warnings.Add(message);
             }
-            progress.Report((i + 1) / (double)toStart.Count);
+            progress.Report((i + 1) / (double)(toStart.Count + others.Count));
+        }
+
+        // Not ours to fail the install over: a dependent that does not start again is a warning.
+        for (var i = 0; i < others.Count; i++)
+        {
+            var name = others[i];
+            var result = await scm.StartAsync(name, ServiceSpec.DefaultStartTimeout, cancellationToken);
+            if (result.Outcome.Success)
+            {
+                _started.Add(name);
+                context.Log.Info($"services: started '{name}' again");
+            }
+            else
+            {
+                var message = $"service '{name}' could not be started again: {result.Outcome.Error}";
+                context.Log.Warn(message);
+                warnings.Add(message);
+            }
+            progress.Report((toStart.Count + i + 1) / (double)(toStart.Count + others.Count));
         }
 
         return warnings.Count > 0 ? StepResult.OkWithWarnings(warnings) : StepResult.Ok;

@@ -47,6 +47,15 @@ public class ServiceDocsTests
     }
 
     [Test]
+    public void AddServicesApiDoc_DoesNotClaimUninstallRemovesTheService()
+    {
+        var builders = Read("src/Instella.Installer.Runtime/Builders/PlatformBuilders.cs");
+        Assert.That(builders, Does.Not.Contain("uninstall removes it"),
+            "uninstall does not stop or delete services yet (docs/windows-services.md, Limits)");
+        Assert.That(builders, Does.Contain("uninstall leaves the service registered"));
+    }
+
+    [Test]
     public void TheChangelog_MentionsWindowsServices()
     {
         Assert.That(Read("CHANGELOG.md"), Does.Contain("AddService"));

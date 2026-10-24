@@ -29,7 +29,11 @@ internal sealed class ServiceRun(IReadOnlyList<ServiceSpec> declared)
     /// <summary>Snapshots a rollback has written back already.</summary>
     public HashSet<string> Restored { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The services <c>stop-services</c> stopped, in the order it stopped them (dependents first).</summary>
+    /// <summary>
+    /// The services <c>stop-services</c> stopped, in the order it stopped them (dependents first),
+    /// including running dependents the service manager stopped along with them, such as another
+    /// product's service that depends on one of ours.
+    /// </summary>
     public List<string> Stopped { get; } = [];
 
     /// <summary>Stopped services a rollback has started again.</summary>

@@ -45,19 +45,32 @@ internal sealed class StopServicesStep(ServiceRun run) : IInstallStepExecution
             var (exists, stopped) = await ServiceRun.StateAsync(scm, name, cancellationToken);
             if (!exists || stopped) continue;
             var timeout = run.Find(name)?.StopTimeout ?? ServiceSpec.DefaultStopTimeout;
+
+            // The SCM stops running dependents first, other products' services included: remember
+            // them too, so start-services (or the rollback) starts them again.
+            var dependents = await scm.QueryActiveDependentsAsync(name, cancellationToken);
+            if (!dependents.Outcome.Success)
+                return await FailAsync(context, $"service '{name}' could not be stopped: {dependents.Outcome.Error}");
+            foreach (var dependent in dependents.Value!)
+                if (!run.Stopped.Contains(dependent, StringComparer.OrdinalIgnoreCase)) run.Stopped.Add(dependent);
+
             var result = await scm.StopAsync(name, timeout, cancellationToken);
             if (!result.Outcome.Success)
-            {
-                try { await RollbackAsync(context, CancellationToken.None); }
-                catch (Exception ex) { context.Log.Warn($"{Name}: {ex.Message}"); }
-                return StepResult.Fail($"service '{name}' could not be stopped: {result.Outcome.Error}");
-            }
+                return await FailAsync(context, $"service '{name}' could not be stopped: {result.Outcome.Error}");
             run.Stopped.Add(name);
             context.Log.Info($"services: stopped '{name}' for the update of its files");
         }
 
         progress.Report(1.0);
         return StepResult.Ok;
+    }
+
+    private async Task<StepResult> FailAsync(InstallContext context, string message)
+    {
+        // The executor rolls back only the steps that completed: undo this one's own work.
+        try { await RollbackAsync(context, CancellationToken.None); }
+        catch (Exception ex) { context.Log.Warn($"{Name}: {ex.Message}"); }
+        return StepResult.Fail(message);
     }
 
     public async Task RollbackAsync(InstallContext context, CancellationToken cancellationToken)
