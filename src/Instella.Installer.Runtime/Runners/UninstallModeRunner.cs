@@ -11,6 +11,7 @@ using Instella.Core.Platform;
 using Instella.Installer.Runtime.Builders;
 using Instella.Installer.Runtime.Core;
 using Instella.Installer.Runtime.Core.Processes;
+using Instella.Installer.Runtime.Core.Services;
 using Instella.Installer.Runtime.Installation.BuiltIn;
 
 namespace Instella.Installer.Runtime.Runners;
@@ -69,7 +70,7 @@ internal sealed class UninstallModeRunner
         // the files that are actually there.
         try
         {
-            await Core.Transactions.InstallTransaction.RecoverAsync(_fileSystem, installPath, ct, _log);
+            await Core.Services.ServiceRecovery.RecoverAsync(_fileSystem, installPath, _config.Services, ServiceManager, _log, ct);
         }
         catch (UnsupportedJournalException ex)
         {
@@ -118,6 +119,9 @@ internal sealed class UninstallModeRunner
         }
 
         _log.Info($"uninstall: {manifest.AppName} v{manifest.Version} from {installPath}");
+
+        if (await RemoveServicesAsync(manifest, messages, title, Fail, ct) is { } servicesFailed)
+            return servicesFailed;
 
         try
         {
@@ -188,6 +192,15 @@ internal sealed class UninstallModeRunner
         }
     }
 
+    /// <summary>
+    /// How long uninstall waits for each deleted service to leave the service manager (it stays
+    /// while another program holds it open); test seam.
+    /// </summary>
+    internal TimeSpan MarkedForDeletionWait { get; init; } = DefaultMarkedForDeletionWait;
+
+    /// <summary>The <see cref="MarkedForDeletionWait"/> outside tests.</summary>
+    internal static readonly TimeSpan DefaultMarkedForDeletionWait = TimeSpan.FromSeconds(30);
+
     /// <summary>Test hook: the seams uninstall migrations use (known folders, processes, programs); null uses the host's.</summary>
     internal Migrations.MigrationRuntime? MigrationRuntime { get; init; }
 
@@ -205,6 +218,67 @@ internal sealed class UninstallModeRunner
 
     /// <summary>Test hook: starts the cleanup process; null uses <see cref="LaunchCleanupCopy"/>.</summary>
     internal Action<string, string>? CleanupLauncher { get; init; }
+
+    /// <summary>
+    /// Stops every service the installation records (dependents first) and deletes it, before the
+    /// app's uninstall handler, migrations, hooks, integrations and files. A service that will not
+    /// stop or cannot be deleted ends the uninstall with exit 33 and nothing else removed: what was
+    /// stopped and not deleted is started again. Returns that exit code, or null to go on.
+    /// </summary>
+    private async Task<InstellaExitCode?> RemoveServicesAsync(InstalledManifest manifest, IUserMessages messages, string title,
+        Func<InstellaExitCode, string, InstellaExitCode> fail, CancellationToken ct)
+    {
+        var services = InstallationServices.For(manifest, _config.Services, ServiceManager, _log);
+        if (services is null) return null;
+
+        var stop = await services.StopAllAsync(ct);
+        if (stop.Error is not null)
+        {
+            await services.StartAgainAsync(stop.Stopped, ct);
+            return fail(InstellaExitCode.UninstallServiceFailed,
+                $"{manifest.AppName} was not uninstalled: {stop.Error}. Nothing was removed.");
+        }
+
+        var deleted = new List<string>();
+        foreach (var name in services.Names)
+        {
+            // A service that was there before the install is not ours to delete: it stays stopped.
+            if (manifest.Services!.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) && !s.CreatedByInstella))
+            {
+                _log.Info($"services: left '{name}' registered (it existed before the install)");
+                continue;
+            }
+            var result = await services.Manager.DeleteAsync(name, ct);
+            // Gone already, or deleted already (it goes once it stops and nothing holds it open).
+            if (result.Outcome.Success || result.Failure is ServiceFailure.NotFound or ServiceFailure.MarkedForDeletion)
+            {
+                deleted.Add(name);
+                _log.Info($"services: deleted '{name}'");
+                continue;
+            }
+
+            if (deleted.Count > 0) _log.Warn($"uninstall: services already deleted: {string.Join(", ", deleted)}");
+            await services.StartAgainAsync(stop.Stopped.Where(n => !deleted.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList(), ct);
+            return fail(InstellaExitCode.UninstallServiceFailed,
+                $"{manifest.AppName} was not uninstalled: service '{name}' could not be deleted: {result.Outcome.Error}. " +
+                "No file was removed.");
+        }
+
+        // A service another program holds open (the Services console, Event Viewer) stays marked
+        // for deletion until it lets go; that need not stop the uninstall.
+        var lingering = await services.WaitUntilGoneAsync(deleted, MarkedForDeletionWait, ct);
+        if (lingering.Count > 0)
+        {
+            var list = string.Join(", ", lingering.Select(n => $"'{n}'"));
+            _log.Warn($"uninstall: service(s) {list} are marked for deletion and still registered; a restart may be needed to remove them completely");
+            messages.Info(title, $"The service(s) {list} will be removed completely once the programs holding them open " +
+                                 "(such as the Services console) are closed; a restart of Windows may be needed.");
+        }
+
+        // Every recorded service is stopped and deleted here, before integrations and files go:
+        // the point where what the services' accounts were given (such as logon rights) can be taken back.
+        return null;
+    }
 
     /// <summary>
     /// Deletes Instella's own files (stub, app icon, state folder). Returns the relative paths

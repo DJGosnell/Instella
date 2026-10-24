@@ -38,4 +38,22 @@ internal interface IServiceManager
 
     /// <summary>Deletes the service; a running one is removed once it stops.</summary>
     Task<ServiceResult> DeleteAsync(string name, CancellationToken ct);
+
+    /// <summary>
+    /// Ends the process of a service stuck in <see cref="ServiceState.StopPending"/> and waits up to
+    /// <paramref name="timeout"/> for it to be stopped. Succeeds at once for a stopped service and
+    /// fails for one that is not stopping; never ends the calling process.
+    /// </summary>
+    /// <remarks>Implementations without a way to end a process keep this default: not supported.</remarks>
+    Task<ServiceResult> EndStopPendingProcessAsync(string name, TimeSpan timeout, CancellationToken ct) =>
+        Task.FromResult(ServiceResult.Fail(ServiceFailure.NotSupported, $"Cannot end the process of service '{name}' here."));
+
+    /// <summary>
+    /// Whether the service is deleted but still registered (running, or held open by another
+    /// program such as the Services console): it goes once the last handle closes, and its name
+    /// cannot be created again until then.
+    /// </summary>
+    /// <remarks>Implementations that cannot tell keep this default: not supported.</remarks>
+    Task<ServiceResult<bool>> IsMarkedForDeletionAsync(string name, CancellationToken ct) =>
+        Task.FromResult(ServiceResult<bool>.Fail(ServiceFailure.NotSupported, $"Cannot tell whether service '{name}' is marked for deletion here."));
 }

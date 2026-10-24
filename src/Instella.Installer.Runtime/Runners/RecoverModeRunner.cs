@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Instella.Core.FileSystem;
 using Instella.Core.Installation;
 using Instella.Core.Logging;
+using Instella.Core.Platform;
+using Instella.Installer.Runtime.Builders;
+using Instella.Installer.Runtime.Core.Services;
 using Instella.Installer.Runtime.Core.Transactions;
 
 namespace Instella.Installer.Runtime.Runners;
@@ -24,6 +28,12 @@ internal sealed class RecoverModeRunner(IInstellaLogger log, IFileSystem fileSys
 
     /// <summary>The app's name, for messages.</summary>
     internal string AppName { get; init; } = "the application";
+
+    /// <summary>Starts again the services an interrupted update stopped; null uses the OS's own.</summary>
+    internal IServiceManager? ServiceManager { get; init; }
+
+    /// <summary>The stub's service declarations, for their start timeouts.</summary>
+    internal IReadOnlyList<ServiceSpec>? DeclaredServices { get; init; }
 
     public async Task<InstellaExitCode> RunAsync(DispatchResult dispatch, CancellationToken ct)
     {
@@ -47,7 +57,7 @@ internal sealed class RecoverModeRunner(IInstellaLogger log, IFileSystem fileSys
 
         try
         {
-            var rolledBack = await InstallTransaction.RecoverAsync(fileSystem, installPath, ct, log);
+            var rolledBack = await ServiceRecovery.RecoverAsync(fileSystem, installPath, DeclaredServices, ServiceManager, log, ct);
             log.Info(rolledBack
                 ? $"recover: an interrupted update in '{installPath}' was rolled back"
                 : $"recover: '{installPath}' is consistent; nothing to do");

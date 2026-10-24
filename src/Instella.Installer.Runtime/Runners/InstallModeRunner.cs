@@ -131,7 +131,7 @@ internal sealed class InstallModeRunner
         ServiceCredentials? credentials = null;
         try
         {
-            var (mode, existing) = await InstallModeResolver.ResolveAsync(_config, _fileSystem, installPath, dispatch, _log, ct);
+            var (mode, existing) = await InstallModeResolver.ResolveAsync(_config, _fileSystem, installPath, dispatch, _log, ct, Services?.ServiceManager);
             // An upgrade keeps the choices of the installation it replaces.
             options = InstallModeResolver.FollowExisting(options, _config, existing);
             if (existing is not null)

@@ -10,8 +10,9 @@ namespace Instella.Installer.Testing;
 /// <see cref="SetStopBehavior"/> says otherwise, and the fake never sleeps.
 /// </summary>
 /// <remarks>
-/// A running service that is deleted is only marked for deletion: it disappears when it stops,
-/// and its name cannot be created again until then, as on Windows. Passwords are cleared from the
+/// A running service that is deleted is only marked for deletion: it disappears when it stops
+/// (and nothing holds it open, see <see cref="SetHeldOpen"/>), and its name cannot be created
+/// again until then, as on Windows. Passwords are cleared from the
 /// caller's buffer and never kept; <see cref="FakeService.PasswordSupplied"/> says whether one was given.
 /// For an account given a password with <see cref="SetAccountPassword"/>, only whether the supplied
 /// password matched is kept, and a start fails with error 1069 unless it did.
@@ -23,6 +24,7 @@ public sealed class FakeServiceManager : IServiceManager
     private readonly Dictionary<string, FakeServiceBehavior> _startBehavior = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FakeServiceBehavior> _stopBehavior = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _accountPasswords = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _heldOpen = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _calls = [];
     private int _nextProcessId = 1000;
 
@@ -74,6 +76,27 @@ public sealed class FakeServiceManager : IServiceManager
     }
 
     /// <summary>
+    /// Simulates another program holding the service named <paramref name="name"/> open (the
+    /// Services console, Event Viewer): while held, a deleted service stays marked for deletion
+    /// even when stopped. Releasing it removes a stopped service that is marked.
+    /// </summary>
+    public void SetHeldOpen(string name, bool held)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        lock (_gate)
+        {
+            if (held)
+            {
+                _heldOpen.Add(name);
+                return;
+            }
+            _heldOpen.Remove(name);
+            if (_services.TryGetValue(name, out var entry) && entry.MarkedForDeletion && entry.State == FakeServiceState.Stopped)
+                _services.Remove(entry.Name);
+        }
+    }
+
+    /// <summary>
     /// Simulates a caller without the rights to change services (not elevated): create, change,
     /// start, stop and delete fail with access denied and change nothing; queries still work.
     /// </summary>
@@ -81,8 +104,8 @@ public sealed class FakeServiceManager : IServiceManager
 
     /// <summary>
     /// The operations attempted, in order: <c>create:{name}</c>, <c>config:{name}</c>,
-    /// <c>start:{name}</c>, <c>stop:{name}</c> and <c>delete:{name}</c>. Only create is logged for a
-    /// name that does not exist. A stop is logged after the stops of its running dependents.
+    /// <c>start:{name}</c>, <c>stop:{name}</c>, <c>delete:{name}</c> and <c>kill:{name}</c> (the end of a
+    /// stop-pending service's process). Only create is logged for a name that does not exist. A stop is logged after the stops of its running dependents.
     /// </summary>
     public IReadOnlyList<string> Calls
     {
@@ -270,10 +293,52 @@ public sealed class FakeServiceManager : IServiceManager
             _calls.Add("delete:" + entry.Name);
             if (DenyAccess) return Done(AccessDenied("delete", entry.Name));
             if (entry.MarkedForDeletion) return Done(MarkedForDeletion(entry.Name));
-            if (entry.State == FakeServiceState.Stopped) _services.Remove(entry.Name);
-            else entry.MarkedForDeletion = true;
+            entry.MarkedForDeletion = true;
+            RemoveIfGone(entry);
             return Done(ServiceResult.Ok);
         }
+    }
+
+    /// <remarks>
+    /// The fake never touches a real process: a stop-pending service becomes stopped (and goes,
+    /// when it is marked for deletion and nothing holds it open).
+    /// </remarks>
+    Task<ServiceResult> IServiceManager.EndStopPendingProcessAsync(string name, TimeSpan timeout, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_services.TryGetValue(name, out var entry)) return Done(NotFound(name));
+            _calls.Add("kill:" + entry.Name);
+            if (DenyAccess) return Done(AccessDenied("end the process of", entry.Name));
+            if (entry.State == FakeServiceState.Stopped) return Done(ServiceResult.Ok);
+            if (entry.State != FakeServiceState.StopPending)
+                return Done(ServiceResult.Fail(ServiceFailure.Failed, $"The service '{entry.Name}' is not stopping: its process is not ended."));
+            entry.State = FakeServiceState.Stopped;
+            entry.ProcessId = 0;
+            RemoveIfGone(entry);
+            return Done(ServiceResult.Ok);
+        }
+    }
+
+    Task<ServiceResult<bool>> IServiceManager.IsMarkedForDeletionAsync(string name, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_services.TryGetValue(name, out var entry))
+                return Task.FromResult(ServiceResult<bool>.Fail(ServiceFailure.NotFound, NotFoundMessage(name), 1060));
+            return Task.FromResult(ServiceResult<bool>.Ok(entry.MarkedForDeletion));
+        }
+    }
+
+    /// <summary>Removes a service marked for deletion once it is stopped and nothing holds it open. Called under the lock.</summary>
+    private void RemoveIfGone(Entry entry)
+    {
+        if (entry.MarkedForDeletion && entry.State == FakeServiceState.Stopped && !_heldOpen.Contains(entry.Name))
+            _services.Remove(entry.Name);
     }
 
     /// <summary>
@@ -328,7 +393,7 @@ public sealed class FakeServiceManager : IServiceManager
             default:
                 entry.State = FakeServiceState.Stopped;
                 entry.ProcessId = 0;
-                if (entry.MarkedForDeletion) _services.Remove(entry.Name);
+                RemoveIfGone(entry);
                 return ServiceResult.Ok;
         }
     }
@@ -424,7 +489,7 @@ public enum FakeServiceState
 /// <param name="Dependencies">The services it depends on.</param>
 /// <param name="State">Its state.</param>
 /// <param name="ProcessId">Its fake process id while running; 0 otherwise.</param>
-/// <param name="MarkedForDeletion">Deleted while running: it disappears when it stops.</param>
+/// <param name="MarkedForDeletion">Deleted while running or held open: it disappears when it stops and is released.</param>
 public sealed record FakeService(
     string Name,
     string DisplayName,

@@ -36,14 +36,14 @@ internal static class InstallModeResolver
     /// (without <c>--allow-downgrade</c>), or unrelated files (without <c>--force</c>).</exception>
     public static async Task<(InstallerMode Mode, InstalledManifest? Existing)> ResolveAsync(
         FrozenConfig config, IFileSystem fs, string installPath, DispatchResult dispatch, IInstellaLogger log,
-        CancellationToken ct)
+        CancellationToken ct, Instella.Core.Platform.IServiceManager? serviceManager = null)
     {
         if (!fs.DirectoryExists(installPath))
             return (InstallerMode.FirstInstall, null);
 
         try
         {
-            if (await InstallTransaction.RecoverAsync(fs, installPath, ct, log))
+            if (await Core.Services.ServiceRecovery.RecoverAsync(fs, installPath, config.Services, serviceManager, log, ct))
                 log.Warn($"install: rolled back an interrupted install/update in '{installPath}'");
         }
         catch (UnsupportedJournalException ex)

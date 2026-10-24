@@ -177,3 +177,4 @@ Instella.Installer.Testing.FakeLogonRights.Has(string! account) -> bool
 Instella.Installer.Testing.FakePlatformServices.Credentials.get -> Instella.Installer.Testing.FakeCredentialChecker!
 Instella.Installer.Testing.FakePlatformServices.LogonRights.get -> Instella.Installer.Testing.FakeLogonRights!
 Instella.Installer.Testing.FakeServiceManager.SetAccountPassword(string! account, string! password) -> void
+Instella.Installer.Testing.FakeServiceManager.SetHeldOpen(string! name, bool held) -> void

@@ -369,7 +369,7 @@ Uninstall, Manage, Cleanup, Recover`.
 |---|---|---|
 | FirstInstall/Upgrade/Repair | `InstallModeRunner` (+ `InteractiveInstallRunner` wizard) | `InstallModeResolver` picks the mode once the path is known; embedded payload or verified server download; built-in + user step pipeline in one `InstallTransaction` |
 | Update | `UpdateModeRunner` | `UpdaterEngine` + `HttpUpdateDownloader` (+ `BsDiffEngine`); `UpdateWindow` (Win32) unless `--silent` |
-| Uninstall | `UninstallModeRunner` | Recover, confirm, `OnUninstall` hooks, remove integrations/tracked items/files, tombstone + cleanup copy |
+| Uninstall | `UninstallModeRunner` | Recover, confirm, stop and delete services, `OnUninstall` hooks, remove integrations/tracked items/files, tombstone + cleanup copy |
 | Manage | `ManageModeRunner` | Default when a sibling `.instella-manifest.json` exists: Uninstall / Check for updates / Repair / Close (headless report when silent or off Windows) |
 | Cleanup | `CleanupModeRunner` | Tombstone-guarded deletion of what the uninstaller could not delete (started by uninstall only) |
 | Recover | `RecoverModeRunner` | Finish/undo an interrupted transaction in `--path` (or the stub's folder), exit |
@@ -424,7 +424,8 @@ closed; reported in the log). Closing = `CloseMainWindow`, wait 10 s (updater: 2
 `RunningAppGate.IgnoredProcessIds` (default empty) is skipped in both lookups: every gate over an
 installation whose manifest records services (silent and interactive install over it, uninstall, the
 updater) passes the running PIDs of those services (`ServicePids.ForAsync`, `QueryStatusAsync`), so a
-service is stopped through the service manager instead of closed or killed. Other copies of its exe still count.
+service is stopped through the service manager instead of closed or killed (by `stop-services`
+in an install, by the updater before its gate, by uninstall right after its gate). Other copies of its exe still count.
 
 ### Step pipeline
 
@@ -602,7 +603,10 @@ a rename; Windows allows renaming a running `.exe`).
 - **Recovery** (`InstallTransaction.RecoverAsync`) runs first in Update, Uninstall, Manage,
   install-over-existing (`InstallModeResolver`) and `--recover`: `Committing` → roll back;
   anything else → delete the transaction folder. A journal with an unknown version → touch
-  nothing, exit **23**.
+  nothing, exit **23**. Each runs through `ServiceRecovery.RecoverAsync`: it first reads every
+  `.instella/txn/{id}/services-running.json` (the services the updater or `stop-services` stopped,
+  `ServicesRunningJsonContext`; unreadable → logged, ignored), recovers, then starts the listed
+  services the manifest records that exist and are not running (failure = warning, still exit 0).
 - The SDK's `GetInstallationHealth()` reads only the journal (`HasInterruptedCommit`).
 - **Durability**: each staged file is flushed (`FlushFileBuffers`) while its write handle is
   open, before `Committing` is journalled. **Bounded downloads**: staged files, BSPatch output,
@@ -648,6 +652,17 @@ channel (not on repair).
 Exit mapping: 0 success; 1 cancelled (only before commit); 20 failure before commit (including
 any trust failure); 21 server unreachable; 22 commit failed, rolled back; 23 rollback failed or
 unknown journal (run `--recover`); 24 app would not close. 25 the app's upgrade program failed (rolled back).
+26 (`UpdateServiceFailed`) a recorded service would not stop or the new version's would not start.
+
+**Services in the updater** (`InstallationServices`, `Core/Services`): after `--parent-pid` exits and
+before the gate, the engine stops every running service the manifest records (dependents first,
+`StopTimeout` from the stub's `ServiceSpec` of that name, else 30 s; a stop stuck in `StopPending`
+ends the service's process via `IServiceManager.EndStopPendingProcessAsync`). Stop failure → 26
+before staging. After `UpgradeAppDataAsync`, before `CompleteAsync`, it starts what was running;
+a start failure (not `StartFailureIsWarning()`) stops them, rolls back, starts the previous version's,
+exit 26. Every other failure restarts the stopped services after the files are back, except 23 (left
+for `--recover`). `--restart` starts the services whose executable is the main exe instead of
+`IAppLauncher.Launch`. Manage's Update/Repair pass `ServiceManager` and the declared services too.
 
 **Repair** (`--repair`, Manage window's Repair): same engine with target = installed version,
 `MustEqual` only, every file whose on-disk hash differs from the signed release is replaced.
@@ -680,7 +695,10 @@ Uninstall/Update/Repair.
 
 Uninstall: recover → read installed manifest (missing → 31) → confirm (interactive Windows) →
 programs using the app's files (`RunningAppGate`): interactive asks (Cancel → 1), silent without
-`--force-close` → 32 with nothing changed → the app's uninstall handler (`--instella-uninstall`, when `handlesUninstall`; failure logged) → uninstall migrations (`Order`, `Id`; failure logged) →
+`--force-close` → 32 with nothing changed → stop (dependents first, stuck `StopPending` → process ended)
+and delete every recorded service (`RemoveServicesAsync`; failure → restart the stopped ones, **33**,
+nothing else removed; a service still marked for deletion after 30 s → warning that a restart may be
+needed, exit 0) → the app's uninstall handler (`--instella-uninstall`, when `handlesUninstall`; failure logged) → uninstall migrations (`Order`, `Id`; failure logged) →
 `OnUninstall` hooks → adopted items + `WithAppManagedAutoStart` Run values (deleted only while they
 point into the install folder) → remove shortcuts/associations/PATH/auto-start/ARP/registry values (then
 created keys if empty) and `trackedItems` → delete recorded files (one still locked, e.g. a DLL
@@ -780,9 +798,11 @@ never see Logsmith types. `LoggingBuilder`: `WithLevel`, `LevelFromEnvironment("
 | 23 | `UpdateRollbackFailed` | Rollback failed, or a journal recovery can't act on (unknown or absent version, unparsable, another folder's id, missing with files in `backup/`); nothing touched |
 | 24 | `UpdateAppCouldNotClose` | Also silent upgrade/repair with the app running and no `--force-close` |
 | 25 | `UpdateAppUpgradeFailed` | The app's upgrade program failed, timed out or could not start, or its declaration could not be honoured; update rolled back (no post-update marker) |
+| 26 | `UpdateServiceFailed` | Updater/repair: a recorded service would not stop (nothing staged, stopped ones restarted), or the new version's service would not start (rolled back, previous version's services started) |
 | 30 | `UninstallGeneralFailure` | |
 | 31 | `UninstallManifestMissing` | |
 | 32 | `UninstallFilesLocked` | Remaining files handed to cleanup; or silent uninstall refused (nothing changed) because programs use the app's files and no `--force-close` |
+| 33 | `UninstallServiceFailed` | A recorded Windows service could not be stopped or deleted; nothing else removed (the services stopped are restarted) |
 | 40 | `UsageInvalidArgs` | Bad flags, `--preview` without opt-in, downgrade without `--allow-downgrade`, non-silent run off Windows, refused cleanup |
 | 41 | `UsageUnknownMode` | |
 | 50 | `UnsupportedPlatform` | The OS or process architecture is not supported (`PlatformNotSupportedException`) |
