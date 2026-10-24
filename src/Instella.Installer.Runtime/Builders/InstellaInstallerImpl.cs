@@ -326,7 +326,7 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
                         services.ManagerUi ?? ManageModeRunner.DefaultManagerUiLauncher, uninstallHandoff: null)
                     {
                         Elevation = elevation, Messages = messages, HttpHandler = services.HttpHandler,
-                        StubDirectory = services.StubDirectory,
+                        StubDirectory = services.StubDirectory, ServiceManager = services.ServiceManager,
                     }.RunAsync(dispatch, ct),
                 InstallerMode.Cleanup =>
                     await new CleanupModeRunner(log).RunAsync(dispatch, args, ct),

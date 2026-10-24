@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Instella.Core.Diff;
@@ -10,6 +12,7 @@ using Instella.Core.Update;
 using Instella.Installer.Runtime.Builders;
 using Instella.Installer.Runtime.Core;
 using Instella.Installer.Runtime.Core.Processes;
+using Instella.Installer.Runtime.Core.Services;
 using Instella.Installer.Runtime.Core.Update;
 
 namespace Instella.Installer.Runtime.Runners;
@@ -113,6 +116,7 @@ internal sealed class UpdateModeRunner
                     : null,
                 ProcessFinder = Services?.ProcessFinder,
                 ServiceManager = Services?.ServiceManager,
+                DeclaredServices = _config.Services,
                 Programs = Services?.Programs ?? Migrations.ProcessProgramRunner.Instance,
             };
             engine.LogMessage += (_, msg) => _log.Info(msg);
@@ -130,12 +134,15 @@ internal sealed class UpdateModeRunner
                     Core.Transactions.InstallRootLock.BusyMessage(installed.AppName));
 
             // The app is restarted without elevation, and without arguments: the post-update
-            // marker carries them (UpdaterArgs.ExtraArgs).
+            // marker carries them (UpdaterArgs.ExtraArgs). When the app's executable is one of
+            // the installation's services, the services are started instead.
             var launcher = Launcher ?? Services?.AppLauncher ?? new AppLauncher(_log);
             void Restart(UpdateResult r)
             {
                 held.DisposeAsync().AsTask().GetAwaiter().GetResult();
-                if (r.ExecutablePath is { } exe) launcher.Launch(exe, updaterArgs.AppPath);
+                if (r.ExecutablePath is not { } exe) return;
+                if (!StartServicesOf(installed, exe, updaterArgs.AppPath).GetAwaiter().GetResult())
+                    launcher.Launch(exe, updaterArgs.AppPath);
             }
 
             UpdateResult result;
@@ -165,5 +172,34 @@ internal sealed class UpdateModeRunner
             _log.Error($"update: {ex.Message}", ex);
             return InstellaExitCode.UpdateGeneralFailure;
         }
+    }
+
+    /// <summary>
+    /// Starts the installation's services whose executable is <paramref name="exe"/> (those not
+    /// already running). A start failure is only logged: the update itself succeeded.
+    /// </summary>
+    /// <returns>Whether <paramref name="exe"/> is a service's executable, so it is not launched.</returns>
+    private async Task<bool> StartServicesOf(InstalledManifest installed, string exe, string appPath)
+    {
+        var services = InstallationServices.For(installed, _config.Services, Services?.ServiceManager, _log);
+        if (services is null) return false;
+        var main = Path.GetFullPath(exe);
+        var names = (installed.Services ?? [])
+            .Where(s => string.Equals(Path.GetFullPath(Path.Combine(appPath, s.ExecutablePath)), main, StringComparison.OrdinalIgnoreCase))
+            .Select(s => s.Name)
+            .ToList();
+        if (names.Count == 0) return false;
+        try
+        {
+            _log.Info($"update: '{Path.GetFileName(main)}' runs as a service; starting {string.Join(", ", names.Select(n => $"'{n}'"))} instead of launching it");
+            names.Reverse(); // StartAsync starts the last of its list first
+            foreach (var (_, error) in await services.StartAsync(names, CancellationToken.None))
+                _log.Warn($"update: {error}");
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"update: could not start the app's service: {ex.Message}");
+        }
+        return true;
     }
 }

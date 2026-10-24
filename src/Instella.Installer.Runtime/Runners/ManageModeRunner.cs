@@ -120,6 +120,12 @@ internal sealed class ManageModeRunner
     /// <summary>Handler for the update check (tests); null uses a default client.</summary>
     internal System.Net.Http.HttpMessageHandler? HttpHandler { get; init; }
 
+    /// <summary>
+    /// Stops, starts and deletes the installation's services for Update, Repair and Uninstall;
+    /// null uses the OS's own (created only when the manifest records services).
+    /// </summary>
+    internal Instella.Core.Platform.IServiceManager? ServiceManager { get; init; }
+
     private IUserMessages Dialogs => _messages ??= Messages ?? new UserMessages(silent: false);
     private IUserMessages? _messages;
 
@@ -253,7 +259,7 @@ internal sealed class ManageModeRunner
     }
 
     private Task<InstellaExitCode> DefaultUninstallHandoffAsync(DispatchResult dispatch, CancellationToken ct)
-        => new UninstallModeRunner(_config, _log, _platform, _fileSystem).RunAsync(dispatch, ct);
+        => new UninstallModeRunner(_config, _log, _platform, _fileSystem) { ServiceManager = ServiceManager }.RunAsync(dispatch, ct);
 
     /// <summary>
     /// Production update/repair: repair pins the installed version; an update first asks
@@ -329,7 +335,11 @@ internal sealed class ManageModeRunner
         if (NeedsElevation(manifest))
             return await RelaunchElevatedAsync(args.ToArgumentList(), ct);
 
-        var engine = new UpdaterEngine(args, downloader, _platform, _fileSystem, BsDiffEngine.Instance);
+        var engine = new UpdaterEngine(args, downloader, _platform, _fileSystem, BsDiffEngine.Instance)
+        {
+            ServiceManager = ServiceManager,
+            DeclaredServices = _config.Services,
+        };
         engine.LogMessage += (_, msg) => _log.Info(msg);
         var result = await engine.RunAsync(ct);
 
