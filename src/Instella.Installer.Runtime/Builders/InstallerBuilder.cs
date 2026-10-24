@@ -49,6 +49,7 @@ public sealed class InstallerBuilder
     private readonly List<StepBuilder> _userSteps = new();
     private readonly List<PageBuilder> _userPages = new();
     private readonly List<RegistryWriteSpec> _registryWrites = new();
+    private readonly List<ServiceSpec> _services = new();
     private readonly List<CliFlagSpec> _declaredCliFlags = new();
     private readonly Dictionary<string, string> _cliFlagMappings = new(StringComparer.OrdinalIgnoreCase);
     private LoggingBuilder? _loggingBuilder;
@@ -365,6 +366,7 @@ public sealed class InstallerBuilder
             var win = new WindowsBuilder();
             configure(win);
             _registryWrites.AddRange(win.Writes);
+            _services.AddRange(win.Services);
         }
         return this;
     }
@@ -564,8 +566,18 @@ public sealed class InstallerBuilder
                 throw new InvalidOperationException(
                     $"InstallerBuilder.Build(): step '{spec.Name}' is a point of no return, so it must run after " +
                     $"'{Installation.BuiltIn.AppUpgradeStep.StepName}' (a failed upgrade program has to be able to roll the install back).");
+            if (Installation.BuiltIn.ServiceStepNames.All.Contains(spec.Name))
+                throw new InvalidOperationException(
+                    $"InstallerBuilder.Build(): step name '{spec.Name}' is reserved for the built-in Windows service steps.");
+            if (spec.IsPointOfNoReturn && spec.OrderingHints.Any(h => h.Kind == Installation.Builders.StepOrderingHintKind.BeforeStep
+                    && h.StepName == Installation.BuiltIn.ServiceStepNames.StartServices))
+                throw new InvalidOperationException(
+                    $"InstallerBuilder.Build(): step '{spec.Name}' is a point of no return, so it must run after " +
+                    $"'{Installation.BuiltIn.ServiceStepNames.StartServices}' (a service that fails to start has to be able to roll the install back).");
             specs.Add(spec);
         }
+
+        var services = ServiceValidation.ValidateAndNormalize(_services, _elevation);
 
         var migrations = Migrations.MigrationValidation.ValidateAndSort(_migrations);
         if (_autoStart && _appManagedRunValues.Contains(_appId!, StringComparer.OrdinalIgnoreCase))
@@ -637,7 +649,8 @@ public sealed class InstallerBuilder
             BrandImage: _brandImage,
             DownloadToken: _downloadToken,
             Migrations: migrations,
-            AppManagedRunValues: _appManagedRunValues.ToArray());
+            AppManagedRunValues: _appManagedRunValues.ToArray(),
+            DeclaredServices: services);
 
         return new InstellaInstallerImpl(config);
     }
