@@ -272,6 +272,7 @@ public class ServiceAccountInstallTests
         Assert.That(Scm.Find("App.Svc"), Is.Null, "the service the install created is deleted");
         Assert.That(await Manifest(), Is.Null);
         Assert.That(Log(harness), Does.Contain("1069").And.Contain("user name or password").IgnoreCase);
+        Assert.That(Log(harness), Does.Contain(@"the service 'App.Svc' could not log on as 'CORP\svc-app' (error 1069)"));
     }
 
     // ---- logon right ----
@@ -424,107 +425,104 @@ public class ServiceAccountInstallTests
         Assert.That(stderr, Does.Not.Contain(Password));
     }
 
+    // ---- silent upgrade: the recorded account over the default user ----
+
+    private const string DefaultUser = @"CORP\default-svc";
+
+    private static void CustomServiceWithDefault(WindowsBuilder w) =>
+        w.AddService("App.Svc", s => s.RunAs(ServiceAccount.FromInstaller(DefaultUser)));
+
     [Test]
-    public async System.Threading.Tasks.Task SilentUpgrade_KeepsTheRecordedAccount_OverTheDefaultUser_WithoutAPassword()
+    public async Task SilentUpgrade_KeepsTheRecordedAccount_OverTheDefaultUser_WithoutAPassword()
     {
-        var fs = new Instella.Installer.Testing.InMemoryFileSystem();
-        var platform = new Instella.Installer.Testing.FakePlatformServices();
-        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "instella-probe", System.Guid.NewGuid().ToString("N"));
-        System.IO.Directory.CreateDirectory(root);
-        var installPath = System.IO.Path.Combine(root, "App");
-        var passwordFile = System.IO.Path.Combine(root, "pw.txt");
-        System.IO.File.WriteAllText(passwordFile, "Pa55-chosen");
-        platform.ServiceManager.SetAccountPassword(@"CORP\chosen", "Pa55-chosen");
-        var harnesses = new System.Collections.Generic.List<Instella.Installer.Testing.InstellaTestHarness>();
-        Instella.Installer.Testing.InstellaTestHarness Make(string version)
-        {
-            var builder = Instella.Installer.Runtime.Builders.InstellaInstaller.Create()
-                .WithApp("App", "com.example.app", System.Version.Parse(version))
-                .WithExecutableName("App.exe")
-                .WithElevation(Instella.Core.Manifest.ElevationMode.SystemWide)
-                .OnWindows(w => w.AddService("App.Svc", s => s.RunAs(
-                    Instella.Installer.Runtime.Builders.ServiceAccount.FromInstaller(@"CORP\default"))));
-            var h = Instella.Installer.Testing.InstellaTestHarness.Create()
-                .WithInstaller(builder.Build())
-                .WithFileSystem(fs)
-                .WithPlatformServices(platform)
-                .WithElevationService(new Instella.Installer.Testing.FakeElevationService(isElevated: true))
-                .WithPayload(new System.Collections.Generic.Dictionary<string, string> { ["App.exe"] = "app " + version })
-                .Build();
-            harnesses.Add(h);
-            return h;
-        }
-        var previous = System.Environment.GetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD");
-        System.Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", null);
+        Scm.SetAccountPassword(User, Password);
+        Assert.That(await InstallWithPasswordFile(Installer("1.0", CustomServiceWithDefault), Password), Is.EqualTo(0));
+        var previous = Environment.GetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD");
+        Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", null);
         try
         {
-            var first = await Make("1.0").RunFullWithArgsAsync(["--install", "--silent", "--path", installPath,
-                "--service-account", @"CORP\chosen", "--service-password-file", passwordFile]);
-            Assert.That(first, Is.EqualTo(0));
-            Assert.That(platform.ServiceManager.Find("App.Svc")!.AccountName, Is.EqualTo(@"CORP\chosen"));
-    
-            var upgrade = await Make("2.0").RunFullWithArgsAsync(["--install", "--silent", "--path", installPath]);
+            var upgrade = await Install(Installer("2.0", CustomServiceWithDefault));
+
             Assert.That(upgrade, Is.EqualTo(0), "a silent upgrade that keeps the installation's account needs no password");
-            Assert.That(platform.ServiceManager.Find("App.Svc")!.AccountName, Is.EqualTo(@"CORP\chosen"));
+            Assert.That(Scm.Find("App.Svc")!.AccountName, Is.EqualTo(User));
         }
         finally
         {
-            System.Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", previous);
-            foreach (var h in harnesses) await h.DisposeAsync();
-            try { System.IO.Directory.Delete(root, recursive: true); } catch (System.IO.IOException) { }
+            Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", previous);
         }
     }
 
-    [Test, Platform("Win")]
-    public async System.Threading.Tasks.Task SilentUpgrade_KeepsTheRecordedAccount_LikeTheWizard_WhenItDiffersFromTheDefaultUser()
+    [Test]
+    public async Task SilentUpgrade_KeepsTheRecordedAccount_LikeTheWizard_WhenItDiffersFromTheDefaultUser()
     {
-        const string user = @"CORP\svc-app";
-        const string password = "Pa55-w0rd-7f3c9e1d";
-        var fs = new Instella.Installer.Testing.InMemoryFileSystem();
-        var platform = new Instella.Installer.Testing.FakePlatformServices();
-        var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "instella-probe-r2", System.Guid.NewGuid().ToString("N"));
-        System.IO.Directory.CreateDirectory(root);
-        var installPath = System.IO.Path.Combine(root, "App");
-        var passwordFile = System.IO.Path.Combine(root, "pw.txt");
-        System.IO.File.WriteAllText(passwordFile, password);
-        platform.ServiceManager.SetAccountPassword(user, password);
-        var previous = System.Environment.GetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD");
-        System.Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", null);
-        var harnesses = new System.Collections.Generic.List<Instella.Installer.Testing.InstellaTestHarness>();
-        Instella.Installer.Testing.InstellaTestHarness Make(string version)
-        {
-            var builder = Instella.Installer.Runtime.Builders.InstellaInstaller.Create()
-                .WithApp("App", "com.example.app", System.Version.Parse(version))
-                .WithExecutableName("App.exe")
-                .WithElevation(Instella.Core.Manifest.ElevationMode.SystemWide)
-                .OnWindows(w => w.AddService("App.Svc",
-                    s => s.RunAs(Instella.Installer.Runtime.Builders.ServiceAccount.FromInstaller(@"CORP\default-svc"))));
-            var h = Instella.Installer.Testing.InstellaTestHarness.Create()
-                .WithInstaller(builder.Build())
-                .WithFileSystem(fs)
-                .WithPlatformServices(platform)
-                .WithElevationService(new Instella.Installer.Testing.FakeElevationService(isElevated: true))
-                .WithPayload(new System.Collections.Generic.Dictionary<string, string> { ["App.exe"] = "app " + version })
-                .Build();
-            harnesses.Add(h);
-            return h;
-        }
+        // With the password variable set, the default user must not take over the service either.
+        Scm.SetAccountPassword(User, Password);
+        Scm.SetAccountPassword(DefaultUser, "default-pa55");
+        Assert.That(await InstallWithPasswordFile(Installer("1.0", CustomServiceWithDefault), Password), Is.EqualTo(0));
+        var previous = Environment.GetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD");
+        Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", "default-pa55");
         try
         {
-            var first = await Make("1.0").RunFullWithArgsAsync(["--install", "--silent", "--path", installPath,
-                "--service-account", user, "--service-password-file", passwordFile]);
-            Assert.That(first, Is.EqualTo(0));
-    
-            var exit = await Make("2.0").RunFullWithArgsAsync(["--install", "--silent", "--path", installPath]);
-    
+            var exit = await Install(Installer("2.0", CustomServiceWithDefault));
+
             Assert.That(exit, Is.EqualTo(0), "a silent upgrade keeps the recorded account and needs no password, as the wizard does");
-            Assert.That(platform.ServiceManager.Find("App.Svc")!.AccountName, Is.EqualTo(user));
+            var svc = Scm.Find("App.Svc")!;
+            Assert.That(svc.AccountName, Is.EqualTo(User));
+            Assert.That(svc.State, Is.EqualTo(FakeServiceState.Running), "the stored secret is kept");
         }
         finally
         {
-            System.Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", previous);
-            foreach (var h in harnesses) await h.DisposeAsync();
-            try { System.IO.Directory.Delete(root, recursive: true); } catch (System.IO.IOException) { }
+            Environment.SetEnvironmentVariable("INSTELLA_SERVICE_PASSWORD", previous);
         }
+    }
+
+    // ---- the password file ----
+
+    [Test]
+    public async Task AnEmptyPasswordFile_OnAnUpgrade_Exits14_NamingTheFile()
+    {
+        Scm.SetAccountPassword(User, Password);
+        Assert.That(await InstallWithPasswordFile(Installer("1.0", CustomService), Password), Is.EqualTo(0));
+        File.WriteAllText(_passwordFile, "");
+        var calls = Scm.Calls.Count;
+
+        var (exit, stderr) = await CaptureStderr(() => Install(Installer("2.0", CustomService), "--service-password-file", _passwordFile));
+
+        Assert.That(exit, Is.EqualTo((int)InstellaExitCode.InstallSilentMissingState));
+        Assert.That(stderr, Does.Contain(_passwordFile).And.Contain("is empty"));
+        Assert.That(Scm.Calls.Count, Is.EqualTo(calls), "nothing is changed before the check");
+        Assert.That((await Manifest())!.Version, Is.EqualTo(Version.Parse("1.0.0")));
+    }
+
+    [Test]
+    public async Task AnUnreadablePasswordFile_Exits14_NamingThePath_BeforeAnythingIsWritten()
+    {
+        var missing = Path.Combine(_root, "missing.txt");
+
+        var (exit, stderr) = await CaptureStderr(() =>
+            Install(Installer("1.0", CustomService), "--service-account", User, "--service-password-file", missing));
+
+        Assert.That(exit, Is.EqualTo((int)InstellaExitCode.InstallSilentMissingState));
+        Assert.That(stderr, Does.Contain(missing).And.Contain("could not be read"));
+        Assert.That(Scm.Calls, Is.Empty);
+        Assert.That(await Manifest(), Is.Null);
+    }
+
+    // ---- an upgrade that changes the account ----
+
+    [Test]
+    public async Task AnUpgradeThatChangesTheAccount_AndFailsToStart_SaysThePreviousPasswordCannotBeRestored()
+    {
+        const string other = @"CORP\svc-other";
+        Scm.SetAccountPassword(User, Password);
+        Scm.SetAccountPassword(other, "other-pa55");
+        Assert.That(await InstallWithPasswordFile(Installer("1.0", CustomService), Password), Is.EqualTo(0));
+        var harness = Installer("2.0", CustomService);
+
+        var exit = await InstallWithPasswordFile(harness, "not-the-password", other);
+
+        Assert.That(exit, Is.EqualTo((int)InstellaExitCode.InstallServiceFailed));
+        Assert.That(Scm.Find("App.Svc")!.AccountName, Is.EqualTo(User), "rollback puts the previous account back");
+        Assert.That(Log(harness), Does.Contain($"'App.Svc' runs as '{User}' again").And.Contain("cannot be restored"));
     }
 }

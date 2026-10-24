@@ -91,7 +91,13 @@ internal sealed class ServiceCredentials : IDisposable
 
         char[]? password = null;
         if (passwordFile is not null)
+        {
             password = ReadPasswordFile(passwordFile);
+            // An empty password would replace the one the service manager stores for the kept account.
+            if (password.Length == 0 && !needsPassword)
+                throw new SilentMissingStateException(
+                    $"{PasswordFileFlag}: '{passwordFile}' is empty; give the account's password, or leave the flag out to keep the stored one");
+        }
         else if (needsPassword)
         {
             var value = Environment.GetEnvironmentVariable(config.ServicePasswordVariableOrDefault);

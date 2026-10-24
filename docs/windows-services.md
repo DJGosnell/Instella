@@ -108,7 +108,7 @@ example) is logged and let through, since the service logs on differently.
 | Flag | Meaning |
 |---|---|
 | `--service-account <user>` | The account. Without it: on an upgrade or repair, the account the installation records (as the wizard does); else the `FromInstaller` default user |
-| `--service-password-file <path>` | A file holding the password. Read once; one trailing newline (`\n` or `\r\n`) is trimmed; the file is left in place. An unreadable file exits 14 |
+| `--service-password-file <path>` | A file holding the password. Read once; one trailing newline (`\n` or `\r\n`) is trimmed; the file is left in place. An unreadable or empty file exits 14 |
 
 Without `--service-password-file`, the password comes from the environment variable
 `INSTELLA_SERVICE_PASSWORD`, or the one `WithServicePasswordVariable(name)` names; an empty variable
