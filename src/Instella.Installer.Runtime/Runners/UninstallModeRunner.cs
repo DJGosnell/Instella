@@ -102,7 +102,10 @@ internal sealed class UninstallModeRunner
         // uninstall skip every DLL it had loaded and left them behind.
         var prompt = dispatch.IsSilent ? null
             : AppRunningPrompt ?? (OperatingSystem.IsWindows() ? RunningAppGate.MessageBoxPrompt : null);
-        var gate = new RunningAppGate(_platform, _log, ProcessFinder, _fileSystem);
+        var gate = new RunningAppGate(_platform, _log, ProcessFinder, _fileSystem)
+        {
+            IgnoredProcessIds = await ServicePids.ForAsync(manifest, ServiceManager, ct),
+        };
         if (!await gate.EnsureClosedAsync(manifest.AppName, installPath, manifest.ExecutableName, dispatch.ForceClose, prompt, ct))
         {
             if (prompt is not null && !dispatch.ForceClose)
@@ -158,6 +161,9 @@ internal sealed class UninstallModeRunner
 
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }
+
+    /// <summary>Tells the gate which processes are the installation's services; null uses the OS's own.</summary>
+    internal Instella.Core.Platform.IServiceManager? ServiceManager { get; init; }
 
     /// <summary>Test hook: the seams uninstall migrations use (known folders, processes, programs); null uses the host's.</summary>
     internal Migrations.MigrationRuntime? MigrationRuntime { get; init; }

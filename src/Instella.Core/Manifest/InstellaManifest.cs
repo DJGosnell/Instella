@@ -101,6 +101,12 @@ public sealed record InstellaManifest
     public string? DownloadToken { get; init; }
 
     /// <summary>
+    /// The Windows services the installer declares (<c>OnWindows(w =&gt; w.AddService(...))</c>), so
+    /// the publish step can check each one's executable is in the payload; null when none.
+    /// </summary>
+    public IReadOnlyList<ServiceDeclaration>? Services { get; init; }
+
+    /// <summary>
     /// Validates that all required fields have meaningful values.
     /// Call after deserialization to catch empty/whitespace strings.
     /// </summary>
@@ -123,6 +129,12 @@ public sealed record InstellaManifest
     }
 }
 
+/// <summary>A Windows service declared by the installer, as the build manifest records it.</summary>
+/// <param name="Name">The service name.</param>
+/// <param name="Executable">Its executable relative to the install directory (<c>/</c> separators);
+/// null is the app's main executable (<see cref="InstellaManifest.ExecutableName"/>).</param>
+public sealed record ServiceDeclaration(string Name, string? Executable);
+
 /// <summary>
 /// JSON serialization context for manifest types.
 /// </summary>
@@ -136,4 +148,5 @@ public sealed record InstellaManifest
 [JsonSerializable(typeof(Prerequisite))]
 [JsonSerializable(typeof(PayloadFilter))]
 [JsonSerializable(typeof(PublisherKey))]
+[JsonSerializable(typeof(ServiceDeclaration))]
 internal partial class ManifestJsonContext : JsonSerializerContext;

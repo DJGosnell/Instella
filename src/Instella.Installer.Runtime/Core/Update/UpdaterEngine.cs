@@ -463,6 +463,9 @@ internal sealed class UpdaterEngine
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }
 
+    /// <summary>Tells the gate which processes are the installation's services; null uses the OS's own.</summary>
+    internal Instella.Core.Platform.IServiceManager? ServiceManager { get; init; }
+
     /// <summary>
     /// Asks the user about programs that would not close; null (silent) fails the update
     /// unless <see cref="UpdaterArgs.AllowForceClose"/>.
@@ -480,7 +483,11 @@ internal sealed class UpdaterEngine
         if (_args.ParentPid is { } parentPid)
             await WaitForParentAsync(parentPid, ct);
 
-        var gate = new RunningAppGate(_platform, new EngineLog(this), ProcessFinder, _fs) { CloseTimeout = TimeSpan.FromSeconds(2) };
+        var gate = new RunningAppGate(_platform, new EngineLog(this), ProcessFinder, _fs)
+        {
+            CloseTimeout = TimeSpan.FromSeconds(2),
+            IgnoredProcessIds = await ServicePids.ForAsync(installed, ServiceManager, ct),
+        };
         var running = Closable(gate, installed);
         if (running.Count == 0) return true;
 

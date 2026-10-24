@@ -207,6 +207,30 @@ public sealed class FakeServiceManager : IServiceManager
         }
     }
 
+    Task<ServiceResult<IReadOnlyList<string>>> IServiceManager.QueryActiveDependentsAsync(string name, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_services.TryGetValue(name, out var entry))
+                return Task.FromResult(ServiceResult<IReadOnlyList<string>>.Fail(ServiceFailure.NotFound, NotFoundMessage(name), 1060));
+            var found = new List<string>();
+            var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { entry.Name };
+            void Collect(Entry of)
+            {
+                foreach (var dependent in RunningDependents(of))
+                {
+                    if (!visiting.Add(dependent.Name)) continue;
+                    Collect(dependent);
+                    found.Add(dependent.Name);
+                }
+            }
+            Collect(entry);
+            return Task.FromResult(ServiceResult<IReadOnlyList<string>>.Ok(found));
+        }
+    }
+
     Task<ServiceResult> IServiceManager.DeleteAsync(string name, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -256,12 +280,7 @@ public sealed class FakeServiceManager : IServiceManager
         }
         if (entry.State != FakeServiceState.Stopped)
         {
-            var dependents = _services.Values
-                .Where(d => d.State != FakeServiceState.Stopped
-                    && d.Configuration.Dependencies.Contains(entry.Name, StringComparer.OrdinalIgnoreCase))
-                .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            foreach (var dependent in dependents)
+            foreach (var dependent in RunningDependents(entry))
             {
                 var stopped = Stop(dependent, timeout, visiting);
                 if (!stopped.Outcome.Success) return stopped;
@@ -284,6 +303,13 @@ public sealed class FakeServiceManager : IServiceManager
                 return ServiceResult.Ok;
         }
     }
+
+    /// <summary>The services that are not stopped and depend directly on <paramref name="entry"/>. Called under the lock.</summary>
+    private Entry[] RunningDependents(Entry entry) => _services.Values
+        .Where(d => d.State != FakeServiceState.Stopped
+            && d.Configuration.Dependencies.Contains(entry.Name, StringComparer.OrdinalIgnoreCase))
+        .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 
     private static Task<ServiceResult> Done(ServiceResult result) => Task.FromResult(result);
 

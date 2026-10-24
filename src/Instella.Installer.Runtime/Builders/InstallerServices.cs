@@ -27,6 +27,7 @@ namespace Instella.Installer.Runtime.Builders;
 /// <param name="Programs">Starts the app's upgrade program and the programs install migrations run; null starts real processes.</param>
 /// <param name="Log">Where the run logs; null uses the configured log files (the harness records into its sink).</param>
 /// <param name="ServiceManager">Creates, starts, stops and deletes Windows services; null uses the host's SCM.</param>
+/// <param name="FolderAcl">Tells whether non-administrators can write the install folder of a service install; null reads the real DACL.</param>
 internal sealed record InstallerServices(
     IPlatformServices Platform,
     IFileSystem FileSystem,
@@ -44,7 +45,8 @@ internal sealed record InstallerServices(
     Core.Processes.IProcessCloser? ProcessCloser = null,
     Migrations.IProgramRunner? Programs = null,
     Instella.Core.Logging.IInstellaLogger? Log = null,
-    IServiceManager? ServiceManager = null)
+    IServiceManager? ServiceManager = null,
+    Core.Security.IInstallFolderAcl? FolderAcl = null)
 {
     /// <summary><see cref="StubDirectory"/>, or the folder of the running process.</summary>
     public string? StubDirectoryOrDefault() => (StubDirectory ?? Runners.InstallPaths.StubDirectory)();
@@ -57,6 +59,9 @@ internal sealed record InstallerServices(
 
     /// <summary><see cref="ServiceManager"/>, or the host's (unsupported off Windows).</summary>
     public IServiceManager ServiceManagerOrDefault => ServiceManager ?? ServiceManagerFactory.Create();
+
+    /// <summary><see cref="FolderAcl"/>, or the host's DACL check.</summary>
+    public Core.Security.IInstallFolderAcl FolderAclOrDefault => FolderAcl ?? Core.Security.InstallFolderAcl.Host;
 
     /// <summary>
     /// A client for the update server (<see cref="Instella.Core.Wire.ServerHttp.Create"/>): over

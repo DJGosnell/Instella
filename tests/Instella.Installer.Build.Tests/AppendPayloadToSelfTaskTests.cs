@@ -17,7 +17,7 @@ namespace Instella.Installer.Build.Tests;
 /// item array directly and verify the resulting zip.
 /// </summary>
 [TestFixture]
-public sealed class AppendPayloadToSelfTaskTests
+public sealed partial class AppendPayloadToSelfTaskTests
 {
     private string _tempDir = null!;
 

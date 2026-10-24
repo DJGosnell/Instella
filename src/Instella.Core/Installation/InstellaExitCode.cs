@@ -36,6 +36,11 @@ public enum InstellaExitCode
     /// honoured; the install was rolled back.
     /// </summary>
     InstallAppUpgradeFailed = 15,
+    /// <summary>
+    /// A Windows service the installer declares could not be started (it failed, stopped or timed
+    /// out); the install was rolled back.
+    /// </summary>
+    InstallServiceFailed = 16,
 
     /// <summary>The update failed before anything was changed.</summary>
     UpdateGeneralFailure = 20,

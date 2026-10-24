@@ -76,3 +76,28 @@ virtual Instella.Installer.Runtime.Migrations.InstallMigration.Order.get -> int
 virtual Instella.Installer.Runtime.Migrations.InstallMigration.RollbackAsync(System.Threading.CancellationToken ct) -> System.Threading.Tasks.Task!
 virtual Instella.Installer.Runtime.Migrations.InstallMigration.RunOnce.get -> bool
 virtual Instella.Installer.Runtime.Migrations.InstallMigration.Timing.get -> Instella.Installer.Runtime.Migrations.MigrationTiming
+Instella.Installer.Runtime.Builders.ServiceAccount
+Instella.Installer.Runtime.Builders.ServiceBuilder
+Instella.Installer.Runtime.Builders.ServiceBuilder.DependsOn(params string![]! serviceNames) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.RestartOnFailure(System.TimeSpan delay, System.TimeSpan resetAfter) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.RunAs(Instella.Installer.Runtime.Builders.ServiceAccount! account) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.StartAfterInstall(bool start = true) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.StartFailureIsWarning() -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.StartTimeout(System.TimeSpan timeout) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.StopTimeout(System.TimeSpan timeout) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.WithArguments(params string![]! arguments) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.WithDescription(string! description) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.WithDisplayName(string! displayName) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.WithExecutable(string! relativePath) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceBuilder.WithStartType(Instella.Installer.Runtime.Builders.ServiceStartMode mode) -> Instella.Installer.Runtime.Builders.ServiceBuilder!
+Instella.Installer.Runtime.Builders.ServiceStartMode
+Instella.Installer.Runtime.Builders.ServiceStartMode.Automatic = 0 -> Instella.Installer.Runtime.Builders.ServiceStartMode
+Instella.Installer.Runtime.Builders.ServiceStartMode.AutomaticDelayed = 1 -> Instella.Installer.Runtime.Builders.ServiceStartMode
+Instella.Installer.Runtime.Builders.ServiceStartMode.Disabled = 3 -> Instella.Installer.Runtime.Builders.ServiceStartMode
+Instella.Installer.Runtime.Builders.ServiceStartMode.Manual = 2 -> Instella.Installer.Runtime.Builders.ServiceStartMode
+Instella.Installer.Runtime.Builders.WindowsBuilder.AddService(string! name, System.Action<Instella.Installer.Runtime.Builders.ServiceBuilder!>! configure) -> Instella.Installer.Runtime.Builders.WindowsBuilder!
+override Instella.Installer.Runtime.Builders.ServiceAccount.ToString() -> string!
+static Instella.Installer.Runtime.Builders.ServiceAccount.LocalService.get -> Instella.Installer.Runtime.Builders.ServiceAccount!
+static Instella.Installer.Runtime.Builders.ServiceAccount.LocalSystem.get -> Instella.Installer.Runtime.Builders.ServiceAccount!
+static Instella.Installer.Runtime.Builders.ServiceAccount.NetworkService.get -> Instella.Installer.Runtime.Builders.ServiceAccount!
+static Instella.Installer.Runtime.Builders.ServiceAccount.VirtualAccount.get -> Instella.Installer.Runtime.Builders.ServiceAccount!

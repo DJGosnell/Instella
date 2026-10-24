@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Instella.Core.Logging;
 using Instella.Core.Manifest;
 using Instella.Installer.Runtime.Installation;
@@ -53,13 +54,17 @@ internal sealed record FrozenConfig(
     ImageSource? BrandImage = null,
     string? DownloadToken = null,
     IReadOnlyList<Migrations.InstallMigration>? Migrations = null,
-    IReadOnlyList<string>? AppManagedRunValues = null)
+    IReadOnlyList<string>? AppManagedRunValues = null,
+    IReadOnlyList<ServiceSpec>? DeclaredServices = null)
 {
     /// <summary>The registered migrations, sorted (timing, order, id); empty when none.</summary>
     public IReadOnlyList<Migrations.InstallMigration> MigrationsOrEmpty => Migrations ?? [];
 
     /// <summary>The <c>WithAppManagedAutoStart</c> value names; empty when none.</summary>
     public IReadOnlyList<string> AppManagedRunValuesOrEmpty => AppManagedRunValues ?? [];
+
+    /// <summary>The Windows services declared with <c>OnWindows(w => w.AddService(...))</c>, in declaration order; empty when none.</summary>
+    public IReadOnlyList<ServiceSpec> Services => DeclaredServices ?? [];
 }
 
 internal static class FrozenConfigExtensions
@@ -96,5 +101,8 @@ internal static class FrozenConfigExtensions
         AllowUnsignedUpdates = config.AllowUnsignedUpdates,
         AllowInsecureServer = config.AllowInsecureServer,
         DownloadToken = config.DownloadToken,
+        Services = config.Services.Count > 0
+            ? config.Services.Select(s => new ServiceDeclaration(s.Name, s.Executable)).ToArray()
+            : null,
     };
 }

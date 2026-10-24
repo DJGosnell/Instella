@@ -180,3 +180,20 @@ override Instella.Core.Installation.ManifestService.GetHashCode() -> int
 override Instella.Core.Installation.ManifestService.ToString() -> string!
 static Instella.Core.Installation.ManifestService.operator !=(Instella.Core.Installation.ManifestService? left, Instella.Core.Installation.ManifestService? right) -> bool
 static Instella.Core.Installation.ManifestService.operator ==(Instella.Core.Installation.ManifestService? left, Instella.Core.Installation.ManifestService? right) -> bool
+Instella.Core.Installation.InstellaExitCode.InstallServiceFailed = 16 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Manifest.InstellaManifest.Services.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Manifest.ServiceDeclaration!>?
+Instella.Core.Manifest.InstellaManifest.Services.init -> void
+Instella.Core.Manifest.ServiceDeclaration
+Instella.Core.Manifest.ServiceDeclaration.<Clone>$() -> Instella.Core.Manifest.ServiceDeclaration!
+Instella.Core.Manifest.ServiceDeclaration.Deconstruct(out string! Name, out string? Executable) -> void
+Instella.Core.Manifest.ServiceDeclaration.Equals(Instella.Core.Manifest.ServiceDeclaration? other) -> bool
+Instella.Core.Manifest.ServiceDeclaration.Executable.get -> string?
+Instella.Core.Manifest.ServiceDeclaration.Executable.init -> void
+Instella.Core.Manifest.ServiceDeclaration.Name.get -> string!
+Instella.Core.Manifest.ServiceDeclaration.Name.init -> void
+Instella.Core.Manifest.ServiceDeclaration.ServiceDeclaration(string! Name, string? Executable) -> void
+override Instella.Core.Manifest.ServiceDeclaration.Equals(object? obj) -> bool
+override Instella.Core.Manifest.ServiceDeclaration.GetHashCode() -> int
+override Instella.Core.Manifest.ServiceDeclaration.ToString() -> string!
+static Instella.Core.Manifest.ServiceDeclaration.operator !=(Instella.Core.Manifest.ServiceDeclaration? left, Instella.Core.Manifest.ServiceDeclaration? right) -> bool
+static Instella.Core.Manifest.ServiceDeclaration.operator ==(Instella.Core.Manifest.ServiceDeclaration? left, Instella.Core.Manifest.ServiceDeclaration? right) -> bool

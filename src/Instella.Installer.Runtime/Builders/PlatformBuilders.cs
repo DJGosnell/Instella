@@ -11,12 +11,15 @@ namespace Instella.Installer.Runtime.Builders;
 public sealed class WindowsBuilder
 {
     private readonly List<RegistryWriteSpec> _writes = new();
+    private readonly List<ServiceSpec> _services = new();
 
     internal WindowsBuilder()
     {
     }
 
     internal IReadOnlyList<RegistryWriteSpec> Writes => _writes;
+
+    internal IReadOnlyList<ServiceSpec> Services => _services;
 
     /// <summary>
     /// Declare a registry key whose values are written at install time and removed at
@@ -29,6 +32,23 @@ public sealed class WindowsBuilder
         var kb = new RegistryKeyBuilder(hive, keyPath);
         configure(kb);
         _writes.AddRange(kb.Writes);
+        return this;
+    }
+
+    /// <summary>
+    /// Declare a Windows service that install, upgrade and repair register (or reconfigure), stop
+    /// before the files are replaced and start again afterwards. Uninstall and the updater do not
+    /// stop or delete services yet: uninstall leaves the service registered. May be called more
+    /// than once. Needs <c>WithElevation(ElevationMode.SystemWide)</c>; the name (1–80 letters,
+    /// digits, '.', '_' or '-') and the rest are checked by <see cref="InstallerBuilder.Build"/>.
+    /// </summary>
+    public WindowsBuilder AddService(string name, Action<ServiceBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(configure);
+        var sb = new ServiceBuilder(name);
+        configure(sb);
+        _services.Add(sb.Build());
         return this;
     }
 }

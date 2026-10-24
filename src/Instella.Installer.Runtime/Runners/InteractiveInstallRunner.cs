@@ -486,10 +486,16 @@ internal sealed class InteractiveInstallRunner
     /// <c>--force-close</c> closes them straight away; otherwise the user chooses Retry,
     /// Close automatically, or Cancel.
     /// </summary>
-    private Task<bool> EnsureAppClosedAsync(
-        InstalledManifest existing, string installPath, DispatchResult dispatch, CancellationToken ct) =>
-        new RunningAppGate(_platform, _log, ProcessFinder, _fileSystem).EnsureClosedAsync(
+    private async Task<bool> EnsureAppClosedAsync(
+        InstalledManifest existing, string installPath, DispatchResult dispatch, CancellationToken ct)
+    {
+        var gate = new RunningAppGate(_platform, _log, ProcessFinder, _fileSystem)
+        {
+            IgnoredProcessIds = await ServicePids.ForAsync(existing, Services?.ServiceManager, ct),
+        };
+        return await gate.EnsureClosedAsync(
             existing.AppName, installPath, existing.ExecutableName, dispatch.ForceClose, _appRunningPrompt, ct);
+    }
 
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }
@@ -499,6 +505,9 @@ internal sealed class InteractiveInstallRunner
 
     /// <summary>Starts the app's upgrade program (and migration programs); null starts real processes.</summary>
     internal Migrations.IProgramRunner? Programs { get; init; }
+
+    /// <summary>Injected services: the service manager and the folder check of a service install; null uses the host's.</summary>
+    internal InstallerServices? Services { get; init; }
 
     /// <summary>
     /// Resolve the install path used to seed the Options folder picker:
@@ -619,11 +628,10 @@ internal sealed class InteractiveInstallRunner
                 payload = await ServerPayloadDownloader.DownloadAsync(_config, tempDownloadPath, _log, http, ct);
             }
             context.PayloadArchive = payload;
+            // Throws InstallRefusedException (exit 10) before anything changes, as the silent run does.
+            await ServicePreflight.PrepareAsync(_config, context, Services, ct);
 
-            var builtIns = new List<IInstallStepExecution>(OfflineInstallRunner.BuildDefaultSteps());
-            if (_config.RegistryWrites.Count > 0)
-                builtIns.Add(new WriteRegistrySpecsStep(_config.RegistryWrites));
-
+            var builtIns = BuiltInSteps.For(_config, context.ExistingInstallation);
             var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
             _stepDisplayNames = StepDisplayNames.Map(steps);
             var progressSink = new HostProgressSink(host, progressState, _stepDisplayNames);

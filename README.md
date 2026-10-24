@@ -201,6 +201,7 @@ Details, including what is out of scope, are in [security-model.md](docs/securit
 | [publishing.md](docs/publishing.md) | Publishing releases and installers by hand or from GitHub/Gitea Actions (`instella ci init`) |
 | [migrations.md](docs/migrations.md) | Install migrations, and replacing an existing (pre-Instella) installation |
 | [app-upgrade.md](docs/app-upgrade.md) | App upgrade programs: the app's own data upgrades, run by the installer and the updater |
+| [windows-services.md](docs/windows-services.md) | Windows services: declaring them, the install steps, rollback, exit 16, security |
 | [signing-and-keys.md](docs/signing-and-keys.md) | Publisher keys: generation, storage, rotation, loss, KMS signing |
 | [distribution-and-signing.md](docs/distribution-and-signing.md) | Authenticode signing of installers and the stub |
 | [server-deployment.md](docs/server-deployment.md) | Docker, reverse proxy and TLS, backups, upgrades |

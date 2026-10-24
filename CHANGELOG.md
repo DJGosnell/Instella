@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Windows services: `OnWindows(w => w.AddService("name", s => ...))` declares a service that
+  installs, upgrades and repairs register, reconfigure, stop and start through the new
+  `register-services`, `remove-dropped-services`, `stop-services` and `start-services` steps, with
+  rollback. A service needs `WithElevation(ElevationMode.SystemWide)`, runs as LocalSystem unless
+  `RunAs(...)` says otherwise, and is refused (exit 10) when the install folder can be written by
+  non-administrators or a same-named service belongs to something else. A service that fails to start
+  rolls the install back with the new exit code 16 (`InstallServiceFailed`) unless
+  `StartFailureIsWarning()` is set. The running-app gate no longer offers to close the installation's
+  own services, and publishing fails with INSTELLA0105 when a service's executable is not in the
+  payload. Guide: [docs/windows-services.md](docs/windows-services.md).
+
+### Fixed
+
+- Registry writes declared with `OnWindows(w => w.AddRegistryKey(...))` now run before the
+  installed manifest is written and the files are committed when an installer has no custom
+  steps. They used to run after the commit and after the app's upgrade program.
+
 ## [0.1.0] - 2026-09-27
 
 The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are

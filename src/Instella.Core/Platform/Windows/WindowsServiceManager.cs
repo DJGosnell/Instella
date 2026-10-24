@@ -104,6 +104,17 @@ internal sealed partial class WindowsServiceManager : IServiceManager
         return await StopOneAsync(opened.Service, name, timeout, ct).ConfigureAwait(false);
     }
 
+    public Task<ServiceResult<IReadOnlyList<string>>> QueryActiveDependentsAsync(string name, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ct.ThrowIfCancellationRequested();
+        using var opened = Open(name, SERVICE_ENUMERATE_DEPENDENTS, out var error);
+        if (opened is null) return Task.FromResult(Failure<IReadOnlyList<string>>("open", name, error));
+        var dependents = ActiveDependents(opened.Service, out error);
+        if (dependents is null) return Task.FromResult(Failure<IReadOnlyList<string>>("list the dependents of", name, error));
+        return Task.FromResult(ServiceResult<IReadOnlyList<string>>.Ok(dependents));
+    }
+
     public Task<ServiceResult> DeleteAsync(string name, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);

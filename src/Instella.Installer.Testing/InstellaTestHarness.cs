@@ -46,6 +46,7 @@ public sealed class InstellaTestHarness : IAsyncDisposable
         Context = context;
         FileSystem = fileSystem;
         PlatformServices = platform;
+        _processes = new HarnessProcesses(platform.ServiceManager);
         Logger = logger;
         LogSink = logSink;
         _pageStates = pageStates;
@@ -56,7 +57,7 @@ public sealed class InstellaTestHarness : IAsyncDisposable
     // Set by Builder.Build(): the app files RunFullAsync installs, the fake running programs, and
     // the fake profile the known folders of install migrations live in.
     private byte[]? _payload;
-    private readonly HarnessProcesses _processes = new();
+    private readonly HarnessProcesses _processes;
     private readonly string _knownFolderRoot = Path.Combine(Path.GetTempPath(), "instella-harness-folders", Guid.NewGuid().ToString("N"));
 
     /// <summary>
@@ -231,7 +232,8 @@ public sealed class InstellaTestHarness : IAsyncDisposable
                 ProcessCloser: _processes,
                 Programs: _programs,
                 Log: Logger,
-                ServiceManager: PlatformServices.ServiceManager), cancellationToken);
+                ServiceManager: PlatformServices.ServiceManager,
+                FolderAcl: PlatformServices.FolderAcl), cancellationToken);
         return _installer.RunAsync(argv, cancellationToken);
     }
 

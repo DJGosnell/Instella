@@ -45,6 +45,36 @@ public sealed class FakePlatformServices : IPlatformServices
     /// <summary>The in-memory Windows service manager the harness gives the installer.</summary>
     public FakeServiceManager ServiceManager { get; } = new();
 
+    private readonly List<string> _writableByNonAdmins = new();
+
+    /// <summary>
+    /// Makes the install-folder check of a service install report <paramref name="folder"/>, and
+    /// everything beneath it, as writable by <c>BUILTIN\Users</c>. By default nobody but
+    /// administrators can write anywhere.
+    /// </summary>
+    public void MarkWritableByNonAdmins(string folder)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(folder);
+        lock (_writableByNonAdmins) _writableByNonAdmins.Add(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)));
+    }
+
+    /// <summary>The install-folder check the harness gives the installer, backed by <see cref="MarkWritableByNonAdmins"/>.</summary>
+    internal Instella.Installer.Runtime.Core.Security.IInstallFolderAcl FolderAcl => new FakeFolderAcl(this);
+
+    private sealed class FakeFolderAcl(FakePlatformServices owner) : Instella.Installer.Runtime.Core.Security.IInstallFolderAcl
+    {
+        public string? FindNonAdminWriter(string folder)
+        {
+            var path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+            lock (owner._writableByNonAdmins)
+                return owner._writableByNonAdmins.Any(marked =>
+                    string.Equals(path, marked, StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith(marked + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    ? @"BUILTIN\Users"
+                    : null;
+        }
+    }
+
     /// <summary>Shortcuts created, in order.</summary>
     public List<ShortcutInfo> Shortcuts { get; } = new();
     /// <summary>Shortcuts removed, in order.</summary>

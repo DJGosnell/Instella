@@ -25,6 +25,10 @@ internal static class StepDisplayNames
         ["write-registry-specs"] = "Writing registry settings",
         [CommitTransactionStep.StepName] = "Moving files into place",
         [AppUpgradeStep.StepName] = "Upgrading your data",
+        [ServiceStepNames.RegisterServices] = "Registering services",
+        [ServiceStepNames.RemoveDroppedServices] = "Removing services",
+        [ServiceStepNames.StopServices] = "Stopping services",
+        [ServiceStepNames.StartServices] = "Starting services",
     };
 
     /// <summary>The display name of <paramref name="step"/>.</summary>

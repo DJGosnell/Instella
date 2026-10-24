@@ -105,6 +105,12 @@ internal sealed class RunningAppGate
     public bool SkipLinks { get; init; }
 
     /// <summary>
+    /// Processes that never count: the installation's own running services, which the install
+    /// stops through the service manager instead. Other copies of the same executable still count.
+    /// </summary>
+    public IReadOnlySet<int> IgnoredProcessIds { get; init; } = new HashSet<int>();
+
+    /// <summary>
     /// <see cref="FindBlockers(string, string?)"/>, also saying why the folder's programs could not
     /// be found (<paramref name="error"/>: the files could not be listed, or Restart Manager failed),
     /// in which case the list may be incomplete.
@@ -122,7 +128,7 @@ internal sealed class RunningAppGate
             {
                 var files = (SkipLinks ? _fs.EnumerateFilesWithoutLinks(installPath, "*") : _fs.EnumerateFiles(installPath, "*", recursive: true)).ToList();
                 foreach (var p in _finder.Find(files))
-                    if (p.Id != self && !IsSameProgram(p.Id, selfPath))
+                    if (p.Id != self && !IgnoredProcessIds.Contains(p.Id) && !IsSameProgram(p.Id, selfPath))
                         found.TryAdd(p.Id, p);
             }
             catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
@@ -141,7 +147,7 @@ internal sealed class RunningAppGate
             foreach (var p in _platform.GetRunningProcesses(Path.GetFileNameWithoutExtension(executableName), installPath))
             {
                 using (p)
-                    if (p.Id != self) found.TryAdd(p.Id, new LockingProcess(p.Id, p.ProcessName, CanClose: true));
+                    if (p.Id != self && !IgnoredProcessIds.Contains(p.Id)) found.TryAdd(p.Id, new LockingProcess(p.Id, p.ProcessName, CanClose: true));
             }
         }
         return found.Values.ToList();
