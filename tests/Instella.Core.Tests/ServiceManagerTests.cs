@@ -8,7 +8,7 @@ namespace Instella.Core.Tests;
 /// classification, and the off-Windows implementation that fails every call without throwing.
 /// </summary>
 [TestFixture]
-public class ServiceManagerTests
+internal class ServiceManagerTests
 {
     [Test]
     public void BinaryPath_QuotesAnExecutableWithSpaces()
@@ -142,7 +142,7 @@ public class WindowsServiceManagerTests
             Assert.That(config.BinaryPath, Does.Contain("svchost.exe").IgnoreCase);
             Assert.That(config.StartType, Is.EqualTo(ServiceStartType.Automatic));
             Assert.That(config.AccountName, Is.EqualTo(@"NT AUTHORITY\NetworkService").IgnoreCase);
-            Assert.That(config.Dependencies, Is.SupersetOf(new[] { "RpcEptMapper", "DcomLaunch" }).Using<string>(StringComparer.OrdinalIgnoreCase));
+            Assert.That(config.Dependencies, Is.SupersetOf(new[] { "RpcEptMapper", "DcomLaunch" }).Using((IEqualityComparer<string>)StringComparer.OrdinalIgnoreCase));
         });
     }
 

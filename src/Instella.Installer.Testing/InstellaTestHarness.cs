@@ -230,7 +230,8 @@ public sealed class InstellaTestHarness : IAsyncDisposable
                 KnownFolders: new Instella.Installer.Runtime.Migrations.KnownFolderResolver(FakeKnownFolders),
                 ProcessCloser: _processes,
                 Programs: _programs,
-                Log: Logger), cancellationToken);
+                Log: Logger,
+                ServiceManager: PlatformServices.ServiceManager), cancellationToken);
         return _installer.RunAsync(argv, cancellationToken);
     }
 

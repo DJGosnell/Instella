@@ -26,6 +26,7 @@ namespace Instella.Installer.Runtime.Builders;
 /// <param name="ProcessCloser">Closes programs for install migrations; null asks them through the platform.</param>
 /// <param name="Programs">Starts the app's upgrade program and the programs install migrations run; null starts real processes.</param>
 /// <param name="Log">Where the run logs; null uses the configured log files (the harness records into its sink).</param>
+/// <param name="ServiceManager">Creates, starts, stops and deletes Windows services; null uses the host's SCM.</param>
 internal sealed record InstallerServices(
     IPlatformServices Platform,
     IFileSystem FileSystem,
@@ -42,7 +43,8 @@ internal sealed record InstallerServices(
     Migrations.KnownFolderResolver? KnownFolders = null,
     Core.Processes.IProcessCloser? ProcessCloser = null,
     Migrations.IProgramRunner? Programs = null,
-    Instella.Core.Logging.IInstellaLogger? Log = null)
+    Instella.Core.Logging.IInstellaLogger? Log = null,
+    IServiceManager? ServiceManager = null)
 {
     /// <summary><see cref="StubDirectory"/>, or the folder of the running process.</summary>
     public string? StubDirectoryOrDefault() => (StubDirectory ?? Runners.InstallPaths.StubDirectory)();
@@ -52,6 +54,9 @@ internal sealed record InstallerServices(
         Elevation ?? (System.OperatingSystem.IsWindows()
             ? new Core.Elevation.WindowsElevationService()
             : new Core.Elevation.NoElevationService());
+
+    /// <summary><see cref="ServiceManager"/>, or the host's (unsupported off Windows).</summary>
+    public IServiceManager ServiceManagerOrDefault => ServiceManager ?? ServiceManagerFactory.Create();
 
     /// <summary>
     /// A client for the update server (<see cref="Instella.Core.Wire.ServerHttp.Create"/>): over
