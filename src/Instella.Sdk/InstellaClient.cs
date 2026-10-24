@@ -115,11 +115,13 @@ public static class InstellaClient
     /// The Instella stub is missing or cannot be started, or this process is one of the
     /// installation's Windows services (use <see cref="StartServiceUpdateAsync"/> there).
     /// </exception>
-    public static async Task<UpdaterStartResult> StartUpdaterAsync(UpdateInfo update, UpdateOptions? options = null, CancellationToken ct = default)
+    public static Task<UpdaterStartResult> StartUpdaterAsync(UpdateInfo update, UpdateOptions? options = null, CancellationToken ct = default)
     {
+        // Not async: a null update, cancellation and "not installed" throw at the call, as before
+        // the service guard was added.
         ArgumentNullException.ThrowIfNull(update);
         ct.ThrowIfCancellationRequested();
-        return await UpdaterLauncher.StartAsync(update, options ?? new UpdateOptions(), GetCurrentInfo(), ServiceSystem, ct).ConfigureAwait(false);
+        return UpdaterLauncher.StartAsync(update, options ?? new UpdateOptions(), GetCurrentInfo(), ServiceSystem, ct);
     }
 
     /// <summary>

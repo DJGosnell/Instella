@@ -199,6 +199,12 @@ public class ServiceUpdateTests
         Assert.ThrowsAsync<ArgumentNullException>(() => InstellaClient.StartServiceUpdateAsync(null!));
     }
 
+    [Test]
+    public void StartUpdaterAsync_NullUpdate_ThrowsSynchronously_AsOnTheBase()
+    {
+        Assert.Throws<System.ArgumentNullException>(() => { _ = Instella.Sdk.InstellaClient.StartUpdaterAsync(null!); });
+    }
+
     // ---- helpers ----
 
     private static void AssertRefused(ServiceUpdateStartResult result, FakeSystem system, string reasonContains)
