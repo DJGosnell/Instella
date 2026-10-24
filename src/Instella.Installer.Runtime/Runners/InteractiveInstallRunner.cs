@@ -486,10 +486,16 @@ internal sealed class InteractiveInstallRunner
     /// <c>--force-close</c> closes them straight away; otherwise the user chooses Retry,
     /// Close automatically, or Cancel.
     /// </summary>
-    private Task<bool> EnsureAppClosedAsync(
-        InstalledManifest existing, string installPath, DispatchResult dispatch, CancellationToken ct) =>
-        new RunningAppGate(_platform, _log, ProcessFinder, _fileSystem).EnsureClosedAsync(
+    private async Task<bool> EnsureAppClosedAsync(
+        InstalledManifest existing, string installPath, DispatchResult dispatch, CancellationToken ct)
+    {
+        var gate = new RunningAppGate(_platform, _log, ProcessFinder, _fileSystem)
+        {
+            IgnoredProcessIds = await ServicePids.ForAsync(existing, Services?.ServiceManager, ct),
+        };
+        return await gate.EnsureClosedAsync(
             existing.AppName, installPath, existing.ExecutableName, dispatch.ForceClose, _appRunningPrompt, ct);
+    }
 
     /// <summary>Test hook: finds processes using the app's files; null uses Restart Manager.</summary>
     internal ILockingProcessFinder? ProcessFinder { get; init; }

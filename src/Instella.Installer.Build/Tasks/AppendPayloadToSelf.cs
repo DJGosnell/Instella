@@ -127,7 +127,7 @@ public sealed class AppendPayloadToSelf : MSBuildTask
 
             var entries = CollectEntries(PayloadFiles).ToList();
             var manifest = ResolveManifest(ManifestPath, PayloadExecutableNames, entries, out var iconSource);
-            if (manifest is null)
+            if (manifest is null || !ServiceExecutablesArePresent(manifest, entries))
                 return false;
 
             var fingerprint = Fingerprint(manifest, entries);
@@ -196,6 +196,31 @@ public sealed class AppendPayloadToSelf : MSBuildTask
             Log.LogErrorFromException(ex, showStackTrace: true);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Each declared Windows service's executable (<c>services[].executable</c>, or the main
+    /// <c>executableName</c> when absent) must be a payload entry after filtering; otherwise the
+    /// install would register a service pointing at nothing (INSTELLA0105).
+    /// </summary>
+    private bool ServiceExecutablesArePresent(System.Text.Json.Nodes.JsonObject manifest, IReadOnlyList<PayloadEntry> entries)
+    {
+        if (manifest["services"] is not System.Text.Json.Nodes.JsonArray { Count: > 0 } services) return true;
+        var filter = ReadPayloadFilter(manifest);
+        var shipped = (filter is null ? entries : ApplyFilter(entries, filter))
+            .Select(e => e.TargetPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var mainExe = (string?)manifest["executableName"];
+        var ok = true;
+        foreach (var service in services.OfType<System.Text.Json.Nodes.JsonObject>())
+        {
+            var name = (string?)service["name"];
+            var exe = (string?)service["executable"] is { Length: > 0 } declared ? declared : mainExe;
+            if (exe is not null && shipped.Contains(NormalizeTargetPath(exe))) continue;
+            Log.LogError(null, "INSTELLA0105", null, null, 0, 0, 0, 0,
+                $"service '{name}': executable '{exe ?? "(the main executable)"}' is not in the payload");
+            ok = false;
+        }
+        return ok;
     }
 
     private IReadOnlyList<PayloadEntry> CollectEntries(ITaskItem[] items)

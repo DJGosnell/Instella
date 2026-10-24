@@ -22,7 +22,7 @@ BSDiff (BSDIFF40 with Brotli-compressed ctrl/diff/extra blocks) for binary-diff
 updates. Brotli is used only inside patch blobs.
 **Security model**: `docs/security-model.md` (trust chain, server trust, HTTPS, elevation) and
 `docs/signing-and-keys.md` (publisher keys). Format versions and API policy: `docs/compatibility.md`.
-Server deployment: `docs/server-deployment.md`. Local gate: `docs/verification.md`. Releases:
+Windows services: `docs/windows-services.md`. Server deployment: `docs/server-deployment.md`. Local gate: `docs/verification.md`. Releases:
 `scripts/release.ps1 -Tag v0.1.0[-rc.1] [-Push]` (clean tree at the tag, tag = `VersionPrefix`, dated
 CHANGELOG heading for a final release, `verify.ps1 -NoSkip -VersionSuffix`, pack to `artifacts/<tag>/`,
 server image, push only with `-Push`).
@@ -133,10 +133,10 @@ return await InstellaInstaller.Create()                    // -> InstallerBuilde
 | `WithVersionSelection(bool enabled=true)` | Accepts `--list-versions` (prints versions with an `online` installer for this OS/arch on `--channel`, non-deprecated, newest first, marks latest / this installer, full changelogs; attaches to the parent console), `--app-version <v\|latest>` (own version or `latest` when it is the latest → installs here; another listed version → verified handoff; not listed → 40) and `--choose-version` (Win32 page with a drop-down, this installer's version always offered; cancel → 1; with `--silent` → 40). The handed-over installer gets the args minus the selection flags and `--channel`, plus `--no-newer-check`. Without the call the flags exit 40. Needs `WithServer` + a publisher key. Server errors → 21; an installer that does not verify → 12. Sample: on; `init` template: commented out |
 | `WithPrerequisite(Action<PrerequisiteBuilder>)` | `WithName`(req)/`WithBundlePath`/`WithDownloadUrl`+`WithSha256`/`WithDetectionRegistry`/`WithInstallArguments`/`WithSuccessExitCodes` |
 | `AddPage(id, Action<PageBuilder>)` | Custom wizard page (unique id) |
-| `AddStep(name, Action<StepBuilder>)` | Custom install step (unique name; `migration:` prefix and `app-upgrade` reserved) |
+| `AddStep(name, Action<StepBuilder>)` | Custom install step (unique name; `migration:` prefix, `app-upgrade`, `register-services`, `remove-dropped-services`, `stop-services` and `start-services` reserved) |
 | `AddMigration<T>()` / `AddMigration(InstallMigration)` | Install migration: a class derived from `InstallMigration` (see Install migrations). `new T()`, no scanning, AOT-safe |
 | `WithAppManagedAutoStart(runValueName)` | The app writes its own Run value (HKCU per-user / HKLM machine); uninstall deletes it only while it points into the installation. Recorded as an adopted item. Not with `WithAutoStart()` and the app id as the name |
-| `OnWindows/OnLinux/OnMacOS(Action<*Builder>)` | Platform sub-builders; the delegate runs only on that OS (Linux/macOS builders are empty) |
+| `OnWindows/OnLinux/OnMacOS(Action<*Builder>)` | Platform sub-builders; the delegate runs only on that OS (Linux/macOS builders are empty). Windows: registry keys and `AddService(name, Action<ServiceBuilder>)` |
 | `AddCliFlag<T>(name, default?, help?)` | Typed flag; `T`∈{bool,int,long,string,string[],FileInfo,DirectoryInfo} |
 | `MapCliFlag(flagName, "pageId.widgetId")` | Flag value pre-fills the widget (interactive) and answers it (silent) |
 | `ConfigureLogging(Action<LoggingBuilder>)` / `WithLogLevel(InstellaLogLevel)` | Logging config |
@@ -158,6 +158,21 @@ without breaking anyone.
 key builder setters `SetString/SetExpandString/SetDWord/SetQWord/SetMultiString/SetBinary`, each
 with a static-value overload and a `Func<InstallContext,T>` dynamic overload. `RegistryHive`:
 `AutoFromScope` (HKCU per-user, HKLM machine), `CurrentUser`, `LocalMachine`.
+
+`OnWindows(w => w.AddService(name, s => ...))` (repeatable; guide `docs/windows-services.md`)
+declares a Windows service. `ServiceBuilder`: `WithDisplayName` (default the name),
+`WithDescription`, `WithExecutable(relativePath)` (default the main executable), `WithArguments`,
+`WithStartType(ServiceStartMode.Automatic|AutomaticDelayed|Manual|Disabled)` (default Automatic),
+`DependsOn(names)`, `RestartOnFailure(delay, resetAfter)` (three Restart actions),
+`RunAs(ServiceAccount.LocalSystem|LocalService|NetworkService|VirtualAccount)` (default LocalSystem;
+virtual = `NT SERVICE\{name}` with the unrestricted service SID; no passwords), `StartAfterInstall(bool)`
+(default: Automatic/AutomaticDelayed start, Manual/Disabled do not), `StartTimeout` (60 s),
+`StopTimeout` (30 s), `StartFailureIsWarning()`. `Build()` refuses a service without
+`WithElevation(ElevationMode.SystemWide)`, a name not 1-80 of `[A-Za-z0-9._-]`, a duplicate name
+(case-insensitive), a `DependsOn` cycle among declared services, an executable outside the payload or
+Instella-owned, `StartFailureIsWarning()` with nothing to start, and a PONR step `Before("start-services")`.
+Frozen as `FrozenConfig.Services`; the build manifest lists them as `services` (`ServiceDeclaration(Name, Executable)`),
+and `AppendPayloadToSelf` fails with INSTELLA0105 when an executable is not in the payload.
 
 `Prerequisite` (Core.Manifest) is a class with init-only properties: `Name, DownloadUrl, Sha256,
 BundlePath, DetectionRegistry, InstallArguments (["/quiet","/norestart"]), SuccessExitCodes
@@ -392,6 +407,10 @@ only check on Linux/macOS), whatever the process is called. Ignored: this proces
 the same program (an elevated child's parent), and Explorer/services/critical processes (never
 closed; reported in the log). Closing = `CloseMainWindow`, wait 10 s (updater: 2 s after its own
 `GracefulTimeout`), then kill. `RmShutdown` is not used (own timeouts, sends WM_QUERYENDSESSION).
+`RunningAppGate.IgnoredProcessIds` (default empty) is skipped in both lookups: every gate over an
+installation whose manifest records services (silent and interactive install over it, uninstall, the
+updater) passes the running PIDs of those services (`ServicePids.ForAsync`, `QueryStatusAsync`), so a
+service is stopped through the service manager instead of closed or killed. Other copies of its exe still count.
 
 ### Step pipeline
 
@@ -410,18 +429,37 @@ closed; reported in the log). Closing = `CloseMainWindow`, wait 10 s (updater: 2
   manifest's "created" flags equal "present", and uninstall reverses exactly what exists),
   `StageUninstallerStubStep` (`stage-uninstaller-stub`),
   `RegisterUninstallEntryStep` (`register-uninstall-entry`), and conditional
-  `WriteRegistrySpecsStep` (`write-registry-specs`, only when any `OnWindows().AddRegistryKey(...)`)
+  `WriteRegistrySpecsStep` (`write-registry-specs`, only when any `OnWindows().AddRegistryKey(...)`),
+  then, when services are declared or the existing manifest records some, `RegisterServicesStep`
+  (`register-services`: creates missing services, reconfigures recorded ones after snapshotting them,
+  in dependency order; rollback deletes what it created and restores snapshots) and
+  `RemoveDroppedServicesStep` (`remove-dropped-services`: stops and deletes recorded services the new
+  version no longer declares; rollback re-creates and restarts them)
 - **Finalize**: `WriteManifestStep` (`write-manifest`, stages the installed manifest as the
-  transaction's last op), `CommitTransactionStep` (`commit-transaction`, swaps everything live;
+  transaction's last op), with services `StopServicesStep` (`stop-services`: stops the recorded
+  services, dependents first, each with its `StopTimeout`; rollback restores the previous configuration,
+  then restarts them), `CommitTransactionStep` (`commit-transaction`, swaps everything live;
   **held** when the payload has `instella-upgrade.json`), `AppUpgradeStep` (`app-upgrade`, runs the app's
-  upgrade program, then confirms the held commit; skipped without a declaration; see "App upgrade programs")
+  upgrade program, then confirms the held commit; skipped without a declaration; see "App upgrade programs"),
+  with services `StartServicesStep` (`start-services`: starts the services that start after install plus
+  every one `stop-services` stopped, unless Disabled, in dependency order, waiting for Running up to
+  `StartTimeout`; a failure fails the install with exit 16 unless `StartFailureIsWarning()`)
+
+Conditional built-ins are placed by `Installation/BuiltInSteps.For(config, existing)` (both runners):
+Register ones at the end of Register, `stop-services` right before `commit-transaction`,
+`start-services` right after `app-upgrade`. Before any step, `Runners/ServicePreflight` refuses with
+exit 10 a service executable missing from the payload, an install folder non-admins can write
+(`IInstallFolderAcl`, real one `Core/Security/InstallFolderAcl`), and a same-named service this
+installation's manifest does not record. Recorded services go into `InstalledManifest.Services`.
 
 `OfflineInstallRunner.BuildDefaultSteps()` is the shared 12-step source; `StepOrdering`
 (Kahn topo-sort, stage-bucketed) merges in the conditional registry step + user steps. Every user
 Finalize step and every `PointOfNoReturn` step is ordered after `commit-transaction` (a user step
 may opt earlier with an explicit `Before("write-manifest")`/`Before("commit-transaction")`, but a
 PONR step never can). Every user Finalize step also follows `app-upgrade` unless it says `Before("app-upgrade")`
-and is not a PONR (`Build()` refuses a PONR with `Before("app-upgrade")`, and a user step named `app-upgrade`). During Extract/Register the new files are staged, not live
+and is not a PONR (`Build()` refuses a PONR with `Before("app-upgrade")`, and a user step named `app-upgrade`).
+`start-services` is an anchor of the same kind: user Finalize and PONR steps follow it unless a non-PONR step
+says `Before("start-services")` (or an earlier anchor); without service steps the anchor is ignored. During Extract/Register the new files are staged, not live
 (`ExecutableResolver` uses `ExtractedFiles`).
 
 User-step rollback: on any failure — including cancellation, which gets a fresh 5-minute token
@@ -721,6 +759,7 @@ never see Logsmith types. `LoggingBuilder`: `WithLevel`, `LevelFromEnvironment("
 | 13 | `InstallRollbackCompletedWithWarnings` | Install failed and rollback left something behind |
 | 14 | `InstallSilentMissingState` | Silent run met a page no mapped flag answered |
 | 15 | `InstallAppUpgradeFailed` | The app's upgrade program failed, timed out or could not start, or its `instella-upgrade.json` could not be honoured; install rolled back |
+| 16 | `InstallServiceFailed` | A declared Windows service failed to start (error, crash, `StartTimeout`) and has no `StartFailureIsWarning()`; install rolled back, the previous version's services restarted. Wins over rollback warnings (`InstallFailureExit`) |
 | 20 | `UpdateGeneralFailure` | Failed before commit (trust failure, stale launch, …) |
 | 21 | `UpdateServerUnreachable` | Also a lite installer that cannot reach its server |
 | 22 | `UpdateRolledBack` | Commit failed; previous version intact |
@@ -811,7 +850,7 @@ Run: `RunStepAsync`, `RunInstallAsync(IReadOnlyList<…>)`, `RunFullAsync()` (dr
 `IInstellaInstaller.RunAsync` with the harness's fakes). **`RunFullAsync` never touches the host:** UAC goes
 to `FakeElevationService` (not elevated; each relaunch is recorded in `RelaunchRequests` and answered with
 `RelaunchExitCode`, default 0), message boxes are recorded in `ShownMessages`, app starts in `LaunchedPrograms`,
-Restart Manager finds nothing, the stub folder is the harness install path, and any window (wizard, scope page,
+Restart Manager finds only the harness's fake programs (`StartProcess`) and running fake services, the stub folder is the harness install path, and any window (wizard, scope page,
 update window, Manage window) throws "interactive UI requested in a harness run; use --silent or provide a host",
 which the installer reports and exits 10. Use `--silent` for full runs.
 Properties: `Context, Registry(IFakeRegistry), FileSystem(IFakeFileSystem),
@@ -1089,7 +1128,10 @@ elevation) on Windows and `UnsupportedServiceManager` (fails every call naming t
 The image path is always `"exe"` quoted plus `WindowsCommandLine.Join(args)` (`ServiceBinaryPath`).
 `InstallerServices.ServiceManager` injects it; the harness passes `FakePlatformServices.ServiceManager`
 (`FakeServiceManager`: in-memory state machine, `SetStart/StopBehavior(name, Succeed|Fail|Hang)`,
-`DenyAccess`, `Calls`, `Services`/`Find`). No runner uses it yet.
+`DenyAccess`, `Calls`, `Services`/`Find`). The install pipeline's service steps use it (see Step pipeline);
+in harness runs a running fake service is found by its executable as a program holding it (as Restart
+Manager would), and `FakePlatformServices.MarkWritableByNonAdmins(folder)` makes the fake folder-ACL
+check report a folder (and everything beneath it) as writable by `BUILTIN\Users`.
 
 ## Preview mode (opt-in)
 

@@ -136,7 +136,11 @@ internal sealed class InstallModeRunner
             if (existing is not null)
             {
                 _log.Info($"install: {mode} of v{existing.Version} in '{installPath}'");
-                if (!await new RunningAppGate(_platform, _log, ProcessFinder ?? Services?.ProcessFinder, _fileSystem).EnsureClosedAsync(
+                var gate = new RunningAppGate(_platform, _log, ProcessFinder ?? Services?.ProcessFinder, _fileSystem)
+                {
+                    IgnoredProcessIds = await ServicePids.ForAsync(existing, Services?.ServiceManager, ct),
+                };
+                if (!await gate.EnsureClosedAsync(
                         existing.AppName, installPath, existing.ExecutableName, dispatch.ForceClose, prompt: null, ct))
                 {
                     _log.Error($"install: {existing.AppName}'s files are in use; close the programs using them or pass --force-close");

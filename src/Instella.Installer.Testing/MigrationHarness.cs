@@ -381,8 +381,12 @@ public sealed class MigrationHarness
     }
 }
 
-/// <summary>Fake running programs: found by the files they hold; closing removes them unless they refuse.</summary>
-internal sealed class HarnessProcesses : ILockingProcessFinder, IProcessCloser
+/// <summary>
+/// Fake running programs: found by the files they hold; closing removes them unless they refuse.
+/// A running service of <paramref name="services"/> is found by its executable too, as Restart
+/// Manager sees a service holding its exe.
+/// </summary>
+internal sealed class HarnessProcesses(FakeServiceManager? services = null) : ILockingProcessFinder, IProcessCloser
 {
     private readonly List<(LockingProcess Process, string Exe, bool Closes)> _running = [];
     private int _nextId = 40_000;
@@ -399,8 +403,17 @@ internal sealed class HarnessProcesses : ILockingProcessFinder, IProcessCloser
 
     public IReadOnlyList<LockingProcess> Find(IReadOnlyList<string> files)
     {
+        List<LockingProcess> found;
         lock (_running)
-            return _running.Where(r => files.Contains(r.Exe, StringComparer.OrdinalIgnoreCase)).Select(r => r.Process).ToList();
+            found = _running.Where(r => files.Contains(r.Exe, StringComparer.OrdinalIgnoreCase)).Select(r => r.Process).ToList();
+        foreach (var service in services?.Services ?? [])
+        {
+            if (service.State != FakeServiceState.Running || service.ProcessId == 0) continue;
+            var exe = ServiceBinaryPath.Parse(service.BinaryPath).ExecutablePath;
+            if (files.Contains(exe, StringComparer.OrdinalIgnoreCase))
+                found.Add(new LockingProcess(service.ProcessId, Path.GetFileName(exe), CanClose: true));
+        }
+        return found;
     }
 
     public Task<bool> CloseAsync(LockingProcess process, TimeSpan timeout, CancellationToken ct)
