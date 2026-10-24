@@ -64,6 +64,9 @@ internal static class InteractivePageIds
 ///   by <see cref="PageSpec.AllowedModes"/> against the current mode.</item>
 /// <item>Synthetic Options — install-path folder picker + optional shortcut
 ///   checkboxes (only when the builder configured them).</item>
+/// <item>Built-in <c>service-account</c> page — only when a service runs as
+///   <see cref="ServiceAccount.FromInstaller"/> and the account must be asked for
+///   (<see cref="ServiceAccountPage.IsShown"/>).</item>
 /// <item>Synthetic Progress — heading + progress bar + status line. The
 ///   runner drives both via <see cref="PageState"/> writes.</item>
 /// <item>Synthetic Complete — built on demand by the runner after the step
@@ -96,6 +99,8 @@ internal static class InteractivePages
         }
 
         pages.Add(BuildOptionsPage(config, defaultInstallPath, existingManifest));
+        if (ServiceAccountPage.IsShown(config, mode, existingManifest))
+            pages.Add(BuildServiceAccountPage(config, existingManifest));
         pages.Add(BuildProgressPage(config));
 
         return pages;
@@ -186,6 +191,23 @@ internal static class InteractivePages
             // always true the moment the user lands here.
             p.ContinueWhen(s => !string.IsNullOrEmpty(s.Text(InteractivePageStateKeys.InstallPath)));
         });
+    }
+
+    /// <summary>
+    /// The built-in <c>service-account</c> page: the account every
+    /// <see cref="ServiceAccount.FromInstaller"/> service runs as, and its password twice. The
+    /// password fields are <see cref="PasswordInput"/>s, so nothing typed enters the page's values;
+    /// the runner checks the credentials when the user presses Next.
+    /// </summary>
+    internal static PageSpec BuildServiceAccountPage(FrozenConfig config, InstalledManifest? existing = null)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        return BuildPage(ServiceAccountPage.Id, p => p
+            .Heading("Service account")
+            .Paragraph($"The {config.AppName} service runs as this account. It is granted the right to log on as a service if it lacks it.")
+            .TextInput(ServiceAccountPage.UserId, @"User name (DOMAIN\user, or user for a local account):", ServiceAccountPage.DefaultUser(config, existing))
+            .PasswordInput(ServiceAccountPage.PasswordId, "Password:")
+            .PasswordInput(ServiceAccountPage.ConfirmId, "Confirm password:"));
     }
 
     internal static PageSpec BuildProgressPage(FrozenConfig config)

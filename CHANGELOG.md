@@ -19,6 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `StartFailureIsWarning()` is set. The running-app gate no longer offers to close the installation's
   own services, and publishing fails with INSTELLA0105 when a service's executable is not in the
   payload. Guide: [docs/windows-services.md](docs/windows-services.md).
+- Windows service accounts: `ServiceAccount.ManagedServiceAccount(@"DOMAIN\name$")` runs a service
+  as a group-managed service account, and `ServiceAccount.FromInstaller(defaultUser)` as a user
+  account the person installing supplies, shared by every such service. The wizard asks for it on a
+  new built-in `service-account` page with masked fields; a silent install takes the new reserved
+  flags `--service-account <user>` and `--service-password-file <path>`, or the
+  `INSTELLA_SERVICE_PASSWORD` environment variable (renamed with
+  `WindowsBuilder.WithServicePasswordVariable`), and exits 14 without them. There is no
+  `--service-password` flag. Accounts get "Log on as a service" when they lack it, recorded in the
+  installed manifest (`grantedLogonRights`) and revoked on rollback and uninstall. A wrong password
+  fails `start-services` with error 1069 explained (exit 16). An author flag named `service-account`
+  or `service-password-file` now fails `Build()` as a reserved flag.
+- `PasswordInput` widget (`PageBuilder.PasswordInput(id, label)`): a masked field whose value stays
+  out of `PageState`'s values; read it with `PageState.UsePassword`. `MapCliFlag` onto one fails
+  `Build()`.
 
 ### Fixed
 

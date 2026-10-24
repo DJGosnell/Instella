@@ -223,6 +223,9 @@ internal sealed class InteractiveInstallRunner
         var cancelRequested = false;
         // Set by the executor once the app's upgrade program is about to run: Cancel is refused from then on.
         var cancellationEnded = new System.Runtime.CompilerServices.StrongBox<bool>();
+        // The account and password the service-account page checked; register-services zeroes the
+        // password, and the finally below disposes it whatever happens.
+        ServiceCredentials? enteredCredentials = null;
 
         var progressState = states[progressPageIdx];
         using var host = hostFactory(_config.AppName, pages, states);
@@ -259,6 +262,17 @@ internal sealed class InteractiveInstallRunner
                         return $"{_config.AppName} is already installed in that folder. Choose another folder, or run the uninstaller in it.";
                 }
             }
+            // The service account: one test logon when Next is pressed, never per keystroke.
+            if (page.Id == ServiceAccountPage.Id)
+            {
+                var blocked = CheckServiceAccount(states[pageIdx], ct, out var checkedCredentials);
+                if (checkedCredentials is not null)
+                {
+                    enteredCredentials?.Dispose();
+                    enteredCredentials = checkedCredentials;
+                }
+                return blocked;
+            }
             if (!IsUserPage(page)) return null;
             if (PageFlow.BlockReason(page, states[pageIdx]) is { } reason) return reason;
             if (page.OnLeave is { } onLeave)
@@ -286,7 +300,10 @@ internal sealed class InteractiveInstallRunner
             return true;
         };
 
-        var optionsState = progressPageIdx - 1 >= 0 ? states[progressPageIdx - 1] : progressState;
+        // The service-account page may sit between Options and Progress.
+        var optionsPageIdx = pages.FindIndex(p => p.Id == InteractivePageIds.Options);
+        var optionsState = optionsPageIdx >= 0 ? states[optionsPageIdx]
+            : progressPageIdx - 1 >= 0 ? states[progressPageIdx - 1] : progressState;
 
         host.PageChanged += pageIdx =>
         {
@@ -308,6 +325,7 @@ internal sealed class InteractiveInstallRunner
                 : typedInstallPath;
             installedPath = chosenInstallPath;
             var installOptions = BuildOptionsFromState(optionsState, chosenInstallPath);
+            var serviceCredentials = enteredCredentials;
 
             pipelineTask = Task.Run(async () =>
             {
@@ -331,6 +349,8 @@ internal sealed class InteractiveInstallRunner
                         _config, mode, chosenInstallPath, installOptions,
                         _platform, _fileSystem, _log, existing: existing, cli: cli, pages: pageStates,
                         allowElevationPrompt: true);
+                    // The page's account, or (when the page was not shown) the one recorded for an upgrade.
+                    context.ServiceCredentials = serviceCredentials ?? RecordedServiceCredentials(existing);
                     // Migrations that close programs ask, as the upgrade gate does.
                     context.Migrations = new Migrations.MigrationRuntime
                     {
@@ -399,63 +419,72 @@ internal sealed class InteractiveInstallRunner
             }, pipelineCts.Token);
         };
 
-        var outcome = host.Run();
-
-        // If the user clicked Cancel / closed the window before the pipeline
-        // completed, cancel the token and wait briefly for rollback to finish
-        // so we don't leave background work orphaned. Whether the completion
-        // handler ran on the UI thread or not, we re-derive the outcome from
-        // the awaited pipeline result below (the queued completion handler
-        // may never drain because the message loop ended).
-        if (pipelineTask is not null)
+        try
         {
-            if (!pipelineTask.IsCompleted)
+            var outcome = host.Run();
+
+            // If the user clicked Cancel / closed the window before the pipeline
+            // completed, cancel the token and wait briefly for rollback to finish
+            // so we don't leave background work orphaned. Whether the completion
+            // handler ran on the UI thread or not, we re-derive the outcome from
+            // the awaited pipeline result below (the queued completion handler
+            // may never drain because the message loop ended).
+            if (pipelineTask is not null)
             {
-                // Rollback runs on its own bounded token (StepExecutor.RollbackTimeout);
-                // wait for it rather than exiting with the system half-changed.
-                pipelineCts.Cancel();
-                try { await pipelineTask; }
-                catch { /* the exit code below is derived from the task state */ }
-            }
-            if (pipelineTask.IsCompletedSuccessfully)
-            {
-                var result = pipelineTask.Result;
-                // A cancel that came too late to stop the install (the app's data was already being
-                // upgraded) leaves a finished install: report it as one.
-                if (result.Success)
+                if (!pipelineTask.IsCompleted)
                 {
-                    pipelineOutcome = PipelineOutcome.Succeeded;
+                    // Rollback runs on its own bounded token (StepExecutor.RollbackTimeout);
+                    // wait for it rather than exiting with the system half-changed.
+                    pipelineCts.Cancel();
+                    try { await pipelineTask; }
+                    catch { /* the exit code below is derived from the task state */ }
                 }
-                else if (pipelineCts.IsCancellationRequested)
+                if (pipelineTask.IsCompletedSuccessfully)
+                {
+                    var result = pipelineTask.Result;
+                    // A cancel that came too late to stop the install (the app's data was already being
+                    // upgraded) leaves a finished install: report it as one.
+                    if (result.Success)
+                    {
+                        pipelineOutcome = PipelineOutcome.Succeeded;
+                    }
+                    else if (pipelineCts.IsCancellationRequested)
+                    {
+                        pipelineOutcome = PipelineOutcome.Cancelled;
+                    }
+                    else
+                    {
+                        pipelineOutcome = PipelineOutcome.Failed;
+                        pipelineError = result.Error;
+                        failureExit = InstallFailureExit.For(result);
+                    }
+                }
+                else if (pipelineTask.IsFaulted)
+                {
+                    pipelineOutcome = PipelineOutcome.Failed;
+                    pipelineError = pipelineTask.Exception?.GetBaseException().Message;
+                }
+                else if (pipelineTask.IsCanceled)
                 {
                     pipelineOutcome = PipelineOutcome.Cancelled;
                 }
-                else
-                {
-                    pipelineOutcome = PipelineOutcome.Failed;
-                    pipelineError = result.Error;
-                    failureExit = InstallFailureExit.For(result);
-                }
             }
-            else if (pipelineTask.IsFaulted)
-            {
-                pipelineOutcome = PipelineOutcome.Failed;
-                pipelineError = pipelineTask.Exception?.GetBaseException().Message;
-            }
-            else if (pipelineTask.IsCanceled)
-            {
-                pipelineOutcome = PipelineOutcome.Cancelled;
-            }
-        }
 
-        if (refusedExit is { } refused && pipelineOutcome == PipelineOutcome.Failed)
-            return refused;
-        if (failureExit is { } failed && pipelineOutcome == PipelineOutcome.Failed)
-            return failed;
-        if (pipelineOutcome == PipelineOutcome.Succeeded && installedPath is not null
-            && progressState.Bool(InteractivePageStateKeys.LaunchApp))
-            await LaunchInstalledAppAsync(installedPath, ct);
-        return MapExitCode(outcome, pipelineOutcome, pipelineError);
+            if (refusedExit is { } refused && pipelineOutcome == PipelineOutcome.Failed)
+                return refused;
+            if (failureExit is { } failed && pipelineOutcome == PipelineOutcome.Failed)
+                return failed;
+            if (pipelineOutcome == PipelineOutcome.Succeeded && installedPath is not null
+                && progressState.Bool(InteractivePageStateKeys.LaunchApp))
+                await LaunchInstalledAppAsync(installedPath, ct);
+            return MapExitCode(outcome, pipelineOutcome, pipelineError);
+        }
+        finally
+        {
+            // The password never outlives the run: the checked copy, then every masked field's buffer.
+            enteredCredentials?.Dispose();
+            foreach (var state in states) state.ClearSecrets();
+        }
     }
 
     /// <summary>
@@ -561,6 +590,51 @@ internal sealed class InteractiveInstallRunner
             list.Add(s);
         }
         return list;
+    }
+
+    /// <summary>
+    /// The service-account page's leave check (<see cref="ServiceAccountPage.CheckAsync"/>): returns
+    /// why the page may not be left, or null with <paramref name="credentials"/> holding the account
+    /// and a copy of the password, which <c>register-services</c> uses and zeroes.
+    /// </summary>
+    private string? CheckServiceAccount(PageState state, CancellationToken ct, out ServiceCredentials? credentials)
+    {
+        credentials = null;
+        var user = state.Text(ServiceAccountPage.UserId);
+        char[] password = [];
+        char[] confirm = [];
+        state.UsePassword(ServiceAccountPage.PasswordId, span => password = span.ToArray());
+        state.UsePassword(ServiceAccountPage.ConfirmId, span => confirm = span.ToArray());
+        string? reason;
+        try
+        {
+            var checker = Services?.CredentialsOrDefault ?? CredentialCheckerFactory.Create();
+            reason = ServiceAccountPage.CheckAsync(user, password, confirm, checker, _log, ct).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            Array.Clear(password);
+            throw;
+        }
+        if (reason is not null)
+        {
+            Array.Clear(password);
+            return reason;
+        }
+        credentials = new ServiceCredentials(ServiceAccount.NormalizeUser(user), password);
+        return null;
+    }
+
+    /// <summary>
+    /// The account of the <see cref="ServiceAccount.FromInstaller"/> services when the
+    /// service-account page was not shown: the one <paramref name="existing"/> records, with no
+    /// password (the service manager keeps its stored secret); null when there is none.
+    /// </summary>
+    private ServiceCredentials? RecordedServiceCredentials(InstalledManifest? existing)
+    {
+        if (_config.FromInstallerServices.Count == 0) return null;
+        var account = ServiceAccountPage.DefaultUser(_config, existing);
+        return account.Length == 0 ? null : new ServiceCredentials(account, null);
     }
 
     private bool IsUserPage(PageSpec page) => _config.Pages.Contains(page);
