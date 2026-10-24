@@ -125,6 +125,7 @@ internal sealed class UninstallModeRunner
             await Migrations.MigrationPipeline.RemoveAdoptedItemsAsync(
                 manifest, installPath, _config.AppManagedRunValuesOrEmpty, _platform, _log, ct);
             await RemoveIntegrationAsync(manifest, ct);
+            await RevokeLogonRightsAsync(manifest, ct);
             var locked = await DeleteFilesAsync(installPath, manifest, ct);
 
             // What this process could not delete (its own running .exe, files in use) is
@@ -164,6 +165,28 @@ internal sealed class UninstallModeRunner
 
     /// <summary>Tells the gate which processes are the installation's services; null uses the OS's own.</summary>
     internal Instella.Core.Platform.IServiceManager? ServiceManager { get; init; }
+
+    /// <summary>Revokes "Log on as a service" from the accounts Instella granted it; null uses the host's LSA.</summary>
+    internal Instella.Core.Platform.IServiceLogonRights? LogonRights { get; init; }
+
+    /// <summary>
+    /// Revokes the right from every account the manifest records as granted by Instella: the
+    /// installation's services are going, so none of them uses it any more. A right an
+    /// administrator set up is not recorded and is kept. A failed revoke is a warning.
+    /// </summary>
+    private async Task RevokeLogonRightsAsync(InstalledManifest manifest, CancellationToken ct)
+    {
+        if (manifest.GrantedLogonRights is not { Count: > 0 } granted) return;
+        var rights = LogonRights ?? Instella.Core.Platform.ServiceLogonRightsFactory.Create();
+        foreach (var account in granted)
+        {
+            var revoked = await rights.RevokeAsync(account, ct);
+            if (revoked.Success)
+                _log.Info($"uninstall: revoked the right to log on as a service from '{account}'");
+            else
+                _log.Warn($"uninstall: could not revoke the right to log on as a service from '{account}': {revoked.Error}");
+        }
+    }
 
     /// <summary>Test hook: the seams uninstall migrations use (known folders, processes, programs); null uses the host's.</summary>
     internal Migrations.MigrationRuntime? MigrationRuntime { get; init; }

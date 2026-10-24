@@ -64,6 +64,13 @@ internal sealed class ServiceRun(IReadOnlyList<ServiceSpec> declared)
         return SafePath.TryNormalizeRelative(rel, out var normalized, out _) ? normalized : rel.Replace('\\', '/');
     }
 
+    /// <summary>
+    /// The account <paramref name="spec"/> runs as in this run (null is LocalSystem): for
+    /// <see cref="ServiceAccount.FromInstaller"/>, the account the run resolved.
+    /// </summary>
+    public static string? AccountNameFor(ServiceSpec spec, InstallContext context) =>
+        spec.Account.IsFromInstaller && context.ServiceCredentials is { } credentials ? credentials.Account : spec.AccountName;
+
     /// <summary>What <c>register-services</c> writes for <paramref name="spec"/>.</summary>
     public static ServiceConfiguration ConfigurationFor(ServiceSpec spec, InstallContext context) => new()
     {
@@ -73,7 +80,7 @@ internal sealed class ServiceRun(IReadOnlyList<ServiceSpec> declared)
         ExecutablePath = SafePath.Combine(context.InstallPath, RelativeExecutable(spec, context)),
         Arguments = spec.Arguments,
         StartType = spec.StartType,
-        AccountName = spec.AccountName,
+        AccountName = AccountNameFor(spec, context),
         Dependencies = spec.Dependencies,
         FailureActions = spec.FailureActions,
         SidType = spec.SidType,
@@ -159,7 +166,15 @@ internal sealed class ServiceRun(IReadOnlyList<ServiceSpec> declared)
             if (!Restored.Add(name)) continue;
             var result = await scm.ChangeConfigurationAsync(FromSnapshot(snapshot), null, ct);
             if (result.Outcome.Success)
+            {
                 context.Log.Info($"services: restored the previous configuration of '{name}'");
+                // The service manager stored the new account's password; the old one is gone.
+                var previousAccount = snapshot.AccountName;
+                if (ServiceAccount.IsRecordedCustomUser(previousAccount) && Find(name) is { } spec
+                    && !string.Equals(previousAccount, AccountNameFor(spec, context), StringComparison.OrdinalIgnoreCase))
+                    context.Log.Warn($"services: '{name}' runs as '{previousAccount}' again, but that account's password "
+                        + "cannot be restored; set it again by hand in the Services console if the service does not start");
+            }
             else
                 problems.Add($"could not restore the previous configuration of service '{name}': {result.Outcome.Error}");
         }

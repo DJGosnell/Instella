@@ -131,6 +131,7 @@ internal static class InstallContextFactory
             ServiceManager = original.ServiceManager,
             LogonRights = original.LogonRights,
             Credentials = original.Credentials,
+            ServiceCredentials = original.ServiceCredentials,
         };
     }
 

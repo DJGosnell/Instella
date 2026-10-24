@@ -148,6 +148,18 @@ public sealed class InstallContext
     /// <summary>The services <c>register-services</c> registered, for the installed manifest; null when it did not run.</summary>
     internal List<ManifestService>? ManifestServices { get; set; }
 
+    /// <summary>
+    /// The account the <c>ServiceAccount.FromInstaller</c> services share, and its password until
+    /// <c>register-services</c> has used and zeroed it; null when no service uses one.
+    /// </summary>
+    internal ServiceCredentials? ServiceCredentials { get; set; }
+
+    /// <summary>
+    /// The accounts the installed manifest records as granted "Log on as a service" by Instella;
+    /// null when <c>register-services</c> did not run (the existing installation's are kept).
+    /// </summary>
+    internal List<string>? GrantedLogonRights { get; set; }
+
     /// <summary>Ledger for tracked mutations. Covers files, directories, registry values/keys, and PATH entries.</summary>
     internal TrackingLedger Ledger { get; } = new();
 
