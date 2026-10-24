@@ -57,6 +57,8 @@ internal static class ReservedCliFlags
         "--graceful-timeout",
         "--extra-args",
         "--repair",
+        // Started from inside a Windows service by the SDK's StartServiceUpdateAsync.
+        Instella.Core.Update.UpdaterArgs.ServiceUpdateFlag,
         // build-time manifest emission (the Instella.Installer.Build targets run the installer with it).
         "--emit-manifest",
         // Preview mode: walks through the installer's UI without

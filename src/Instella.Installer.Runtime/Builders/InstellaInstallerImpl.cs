@@ -273,13 +273,21 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
                 string? target;
                 if (dispatch.Mode == InstallerMode.Update)
                 {
-                    var appPath = UpdaterArgs.Parse(args)?.AppPath;
+                    var updaterArgs = UpdaterArgs.Parse(args);
+                    var appPath = updaterArgs?.AppPath;
                     if (appPath is not null && !IsStubFolder(appPath, stubDir))
                     {
                         var message = $"this updater only updates the installation it belongs to ({stubDir})";
                         log.Error($"update: --app-path '{appPath}': {message}");
                         messages.Error(title, UsageMessage(message));
                         return (int)InstellaExitCode.UsageInvalidArgs;
+                    }
+                    if (updaterArgs?.ServiceUpdate == true && !elevation.IsElevated)
+                    {
+                        // Started from inside a service (session 0): nobody can answer a UAC prompt,
+                        // so a service update never relaunches elevated, whatever the scope.
+                        log.Error($"update: {UpdaterArgs.ServiceUpdateFlag} needs an elevated process (the service must run as LocalSystem or an administrator account)");
+                        return (int)InstellaExitCode.InsufficientPrivileges;
                     }
                     target = appPath;
                 }
