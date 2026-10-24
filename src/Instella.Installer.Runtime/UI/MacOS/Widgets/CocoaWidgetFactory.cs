@@ -50,6 +50,7 @@ internal sealed class CocoaWidgetFactory
             ScrollableText s => CreateScrollableText(s, topSlot),
             BrandImage b => CreateBrandImage(b, topSlot),
             TextInput t => CreateTextInput(t, topSlot),
+            PasswordInput pw => CreatePasswordInput(pw, topSlot),
             CheckBox c => CreateCheckBox(c, topSlot),
             RadioGroup r => CreateRadioGroup(r, topSlot),
             Dropdown d => CreateDropdown(d, topSlot),
@@ -144,6 +145,25 @@ internal sealed class CocoaWidgetFactory
         if (!string.IsNullOrEmpty(t.Id))
             _state.Set(t.Id, t.Default);
 
+        return instance;
+    }
+
+    /// <summary>A label and an NSSecureTextField; it writes nothing to page state.</summary>
+    private CocoaWidgetInstance CreatePasswordInput(PasswordInput t, CocoaLayoutSlot slot)
+    {
+        var container = NS.CreateView(SlotToRect(slot));
+        var labelRect = ChildRect(0, 0, slot.Width, 20, slot);
+        var editRect = ChildRect(0, 24, slot.Width, 24, slot);
+
+        var label = NS.CreateLabel(t.Label, labelRect);
+        NS.AddSubview(container, label);
+
+        var field = NS.CreateSecureTextField(editRect);
+        NS.AddSubview(container, field);
+
+        WireTextField(field);
+        var instance = new CocoaWidgetInstance(t, field, container);
+        _pump.RegisterControl(field, instance);
         return instance;
     }
 

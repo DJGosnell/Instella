@@ -137,6 +137,13 @@ public sealed record InstalledManifest
     public IReadOnlyList<ManifestService>? Services { get; init; }
 
     /// <summary>
+    /// The service accounts Instella granted "Log on as a service" (<c>SeServiceLogonRight</c>),
+    /// so uninstall revokes only those; null or empty when it granted none. An account that already
+    /// had the right is never listed.
+    /// </summary>
+    public IReadOnlyList<string>? GrantedLogonRights { get; init; }
+
+    /// <summary>
     /// Properties this version does not know, kept so a read–modify–write (the updater's
     /// manifest refresh) never drops a field a newer installer wrote: a stub is never replaced,
     /// so it meets manifests from later 1.x installers (docs/compatibility.md).

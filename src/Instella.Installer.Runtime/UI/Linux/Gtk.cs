@@ -85,6 +85,9 @@ internal static partial class Gtk
     [LibraryImport(Lib)]
     internal static partial nint gtk_entry_get_text(nint entry);
 
+    [LibraryImport(Lib)]
+    internal static partial void gtk_entry_set_visibility(nint entry, int visible);
+
     [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial nint gtk_check_button_new_with_label(string label);
 

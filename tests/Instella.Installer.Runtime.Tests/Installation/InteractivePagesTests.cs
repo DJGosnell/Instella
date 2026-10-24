@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Instella.Core.Installation;
+using Instella.Core.Manifest;
 using Instella.Installer.Runtime.Builders;
 using Instella.Installer.Runtime.Runners;
 using Instella.Installer.Runtime.UI.Widgets;
@@ -39,6 +40,29 @@ public sealed class InteractivePagesTests
             InteractivePageIds.Options,
             InteractivePageIds.Progress,
         }));
+    }
+
+    [Test, Platform("Win")]
+    public void BuildHappyPathPages_fromInstallerService_insertsServiceAccountPageBetweenOptionsAndProgress()
+    {
+        var config = MinimalConfig(b => b
+            .WithExecutableName("App.exe")
+            .WithElevation(ElevationMode.SystemWide)
+            .OnWindows(w => w.AddService("App.Svc", s => s.RunAs(ServiceAccount.FromInstaller(@"CORP\svc")))));
+
+        var pages = InteractivePages.BuildHappyPathPages(config, InstallerMode.FirstInstall, "C:\\Install");
+
+        Assert.That(pages.Select(p => p.Id), Is.EqualTo(new[]
+        {
+            InteractivePageIds.Welcome,
+            InteractivePageIds.Options,
+            ServiceAccountPage.Id,
+            InteractivePageIds.Progress,
+        }));
+        var page = pages.Single(p => p.Id == ServiceAccountPage.Id);
+        Assert.That(page.Widgets.OfType<TextInput>().Single().Default, Is.EqualTo(@"CORP\svc"));
+        Assert.That(page.Widgets.OfType<PasswordInput>().Select(w => w.Id),
+            Is.EqualTo(new[] { ServiceAccountPage.PasswordId, ServiceAccountPage.ConfirmId }));
     }
 
     [Test]

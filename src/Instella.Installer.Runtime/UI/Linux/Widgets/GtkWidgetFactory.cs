@@ -45,6 +45,7 @@ internal sealed class GtkWidgetFactory
             ScrollableText s => CreateScrollableText(s),
             BrandImage b => CreateBrandImage(b),
             TextInput t => CreateTextInput(t),
+            PasswordInput pw => CreatePasswordInput(pw),
             CheckBox c => CreateCheckBox(c),
             RadioGroup r => CreateRadioGroup(r),
             Dropdown d => CreateDropdown(d),
@@ -122,6 +123,23 @@ internal sealed class GtkWidgetFactory
 
         if (!string.IsNullOrEmpty(t.Id))
             _state.Set(t.Id, t.Default);
+
+        return new GtkWidgetInstance(t, entry, outer);
+    }
+
+    /// <summary>A label and a GtkEntry with visibility off; it writes nothing to page state.</summary>
+    private GtkWidgetInstance CreatePasswordInput(PasswordInput t)
+    {
+        var outer = Gtk.gtk_box_new(Gtk.GTK_ORIENTATION_VERTICAL, GtkLayoutEngine.LabelToControlSpacing);
+
+        var label = Gtk.gtk_label_new(t.Label);
+        Gtk.gtk_label_set_xalign(label, 0);
+        Gtk.gtk_box_pack_start(outer, label, 0, 0, 0);
+
+        var entry = Gtk.gtk_entry_new();
+        Gtk.gtk_entry_set_visibility(entry, 0);
+        Gtk.gtk_widget_set_hexpand(entry, 1);
+        Gtk.gtk_box_pack_start(outer, entry, 0, 0, 0);
 
         return new GtkWidgetInstance(t, entry, outer);
     }

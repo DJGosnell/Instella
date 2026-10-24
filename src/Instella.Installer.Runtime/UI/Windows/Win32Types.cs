@@ -178,6 +178,7 @@ internal static class WS
 
     // Edit-control styles (bit-flag subset — combine with WS.CHILD/VISIBLE/BORDER)
     internal const uint ES_AUTOHSCROLL = 0x0080;
+    internal const uint ES_PASSWORD = 0x0020;
     internal const uint ES_AUTOVSCROLL = 0x0040;
     internal const uint ES_MULTILINE = 0x0004;
     internal const uint ES_READONLY = 0x0800;

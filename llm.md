@@ -164,8 +164,16 @@ declares a Windows service. `ServiceBuilder`: `WithDisplayName` (default the nam
 `WithDescription`, `WithExecutable(relativePath)` (default the main executable), `WithArguments`,
 `WithStartType(ServiceStartMode.Automatic|AutomaticDelayed|Manual|Disabled)` (default Automatic),
 `DependsOn(names)`, `RestartOnFailure(delay, resetAfter)` (three Restart actions),
-`RunAs(ServiceAccount.LocalSystem|LocalService|NetworkService|VirtualAccount)` (default LocalSystem;
-virtual = `NT SERVICE\{name}` with the unrestricted service SID; no passwords), `StartAfterInstall(bool)`
+`RunAs(ServiceAccount.LocalSystem|LocalService|NetworkService|VirtualAccount|ManagedServiceAccount(@"DOMAIN\name$")|FromInstaller(defaultUser?))`
+(default LocalSystem; virtual = `NT SERVICE\{name}` with the unrestricted service SID; a gMSA has no
+password; `FromInstaller` = one account shared by every such service, asked for on the built-in
+`service-account` page (after Options; masked fields; one network test logon on Next, only a bad user
+name/password blocks) or silently via `--service-account` + `--service-password-file` or the env var
+`INSTELLA_SERVICE_PASSWORD` (`WindowsBuilder.WithServicePasswordVariable(name)`), else exit 14; a bare
+name becomes `.\name`; Upgrade/Repair keeping the recorded account needs no password). gMSA and
+`FromInstaller` accounts get `SeServiceLogonRight` when missing, recorded in
+`InstalledManifest.GrantedLogonRights`, revoked on rollback/uninstall (only what Instella granted); a
+wrong password fails `start-services` with 1069 in plain words (exit 16). `StartAfterInstall(bool)`
 (default: Automatic/AutomaticDelayed start, Manual/Disabled do not), `StartTimeout` (60 s),
 `StopTimeout` (30 s), `StartFailureIsWarning()`. `Build()` refuses a service without
 `WithElevation(ElevationMode.SystemWide)`, a name not 1-80 of `[A-Za-z0-9._-]`, a duplicate name
@@ -187,7 +195,7 @@ and registry-only detection is skipped with a warning.
 
 Widgets are added via **typed methods** (not static factories): `Heading(text)`,
 `Paragraph(text)`, `ScrollableText(text)`, `BrandImage(ImageSource, maxHeight=96)`,
-`TextInput(id,label,default="")`, `CheckBox(id,label,default=false)`,
+`TextInput(id,label,default="")`, `PasswordInput(id,label)`, `CheckBox(id,label,default=false)`,
 `RadioGroup(id,label,params RadioOption[])`, `Dropdown(id,label,params string[])`,
 `FolderPicker(id,label,defaultPath?)`, `FilePicker(id,label,params FileFilter[])`,
 `Progress()`, `StatusLine()`, plus escape hatch `Widget(Widget)`. Control:
@@ -223,9 +231,12 @@ exists at uninstall time). `StepResult`: `Ok` (static), `Fail(error)`,
 
 ### Widget set (flat, native-mapped)
 
-12 widgets (`UI/Widgets`, positional `record`s): `Heading, Paragraph, ScrollableText,
-BrandImage, TextInput, CheckBox, RadioGroup, Dropdown, FolderPicker, FilePicker,
-Progress, StatusLine`. Each maps to small native control sets: Win32
+13 widgets (`UI/Widgets`, positional `record`s): `Heading, Paragraph, ScrollableText,
+BrandImage, TextInput, PasswordInput, CheckBox, RadioGroup, Dropdown, FolderPicker, FilePicker,
+Progress, StatusLine`. `PasswordInput` is masked (Win32 `ES_PASSWORD`, GTK invisible entry, Cocoa
+`NSSecureTextField`); its value is a `char[]` outside `PageState`'s values (invisible to
+`Text/Get/TryGet/Snapshot`, no `StateChanged`), read with `PageState.UsePassword(id, span => ...)`,
+zeroed by `ClearSecrets()`; no default, and `MapCliFlag` onto it fails `Build()`. Each maps to small native control sets: Win32
 (`STATIC`/`EDIT`/`BUTTON`/`COMBOBOX`/`msctls_progress32`), GTK 3
 (`GtkLabel`/`GtkEntry`/`GtkCheckButton`/`GtkComboBoxText`/`GtkProgressBar`), Cocoa
 (`NSTextField`/`NSButton`/`NSPopUpButton`/`NSProgressIndicator`). `FolderPicker`/`FilePicker`
@@ -253,6 +264,8 @@ platform pattern-matches the closed `Widget` hierarchy (no per-widget renderer i
 --emit-manifest <p>   Build-time: serialize FrozenConfig -> instella.json and exit
 --preview[ ...]       Preview mode (only if .EnablePreview())
 --log-level <lvl>     Overrides level
+--service-account <user>        Account of ServiceAccount.FromInstaller services (silent)
+--service-password-file <path>  File holding that account's password (one trailing newline trimmed)
 --help
 ```
 
@@ -262,7 +275,8 @@ relaunch), `--token` / `--parent-pid` (cleanup, updater), the updater family (`-
 --no-restart --graceful-timeout --extra-args --repair --service-update`, parsed by the shared
 `UpdaterArgs`), and
 the preview family (`--preview-mode --preview-speed --preview-fail`). There is no `--server-url` or
-`--package-id`: the updater reads both from the installed manifest. Redeclaring any reserved flag
+`--package-id`: the updater reads both from the installed manifest. There is deliberately no
+`--service-password` (unknown flag, exit 40): use the file or `INSTELLA_SERVICE_PASSWORD`. Redeclaring any reserved flag
 via `AddCliFlag<T>` throws at `Build()`. An unknown flag or a wrong-typed value prints the error
 plus `--help` text and exits 40.
 

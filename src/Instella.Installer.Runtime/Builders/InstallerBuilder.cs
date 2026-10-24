@@ -50,6 +50,7 @@ public sealed class InstallerBuilder
     private readonly List<PageBuilder> _userPages = new();
     private readonly List<RegistryWriteSpec> _registryWrites = new();
     private readonly List<ServiceSpec> _services = new();
+    private string? _servicePasswordVariable;
     private readonly List<CliFlagSpec> _declaredCliFlags = new();
     private readonly Dictionary<string, string> _cliFlagMappings = new(StringComparer.OrdinalIgnoreCase);
     private LoggingBuilder? _loggingBuilder;
@@ -367,6 +368,7 @@ public sealed class InstallerBuilder
             configure(win);
             _registryWrites.AddRange(win.Writes);
             _services.AddRange(win.Services);
+            _servicePasswordVariable = win.ServicePasswordVariable ?? _servicePasswordVariable;
         }
         return this;
     }
@@ -650,7 +652,8 @@ public sealed class InstallerBuilder
             DownloadToken: _downloadToken,
             Migrations: migrations,
             AppManagedRunValues: _appManagedRunValues.ToArray(),
-            DeclaredServices: services);
+            DeclaredServices: services,
+            ServicePasswordVariable: _servicePasswordVariable);
 
         return new InstellaInstallerImpl(config);
     }
@@ -689,6 +692,9 @@ public sealed class InstallerBuilder
         }
 
         var (target, widget) = matches[0];
+        if (widget is PasswordInput)
+            throw new InvalidOperationException(
+                $"{where}: '{target.Id}.{widget.Id}' is a PasswordInput; a password is never taken from a CLI flag.");
         var compatible = flag.ValueType == typeof(bool)
             ? widget is CheckBox
             : flag.ValueType == typeof(string) && widget is TextInput or Dropdown or RadioGroup or FolderPicker or FilePicker;

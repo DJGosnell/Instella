@@ -98,6 +98,11 @@ internal sealed class CocoaEventPump
     /// <summary>Write text-field text to <see cref="PageState"/>. Exposed for tests.</summary>
     internal void WriteEditText(CocoaWidgetInstance instance, string text)
     {
+        if (instance.Widget is PasswordInput pw)
+        {
+            if (!string.IsNullOrEmpty(pw.Id)) _state.SetSecret(pw.Id, text.ToCharArray());
+            return;
+        }
         var id = instance.Widget switch
         {
             TextInput t => t.Id,

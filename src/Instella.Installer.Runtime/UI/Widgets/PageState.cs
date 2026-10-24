@@ -18,10 +18,15 @@ namespace Instella.Installer.Runtime.UI.Widgets;
 /// <see cref="InvalidOperationException"/> is thrown rather than quietly
 /// allowing recursion. Widget visibility predicates and
 /// <c>ContinueWhen</c> hooks must be pure reads.</para>
+/// <para>What a <see cref="PasswordInput"/> holds is a secret, kept apart from the values: it is
+/// invisible to <see cref="Get{T}(string, T)"/>, <see cref="TryGet{T}(string, out T)"/> and
+/// <see cref="Snapshot"/>, never raises <see cref="StateChanged"/>, and is read only through
+/// <see cref="UsePassword"/>. Its buffer is zeroed when it is replaced or cleared.</para>
 /// </remarks>
 public sealed class PageState
 {
     private readonly Dictionary<string, object?> _values = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, char[]> _secrets = new(StringComparer.Ordinal);
     private bool _isRaising;
 
     /// <summary>Fires whenever <see cref="Set(string, object?)"/> or <see cref="Clear"/> changes the effective contents.</summary>
@@ -95,13 +100,51 @@ public sealed class PageState
         Raise();
     }
 
-    /// <summary>Remove all entries. Fires <see cref="StateChanged"/> only if the store was non-empty.</summary>
+    /// <summary>
+    /// Remove all entries, and zero and forget every secret. Fires <see cref="StateChanged"/> only
+    /// if the values were non-empty.
+    /// </summary>
     public void Clear()
     {
         GuardReentry();
+        ClearSecrets();
         if (_values.Count == 0) return;
         _values.Clear();
         Raise();
+    }
+
+    /// <summary>
+    /// Calls <paramref name="use"/> with the secret a <see cref="PasswordInput"/> holds under
+    /// <paramref name="id"/>, or with an empty span when it holds none. The span is valid only
+    /// during the call: never turn it into a string you keep.
+    /// </summary>
+    public void UsePassword(string id, Action<ReadOnlySpan<char>> use)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        ArgumentNullException.ThrowIfNull(use);
+        use(_secrets.TryGetValue(id, out var buffer) ? buffer : ReadOnlySpan<char>.Empty);
+    }
+
+    /// <summary>
+    /// Keeps <paramref name="buffer"/> (the very array, not a copy) as the secret under
+    /// <paramref name="id"/>. The buffer it replaces is zeroed unless it is the same array.
+    /// </summary>
+    internal void SetSecret(string id, char[] buffer)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        ArgumentNullException.ThrowIfNull(buffer);
+        if (_secrets.TryGetValue(id, out var old) && !ReferenceEquals(old, buffer)) Array.Clear(old);
+        _secrets[id] = buffer;
+    }
+
+    /// <summary>The buffer kept under <paramref name="id"/>, or null; it stays owned by this state.</summary>
+    internal char[]? SecretBuffer(string id) => _secrets.GetValueOrDefault(id);
+
+    /// <summary>Zeroes every secret buffer and forgets it.</summary>
+    internal void ClearSecrets()
+    {
+        foreach (var buffer in _secrets.Values) Array.Clear(buffer);
+        _secrets.Clear();
     }
 
     /// <summary>Immutable snapshot of the current store. Safe to pass to long-running computations without races against further mutation.</summary>

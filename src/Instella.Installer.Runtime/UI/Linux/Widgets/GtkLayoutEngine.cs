@@ -61,7 +61,7 @@ internal static class GtkLayoutEngine
         return slots;
     }
 
-    internal static bool IsCompound(Widget w) => w is TextInput or Dropdown or FolderPicker or FilePicker or RadioGroup;
+    internal static bool IsCompound(Widget w) => w is TextInput or PasswordInput or Dropdown or FolderPicker or FilePicker or RadioGroup;
 }
 
 /// <summary>

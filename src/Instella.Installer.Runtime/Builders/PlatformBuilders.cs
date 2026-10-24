@@ -21,6 +21,20 @@ public sealed class WindowsBuilder
 
     internal IReadOnlyList<ServiceSpec> Services => _services;
 
+    internal string? ServicePasswordVariable { get; private set; }
+
+    /// <summary>
+    /// The environment variable a silent install reads the password of a
+    /// <see cref="ServiceAccount.FromInstaller"/> account from, when no <c>--service-password-file</c>
+    /// is given. Defaults to <c>INSTELLA_SERVICE_PASSWORD</c>; an empty variable counts as absent.
+    /// </summary>
+    public WindowsBuilder WithServicePasswordVariable(string name)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ServicePasswordVariable = name;
+        return this;
+    }
+
     /// <summary>
     /// Declare a registry key whose values are written at install time and removed at
     /// uninstall time (every write is tracked).

@@ -49,6 +49,7 @@ internal sealed class GtkEventPump
                 break;
 
             case TextInput:
+            case PasswordInput:
             case FolderPicker:
             case FilePicker:
                 ConnectStateful(instance, instance.PrimaryWidget, "changed", &EntryChangedCallback);
@@ -115,6 +116,12 @@ internal sealed class GtkEventPump
     /// <summary>Write an entry's text to <see cref="PageState"/>. Exposed for tests.</summary>
     internal void WriteEntryText(GtkWidgetInstance instance, string text)
     {
+        if (instance.Widget is PasswordInput pw)
+        {
+            // GTK hands the text over as UTF-8 only; the secret is kept as a char[] from here on.
+            if (!string.IsNullOrEmpty(pw.Id)) _state.SetSecret(pw.Id, text.ToCharArray());
+            return;
+        }
         var id = instance.Widget switch
         {
             TextInput t => t.Id,

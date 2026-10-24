@@ -65,6 +65,7 @@ internal sealed class Win32WidgetFactory
             ScrollableText s => CreateScrollableText(s, slot),
             BrandImage b => CreateBrandImage(b, slot),
             TextInput t => CreateTextInput(t, slot, state),
+            PasswordInput pw => CreatePasswordInput(pw, slot),
             CheckBox c => CreateCheckBox(c, slot, state),
             RadioGroup r => CreateRadioGroup(r, slot, state),
             Dropdown d => CreateDropdown(d, slot, state),
@@ -169,6 +170,26 @@ internal sealed class Win32WidgetFactory
 
         if (!string.IsNullOrEmpty(input.Id))
             state.Set(input.Id, input.Default);
+
+        return new Win32WidgetInstance(input, editId, editHwnd, new[] { labelHwnd, editHwnd });
+    }
+
+    /// <summary>A label and a masked EDIT; it writes nothing to page state (the event pump hands typed text over as a secret).</summary>
+    private Win32WidgetInstance CreatePasswordInput(PasswordInput input, Win32LayoutSlot slot)
+    {
+        var (labelSlot, controlSlot) = SplitLabelAndControl(slot);
+
+        var labelId = AllocateId();
+        var labelHwnd = CreateChild("STATIC", input.Label, WS.SS_LEFT, 0,
+            labelSlot.Left, labelSlot.Top, labelSlot.Width, labelSlot.Height, labelId, _bodyFont);
+
+        var editId = AllocateId();
+        var editHwnd = CreateChild(
+            "EDIT",
+            string.Empty,
+            WS.ES_PASSWORD | WS.ES_AUTOHSCROLL | WS.BORDER | WS.TABSTOP,
+            0,
+            controlSlot.Left, controlSlot.Top, controlSlot.Width, controlSlot.Height, editId, _bodyFont);
 
         return new Win32WidgetInstance(input, editId, editHwnd, new[] { labelHwnd, editHwnd });
     }
