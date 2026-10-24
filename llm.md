@@ -259,7 +259,8 @@ platform pattern-matches the closed `Widget` hierarchy (no per-widget renderer i
 Canonical set is `Builders/ReservedCliFlags.All`. It also reserves `--elevated-child` (UAC
 relaunch), `--token` / `--parent-pid` (cleanup, updater), the updater family (`--app-path --app-exe
 --from-version --to-version --channel --use-patch --patch-sha256 --allow-force-close --restart
---no-restart --graceful-timeout --extra-args --repair`, parsed by the shared `UpdaterArgs`), and
+--no-restart --graceful-timeout --extra-args --repair --service-update`, parsed by the shared
+`UpdaterArgs`), and
 the preview family (`--preview-mode --preview-speed --preview-fail`). There is no `--server-url` or
 `--package-id`: the updater reads both from the installed manifest. Redeclaring any reserved flag
 via `AddCliFlag<T>` throws at `Build()`. An unknown flag or a wrong-typed value prints the error
@@ -650,6 +651,13 @@ exit 26. Every other failure restarts the stopped services after the files are b
 for `--recover`). `--restart` starts the services whose executable is the main exe instead of
 `IAppLauncher.Launch`. Manage's Update/Repair pass `ServiceManager` and the declared services too.
 
+**`--service-update`** (`UpdaterArgs.ServiceUpdate`, written by the SDK's `StartServiceUpdateAsync`; additive,
+older stubs ignore it): `ModeDispatcher` marks the run silent even without `--silent`; `InstellaInstallerImpl`
+returns 51 at once when not elevated (after the `--app-path` binding check, before
+`EnsureElevatedForInstallationAsync`, never relaunching); `UpdateModeRunner` opens no window, uses no
+`AppRunningPrompt` and never launches the app (the engine restarts the services it stopped). The updater does
+not re-check the manifest's `services` field: the SDK refuses first.
+
 **Repair** (`--repair`, Manage window's Repair): same engine with target = installed version,
 `MustEqual` only, every file whose on-disk hash differs from the signed release is replaced.
 **Check for updates** in the Manage window runs `check-update` and the engine in-process. Both
@@ -961,7 +969,21 @@ if (result.UpdateAvailable)
   starts `{InstallRoot}/instella[.exe]` with `UpdaterArgs.ToArgumentList()` via
   `ProcessStartInfo.ArgumentList` (no string escaping), passes `--parent-pid`, no delay; `ct` is
   observed only before start. The caller must exit promptly. `LaunchUpdaterAndExitAsync(...)` =
-  that + `Environment.Exit(0)`.
+  that + `Environment.Exit(0)`. Both throw `InvalidOperationException` (naming `StartServiceUpdateAsync`)
+  when the process is one of the installation's recorded services, before starting anything.
+- `StartServiceUpdateAsync(UpdateInfo, ct=default)` → `ServiceUpdateStartResult(IsStarted, ProcessId?,
+  RefusalReason?)`: self-update from inside a Windows service (docs/windows-services.md "Updating a service").
+  Never exits the process; throws only `ArgumentNullException` and `OperationCanceledException` (before the
+  start). Checks in order, first failure is the refusal: installed; manifest has `services`
+  (`InstellaInfo.ServiceNames`, internal, null without the field); at least one; Windows; elevated
+  (LocalSystem or an admin account); can write the install root (and `.instella/`); every recorded service
+  opens with stop/start rights (`IServiceManager.CheckControlAccessAsync`); not in a job that forbids
+  breakaway; stub present. Starts the stub detached (`CreateProcessW`, `CREATE_NO_WINDOW`, plus
+  `CREATE_BREAKAWAY_FROM_JOB` in a job that allows it) with `--silent --service-update --no-restart`, no
+  `--parent-pid`, no `--allow-force-close`. OS seam: internal `IServiceUpdateSystem`
+  (`WindowsServiceUpdateSystem`; `InstellaClient.ServiceSystem` for tests), logic in `ServiceUpdateLauncher`.
+- `IsRunningAsServiceAsync(ct=default)` → `Task<bool>`: whether a recorded service's process id is this
+  process's (false when not installed or off Windows); chooses between the desktop and the service call.
 - `GetInstallationHealth()` → `InstallationHealth.Healthy|InterruptedUpdate` (journal only);
   `StartRecoveryAsync(ct)` → `Task<int>`: runs `instella --recover --path {root} --silent` and awaits it
   (0 recovered; 51 UAC declined for a machine install; 23 unreadable journal). Silent recover may still

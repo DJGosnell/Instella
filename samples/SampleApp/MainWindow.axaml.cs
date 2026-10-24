@@ -71,6 +71,16 @@ public partial class MainWindow : Window
                     if (_isModified && !ConfirmDiscard())
                         break;
                     UpdateStatusText.Text = $"Updating to {update.Version}...";
+                    // Code shared with a Windows service build: a service updates itself without
+                    // exiting (docs/windows-services.md, "Updating a service").
+                    if (await InstellaClient.IsRunningAsServiceAsync())
+                    {
+                        var start = await InstellaClient.StartServiceUpdateAsync(update);
+                        UpdateStatusText.Text = start.IsStarted
+                            ? $"Updating to {update.Version} (updater {start.ProcessId})"
+                            : $"Update refused: {start.RefusalReason}";
+                        break;
+                    }
                     // Starts the installed instella stub with --update and exits this process;
                     // the updater swaps the files, shows the result, and restarts QuickNotes.
                     await InstellaClient.LaunchUpdaterAndExitAsync(update);
