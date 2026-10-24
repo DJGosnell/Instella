@@ -23,7 +23,7 @@ namespace Instella.Installer.Runtime.Tests.Services;
 /// </summary>
 [TestFixture, Platform("Win")]
 [NonParallelizable]
-public class ServiceInstallTests
+public partial class ServiceInstallTests
 {
     private const string AppId = "com.example.app";
     private InMemoryFileSystem _fs = null!;

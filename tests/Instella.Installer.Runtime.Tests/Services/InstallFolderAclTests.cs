@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Instella.Installer.Runtime.Core.Security;
 using NUnit.Framework;
 
@@ -13,7 +15,7 @@ namespace Instella.Installer.Runtime.Tests.Services;
 /// parent, whose inheritable entries it will get.
 /// </summary>
 [TestFixture, Platform("Win"), SupportedOSPlatform("windows")]
-public class InstallFolderAclTests
+public partial class InstallFolderAclTests
 {
     private string _temp = null!;
 
@@ -56,5 +58,30 @@ public class InstallFolderAclTests
     public void AFolderThatDoesNotExistYetUnderTheUsersTemp_IsReported()
     {
         Assert.That(InstallFolderAcl.FindNonAdminWriter(Path.Combine(_temp, "not-yet", "App")), Is.Not.Null);
+    }
+
+    private static SecurityIdentifier Me => WindowsIdentity.GetCurrent().User!;
+
+    private static FileSystemAccessRule Allow(IdentityReference who, FileSystemRights rights, InheritanceFlags inheritance,
+        PropagationFlags propagation = PropagationFlags.None) =>
+        new(who, rights, inheritance, propagation, AccessControlType.Allow);
+
+    /// <summary>Replaces the folder's DACL with <paramref name="rules"/> only, nothing inherited.</summary>
+    private static void Protect(string folder, params FileSystemAccessRule[] rules)
+    {
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        foreach (var rule in rules) security.AddAccessRule(rule);
+        new DirectoryInfo(folder).SetAccessControl(security);
+    }
+
+    /// <summary>Gives the folder back to the current user so TearDown can delete it.</summary>
+    private static void Release(string folder)
+    {
+        try
+        {
+            Protect(folder, Allow(Me, FileSystemRights.FullControl, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit));
+        }
+        catch (Exception) { /* best effort */ }
     }
 }

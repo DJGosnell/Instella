@@ -1,42 +1,60 @@
-using System.Runtime.InteropServices;
+using System.Linq;
+using Instella.Installer.Build.Tasks;
+using NUnit.Framework;
 
 namespace Instella.Installer.Build.Tests;
 
-public class ServicePayloadCheckTests
+/// <summary>INSTELLA0105: each declared Windows service's executable must be in the payload.</summary>
+public sealed partial class AppendPayloadToSelfTaskTests
 {
-    [NUnit.Framework.Test]
+    private AppendPayloadToSelf ServiceTask(string manifestJson, StubBuildEngine engine, params string[] payload)
+    {
+        var (exe, manifest, archive) = Fixture(manifestJson);
+        var task = NewTask(exe, manifest, archive, engine, names: ["A.exe"]);
+        task.PayloadFiles = payload.Select(p => MakePayloadFile(p, p)).ToArray();
+        return task;
+    }
+
+    [Test]
+    public void Execute_aServiceExecutableMissingFromThePayload_failsWithINSTELLA0105()
+    {
+        var engine = new StubBuildEngine();
+        var task = ServiceTask("""{"appName":"A","appId":"a","executableName":"A.exe","services":[{"name":"A.Worker","executable":"bin/A.Worker.exe"}]}""",
+            engine, "A.exe", "bin/other.dll");
+
+        Assert.That(task.Execute(), Is.False);
+        var error = engine.Errors.Single(e => e.Code == "INSTELLA0105");
+        Assert.That(error.Message, Does.Contain("A.Worker").And.Contain("bin/A.Worker.exe"));
+    }
+
+    [Test]
+    public void Execute_aServiceOnTheMainExecutable_failsWithINSTELLA0105_WhenThePayloadLacksIt()
+    {
+        var engine = new StubBuildEngine();
+        var task = ServiceTask("""{"appName":"A","appId":"a","executableName":"A.exe","services":[{"name":"A.Svc"}]}""",
+            engine, "lib/a.dll");
+
+        Assert.That(task.Execute(), Is.False);
+        Assert.That(engine.Errors.Select(e => e.Code), Does.Contain("INSTELLA0105"));
+    }
+
+    [Test]
+    public void Execute_servicesWhoseExecutablesAreInThePayload_succeed()
+    {
+        var engine = new StubBuildEngine();
+        var task = ServiceTask("""{"appName":"A","appId":"a","executableName":"A.exe","services":[{"name":"A.Svc"},{"name":"A.Worker","executable":"bin/A.Worker.exe"}]}""",
+            engine, "A.exe", "bin/A.Worker.exe");
+
+        Assert.That(task.Execute(), Is.True, string.Join("; ", engine.Errors.Select(e => e.Message)));
+    }
+
+    [Test]
     public void Execute_aMainExeServiceWithAnExecutableNameWithoutExe_succeeds_WhenThePayloadHasTheExe()
     {
-        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "instella-probe-" + System.Guid.NewGuid().ToString("N"));
-        System.IO.Directory.CreateDirectory(dir);
-        try
-        {
-            var exe = System.IO.Path.Combine(dir, "installer.exe");
-            System.IO.File.WriteAllBytes(exe, new byte[] { 0x4D, 0x5A, 0x90, 0x00 });
-            var manifest = System.IO.Path.Combine(dir, "instella.json");
-            System.IO.File.WriteAllText(manifest, "{\"appName\":\"A\",\"appId\":\"a\",\"executableName\":\"A\",\"services\":[{\"name\":\"A.Svc\"}]}");
-            var src = System.IO.Path.Combine(dir, "A.exe");
-            System.IO.File.WriteAllText(src, "app");
-            var engineType = typeof(Instella.Installer.Build.Tests.AppendPayloadToSelfTaskTests).GetNestedType("StubBuildEngine", System.Reflection.BindingFlags.NonPublic)!;
-            var engine = (Microsoft.Build.Framework.IBuildEngine)System.Activator.CreateInstance(engineType, nonPublic: true)!;
-            var task = new Instella.Installer.Build.Tasks.AppendPayloadToSelf
-            {
-                BuildEngine = engine,
-                InstallerExePath = exe,
-                ManifestPath = manifest,
-                PayloadFiles = new Microsoft.Build.Framework.ITaskItem[] { new Microsoft.Build.Utilities.TaskItem(src, new System.Collections.Generic.Dictionary<string, string> { ["TargetPath"] = "A.exe" }) },
-                PayloadExecutableNames = new[] { "A.exe" },
-                IntermediateArchivePath = System.IO.Path.Combine(dir, "payload.zip"),
-            };
-    
-            var ok = task.Execute();
-            var errors = (System.Collections.IEnumerable)engineType.GetProperty("Errors")!.GetValue(engine)!;
-            var messages = string.Join("; ", System.Linq.Enumerable.Select(System.Linq.Enumerable.Cast<Microsoft.Build.Framework.BuildErrorEventArgs>(errors), e => e.Code + ": " + e.Message));
-            NUnit.Framework.Assert.That(ok, NUnit.Framework.Is.True, messages);
-        }
-        finally
-        {
-            try { System.IO.Directory.Delete(dir, recursive: true); } catch { }
-        }
+        var engine = new StubBuildEngine();
+        var task = ServiceTask("""{"appName":"A","appId":"a","executableName":"A","services":[{"name":"A.Svc"}]}""",
+            engine, "A.exe");
+
+        Assert.That(task.Execute(), Is.True, string.Join("; ", engine.Errors.Select(e => e.Code + ": " + e.Message)));
     }
 }
