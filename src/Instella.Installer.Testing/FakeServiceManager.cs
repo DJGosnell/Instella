@@ -87,6 +87,7 @@ public sealed class FakeServiceManager : IServiceManager
                     return Done(existing.MarkedForDeletion
                         ? ServiceResult.Fail(ServiceFailure.MarkedForDeletion, $"The service '{existing.Name}' is marked for deletion.", 1072)
                         : ServiceResult.Fail(ServiceFailure.AlreadyExists, $"The service '{existing.Name}' already exists.", 1073));
+                if (CreatesACycle(configuration.Name, configuration.Dependencies)) return Done(CircularDependency(configuration.Name));
                 _services[configuration.Name] = new Entry(configuration, password is not null);
                 return Done(ServiceResult.Ok);
             }
@@ -110,6 +111,7 @@ public sealed class FakeServiceManager : IServiceManager
                 _calls.Add("config:" + entry.Name);
                 if (DenyAccess) return Done(AccessDenied("change the configuration of", entry.Name));
                 if (entry.MarkedForDeletion) return Done(MarkedForDeletion(entry.Name));
+                if (CreatesACycle(entry.Name, configuration.Dependencies)) return Done(CircularDependency(entry.Name));
 
                 var old = entry.Configuration;
                 entry.PasswordSupplied = password is not null
@@ -201,7 +203,7 @@ public sealed class FakeServiceManager : IServiceManager
         lock (_gate)
         {
             if (!_services.TryGetValue(name, out var entry)) return Done(NotFound(name));
-            return Done(Stop(entry, timeout));
+            return Done(Stop(entry, timeout, new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
         }
     }
 
@@ -221,9 +223,32 @@ public sealed class FakeServiceManager : IServiceManager
         }
     }
 
-    /// <summary>Stops the running dependents (recursively), then the service. Called under the lock.</summary>
-    private ServiceResult Stop(Entry entry, TimeSpan timeout)
+    /// <summary>
+    /// True when giving <paramref name="name"/> these <paramref name="dependencies"/> would make it
+    /// depend on itself, directly or through other services: the SCM refuses that
+    /// (<c>ERROR_CIRCULAR_DEPENDENCY</c>). Dependencies that do not exist are allowed, as on Windows.
+    /// </summary>
+    private bool CreatesACycle(string name, IReadOnlyList<string> dependencies)
     {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Stack<string>(dependencies);
+        while (pending.Count > 0)
+        {
+            var next = pending.Pop();
+            if (string.Equals(next, name, StringComparison.OrdinalIgnoreCase)) return true;
+            if (!seen.Add(next) || !_services.TryGetValue(next, out var dependency)) continue;
+            foreach (var d in dependency.Configuration.Dependencies) pending.Push(d);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Stops the running dependents (recursively), then the service. Called under the lock;
+    /// <paramref name="visiting"/> keeps a dependency cycle from recursing without end.
+    /// </summary>
+    private ServiceResult Stop(Entry entry, TimeSpan timeout, HashSet<string> visiting)
+    {
+        if (!visiting.Add(entry.Name)) return ServiceResult.Ok;
         if (DenyAccess)
         {
             _calls.Add("stop:" + entry.Name);
@@ -238,7 +263,7 @@ public sealed class FakeServiceManager : IServiceManager
                 .ToArray();
             foreach (var dependent in dependents)
             {
-                var stopped = Stop(dependent, timeout);
+                var stopped = Stop(dependent, timeout, visiting);
                 if (!stopped.Outcome.Success) return stopped;
             }
         }
@@ -268,6 +293,9 @@ public sealed class FakeServiceManager : IServiceManager
 
     private static ServiceResult AccessDenied(string operation, string name) =>
         ServiceResult.Fail(ServiceFailure.AccessDenied, $"Could not {operation} service '{name}': access is denied.", 5);
+
+    private static ServiceResult CircularDependency(string name) =>
+        ServiceResult.Fail(ServiceFailure.Failed, $"The service '{name}' would depend on itself (circular dependency).", 1059);
 
     private static ServiceResult MarkedForDeletion(string name) =>
         ServiceResult.Fail(ServiceFailure.MarkedForDeletion, $"The service '{name}' is marked for deletion.", 1072);

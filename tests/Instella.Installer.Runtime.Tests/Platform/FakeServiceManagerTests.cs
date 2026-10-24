@@ -284,4 +284,60 @@ public sealed class FakeServiceManagerTests
         Assert.That(defaulted.ServiceManagerOrDefault, Is.Not.Null);
         Assert.That(defaulted.ServiceManagerOrDefault, Is.Not.InstanceOf<FakeServiceManager>());
     }
+
+    [Test]
+    public async Task Create_WithASelfDependency_IsRefusedAsOnWindows()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        var config = new ServiceConfiguration
+        {
+            Name = "Loop",
+            DisplayName = "Loop",
+            ExecutablePath = @"C:\App\svc.exe",
+            Dependencies = new[] { "Loop" },
+        };
+
+        var result = await services.CreateAsync(config, null, CancellationToken.None);
+
+        // Windows: ERROR_CIRCULAR_DEPENDENCY (1059). Accepting it lets StopAsync recurse without end.
+        Assert.That(result.Outcome.Success, Is.False,
+            "a service that depends on itself must be refused; stopping it would overflow the stack");
+    }
+
+    [Test]
+    public async Task ASelfDependency_IsRefused_LikeTheScm()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        var created = await services.CreateAsync(new ServiceConfiguration
+        {
+            Name = "Loop",
+            DisplayName = "Loop",
+            ExecutablePath = @"C:\a\svc.exe",
+            Dependencies = new[] { "Loop" },
+        }, null, CancellationToken.None);
+        Assert.That(created.Outcome.Success, Is.False,
+            "the SCM refuses a circular dependency (1059); accepting it lets the fake's recursive stop overflow the stack");
+    }
+
+    [Test]
+    public async Task AChangeThatClosesADependencyCycle_IsRefused_AndStopStillReturns()
+    {
+        var platform = new FakePlatformServices();
+        IServiceManager services = platform.ServiceManager;
+        await services.CreateAsync(Config("A"), null, Ct);
+        await services.CreateAsync(Config("B", "a"), null, Ct);
+
+        var changed = await services.ChangeConfigurationAsync(Config("A", "B"), null, Ct);
+
+        Assert.That(changed.Outcome.Success, Is.False);
+        Assert.That(changed.NativeError, Is.EqualTo(1059));
+        Assert.That(platform.ServiceManager.Find("A")!.Dependencies, Is.Empty);
+        await services.StartAsync("A", Timeout, Ct);
+        await services.StartAsync("B", Timeout, Ct);
+        var stopped = await services.StopAsync("A", Timeout, Ct);
+        Assert.That(stopped.Outcome.Success, Is.True, stopped.Outcome.Error);
+        Assert.That(platform.ServiceManager.Services.Select(s => s.State), Is.All.EqualTo(FakeServiceState.Stopped));
+    }
 }
