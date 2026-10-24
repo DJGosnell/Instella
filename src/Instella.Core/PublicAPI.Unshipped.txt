@@ -154,6 +154,8 @@ static Instella.Core.Wire.UnpublishedReleaseSummary.operator !=(Instella.Core.Wi
 static Instella.Core.Wire.UnpublishedReleaseSummary.operator ==(Instella.Core.Wire.UnpublishedReleaseSummary? left, Instella.Core.Wire.UnpublishedReleaseSummary? right) -> bool
 Instella.Core.Installation.InstellaExitCode.InstallAppUpgradeFailed = 15 -> Instella.Core.Installation.InstellaExitCode
 Instella.Core.Installation.InstellaExitCode.UpdateAppUpgradeFailed = 25 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstalledManifest.GrantedLogonRights.get -> System.Collections.Generic.IReadOnlyList<string!>?
+Instella.Core.Installation.InstalledManifest.GrantedLogonRights.init -> void
 Instella.Core.Installation.InstalledManifest.Services.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestService!>?
 Instella.Core.Installation.InstalledManifest.Services.init -> void
 Instella.Core.Installation.ManifestService

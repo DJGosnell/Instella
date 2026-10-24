@@ -28,6 +28,8 @@ namespace Instella.Installer.Runtime.Builders;
 /// <param name="Log">Where the run logs; null uses the configured log files (the harness records into its sink).</param>
 /// <param name="ServiceManager">Creates, starts, stops and deletes Windows services; null uses the host's SCM.</param>
 /// <param name="FolderAcl">Tells whether non-administrators can write the install folder of a service install; null reads the real DACL.</param>
+/// <param name="LogonRights">Grants and revokes "Log on as a service" for custom service accounts; null uses the host's LSA.</param>
+/// <param name="Credentials">Checks a service account's user name and password; null tries a real logon.</param>
 internal sealed record InstallerServices(
     IPlatformServices Platform,
     IFileSystem FileSystem,
@@ -46,7 +48,9 @@ internal sealed record InstallerServices(
     Migrations.IProgramRunner? Programs = null,
     Instella.Core.Logging.IInstellaLogger? Log = null,
     IServiceManager? ServiceManager = null,
-    Core.Security.IInstallFolderAcl? FolderAcl = null)
+    Core.Security.IInstallFolderAcl? FolderAcl = null,
+    IServiceLogonRights? LogonRights = null,
+    ICredentialChecker? Credentials = null)
 {
     /// <summary><see cref="StubDirectory"/>, or the folder of the running process.</summary>
     public string? StubDirectoryOrDefault() => (StubDirectory ?? Runners.InstallPaths.StubDirectory)();
@@ -59,6 +63,12 @@ internal sealed record InstallerServices(
 
     /// <summary><see cref="ServiceManager"/>, or the host's (unsupported off Windows).</summary>
     public IServiceManager ServiceManagerOrDefault => ServiceManager ?? ServiceManagerFactory.Create();
+
+    /// <summary><see cref="LogonRights"/>, or the host's (unsupported off Windows).</summary>
+    public IServiceLogonRights LogonRightsOrDefault => LogonRights ?? ServiceLogonRightsFactory.Create();
+
+    /// <summary><see cref="Credentials"/>, or the host's (unsupported off Windows).</summary>
+    public ICredentialChecker CredentialsOrDefault => Credentials ?? CredentialCheckerFactory.Create();
 
     /// <summary><see cref="FolderAcl"/>, or the host's DACL check.</summary>
     public Core.Security.IInstallFolderAcl FolderAclOrDefault => FolderAcl ?? Core.Security.InstallFolderAcl.Host;

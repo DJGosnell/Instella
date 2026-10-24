@@ -57,6 +57,10 @@ internal static class ReservedCliFlags
         "--graceful-timeout",
         "--extra-args",
         "--repair",
+        // The account of ServiceAccount.FromInstaller services, for silent installs. There is
+        // deliberately no --service-password: a password on the command line leaks.
+        "--service-account",
+        "--service-password-file",
         // build-time manifest emission (the Instella.Installer.Build targets run the installer with it).
         "--emit-manifest",
         // Preview mode: walks through the installer's UI without

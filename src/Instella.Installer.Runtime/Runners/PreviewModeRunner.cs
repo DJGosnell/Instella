@@ -349,6 +349,7 @@ internal sealed class PreviewModeRunner
             switch (widget)
             {
                 case TextInput t: state.Set(id, t.Default); break;
+                case PasswordInput: break; // a secret, never in page state
                 case CheckBox c: state.Set(id, c.Default); break;
                 case RadioGroup rg when rg.Default is not null: state.Set(id, rg.Default); break;
                 case Dropdown dd when dd.Default is not null: state.Set(id, dd.Default); break;

@@ -164,3 +164,16 @@ override Instella.Installer.Testing.FakeService.ToString() -> string!
 static Instella.Installer.Testing.FakeService.operator !=(Instella.Installer.Testing.FakeService? left, Instella.Installer.Testing.FakeService? right) -> bool
 static Instella.Installer.Testing.FakeService.operator ==(Instella.Installer.Testing.FakeService? left, Instella.Installer.Testing.FakeService? right) -> bool
 Instella.Installer.Testing.FakePlatformServices.MarkWritableByNonAdmins(string! folder) -> void
+Instella.Installer.Testing.FakeCredentialChecker
+Instella.Installer.Testing.FakeCredentialChecker.AddUser(string! user, string! password) -> void
+Instella.Installer.Testing.FakeCredentialChecker.Checks.get -> int
+Instella.Installer.Testing.FakeCredentialChecker.DenyLogonType(string! user) -> void
+Instella.Installer.Testing.FakeCredentialChecker.FakeCredentialChecker() -> void
+Instella.Installer.Testing.FakeLogonRights
+Instella.Installer.Testing.FakeLogonRights.Calls.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.FakeLogonRights.FakeLogonRights() -> void
+Instella.Installer.Testing.FakeLogonRights.Grant(string! account) -> void
+Instella.Installer.Testing.FakeLogonRights.Has(string! account) -> bool
+Instella.Installer.Testing.FakePlatformServices.Credentials.get -> Instella.Installer.Testing.FakeCredentialChecker!
+Instella.Installer.Testing.FakePlatformServices.LogonRights.get -> Instella.Installer.Testing.FakeLogonRights!
+Instella.Installer.Testing.FakeServiceManager.SetAccountPassword(string! account, string! password) -> void

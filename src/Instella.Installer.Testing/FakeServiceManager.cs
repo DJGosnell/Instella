@@ -13,6 +13,8 @@ namespace Instella.Installer.Testing;
 /// A running service that is deleted is only marked for deletion: it disappears when it stops,
 /// and its name cannot be created again until then, as on Windows. Passwords are cleared from the
 /// caller's buffer and never kept; <see cref="FakeService.PasswordSupplied"/> says whether one was given.
+/// For an account given a password with <see cref="SetAccountPassword"/>, only whether the supplied
+/// password matched is kept, and a start fails with error 1069 unless it did.
 /// </remarks>
 public sealed class FakeServiceManager : IServiceManager
 {
@@ -20,6 +22,7 @@ public sealed class FakeServiceManager : IServiceManager
     private readonly Dictionary<string, Entry> _services = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FakeServiceBehavior> _startBehavior = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FakeServiceBehavior> _stopBehavior = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _accountPasswords = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _calls = [];
     private int _nextProcessId = 1000;
 
@@ -57,6 +60,20 @@ public sealed class FakeServiceManager : IServiceManager
     }
 
     /// <summary>
+    /// Gives <paramref name="account"/> (case-insensitive) a password, as a domain or local account
+    /// has one. A service created or reconfigured for that account with a password records only
+    /// whether it matched; a change without a password and with the same account keeps the earlier
+    /// result. Starting a service under that account fails with error 1069
+    /// (<c>ERROR_SERVICE_LOGON_FAILED</c>) unless the last password supplied matched.
+    /// </summary>
+    public void SetAccountPassword(string account, string password)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(account);
+        ArgumentNullException.ThrowIfNull(password);
+        lock (_gate) _accountPasswords[account] = password;
+    }
+
+    /// <summary>
     /// Simulates a caller without the rights to change services (not elevated): create, change,
     /// start, stop and delete fail with access denied and change nothing; queries still work.
     /// </summary>
@@ -88,7 +105,10 @@ public sealed class FakeServiceManager : IServiceManager
                         ? ServiceResult.Fail(ServiceFailure.MarkedForDeletion, $"The service '{existing.Name}' is marked for deletion.", 1072)
                         : ServiceResult.Fail(ServiceFailure.AlreadyExists, $"The service '{existing.Name}' already exists.", 1073));
                 if (CreatesACycle(configuration.Name, configuration.Dependencies)) return Done(CircularDependency(configuration.Name));
-                _services[configuration.Name] = new Entry(configuration, password is not null);
+                _services[configuration.Name] = new Entry(configuration, password is not null)
+                {
+                    PasswordMatched = password is not null && Matches(configuration.AccountName, password),
+                };
                 return Done(ServiceResult.Ok);
             }
         }
@@ -114,8 +134,11 @@ public sealed class FakeServiceManager : IServiceManager
                 if (CreatesACycle(entry.Name, configuration.Dependencies)) return Done(CircularDependency(entry.Name));
 
                 var old = entry.Configuration;
-                entry.PasswordSupplied = password is not null
-                    || (entry.PasswordSupplied && string.Equals(old.AccountName, configuration.AccountName, StringComparison.OrdinalIgnoreCase));
+                var sameAccount = string.Equals(old.AccountName, configuration.AccountName, StringComparison.OrdinalIgnoreCase);
+                entry.PasswordSupplied = password is not null || (entry.PasswordSupplied && sameAccount);
+                entry.PasswordMatched = password is not null
+                    ? Matches(configuration.AccountName, password)
+                    : entry.PasswordMatched && sameAccount;
                 // Null description and failure actions leave them as they are, as on Windows.
                 entry.Configuration = configuration with
                 {
@@ -179,6 +202,12 @@ public sealed class FakeServiceManager : IServiceManager
             if (entry.State == FakeServiceState.Running) return Done(ServiceResult.Ok);
             if (entry.State == FakeServiceState.StopPending)
                 return Done(ServiceResult.Fail(ServiceFailure.Failed, $"The service '{entry.Name}' is stopping."));
+
+            if (entry.Configuration.AccountName is { } account && _accountPasswords.ContainsKey(account) && !entry.PasswordMatched)
+            {
+                entry.State = FakeServiceState.Stopped;
+                return Done(ServiceResult.Fail(ServiceFailure.Failed, $"StartService failed for '{entry.Name}' (error 1069).", 1069));
+            }
 
             switch (_startBehavior.GetValueOrDefault(entry.Name))
             {
@@ -311,6 +340,11 @@ public sealed class FakeServiceManager : IServiceManager
         .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
+    /// <summary>Whether <paramref name="password"/> is the one set for <paramref name="account"/>; true for an account without one. Called under the lock.</summary>
+    private bool Matches(string? account, char[] password) =>
+        account is null || !_accountPasswords.TryGetValue(account, out var expected)
+        || password.AsSpan().SequenceEqual(expected);
+
     private static Task<ServiceResult> Done(ServiceResult result) => Task.FromResult(result);
 
     private static string NotFoundMessage(string name) => $"The service '{name}' does not exist.";
@@ -331,6 +365,7 @@ public sealed class FakeServiceManager : IServiceManager
         public string Name { get; } = configuration.Name;
         public ServiceConfiguration Configuration { get; set; } = configuration;
         public bool PasswordSupplied { get; set; } = passwordSupplied;
+        public bool PasswordMatched { get; set; }
         public FakeServiceState State { get; set; } = FakeServiceState.Stopped;
         public int ProcessId { get; set; }
         public bool MarkedForDeletion { get; set; }

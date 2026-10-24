@@ -173,7 +173,7 @@ internal static class Win32LayoutEngine
 
         BrandImage img => Win32DpiAware.Scale(img.MaxHeight, dpi),
 
-        TextInput => Win32DpiAware.Scale(
+        TextInput or PasswordInput => Win32DpiAware.Scale(
             LabelRowHeightDesign + LabelToControlGapDesign + EditHeightDesign, dpi),
 
         CheckBox => Win32DpiAware.Scale(CheckBoxHeightDesign, dpi),

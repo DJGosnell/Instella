@@ -136,6 +136,15 @@ public sealed class InstallContext
     /// </summary>
     internal IServiceManager? ServiceManager { get; set; }
 
+    /// <summary>
+    /// Grants and revokes "Log on as a service" for custom service accounts. Set by the install
+    /// runners alongside <see cref="ServiceManager"/>; null otherwise.
+    /// </summary>
+    internal IServiceLogonRights? LogonRights { get; set; }
+
+    /// <summary>Checks a service account's user name and password (the <c>service-account</c> page); null when not needed.</summary>
+    internal ICredentialChecker? Credentials { get; set; }
+
     /// <summary>The services <c>register-services</c> registered, for the installed manifest; null when it did not run.</summary>
     internal List<ManifestService>? ManifestServices { get; set; }
 

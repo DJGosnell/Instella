@@ -30,6 +30,7 @@ internal static class ServicePreflight
     {
         if (!BuiltInSteps.NeedsServiceSteps(config, context.ExistingInstallation)) return;
         context.ServiceManager ??= services?.ServiceManagerOrDefault ?? Instella.Core.Platform.ServiceManagerFactory.Create();
+        context.LogonRights ??= services?.LogonRightsOrDefault ?? Instella.Core.Platform.ServiceLogonRightsFactory.Create();
         if (config.Services.Count == 0) return;
 
         var run = new ServiceRun(config.Services);
