@@ -322,7 +322,7 @@ internal sealed class InteractiveInstallRunner
                         throw new InstallRefusedException(InstellaExitCode.InstallationBusy,
                             Core.Transactions.InstallRootLock.BusyMessage(_config.AppName));
                     var (mode, existing) = await InstallModeResolver.ResolveAsync(
-                        _config, _fileSystem, chosenInstallPath, dispatch, _log, pipelineCts.Token);
+                        _config, _fileSystem, chosenInstallPath, dispatch, _log, pipelineCts.Token, Services?.ServiceManager);
                     if (existing is not null && !await EnsureAppClosedAsync(existing, chosenInstallPath, dispatch, pipelineCts.Token))
                         throw new InstallRefusedException(InstellaExitCode.UpdateAppCouldNotClose,
                             $"{existing.AppName} is still running. Close it and run the installer again.");

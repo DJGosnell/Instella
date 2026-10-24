@@ -331,7 +331,11 @@ internal sealed class InstellaInstallerImpl : IInstellaInstaller
                 InstallerMode.Cleanup =>
                     await new CleanupModeRunner(log).RunAsync(dispatch, args, ct),
                 InstallerMode.Recover =>
-                    await new RecoverModeRunner(log, fileSystem) { Messages = messages, AppName = _config.AppName }.RunAsync(dispatch, ct),
+                    await new RecoverModeRunner(log, fileSystem)
+                    {
+                        Messages = messages, AppName = _config.AppName,
+                        ServiceManager = services.ServiceManager, DeclaredServices = _config.Services,
+                    }.RunAsync(dispatch, ct),
                 _ => InstellaExitCode.UsageUnknownMode,
             };
             return (int)exit;

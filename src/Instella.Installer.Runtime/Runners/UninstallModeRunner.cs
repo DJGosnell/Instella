@@ -70,7 +70,7 @@ internal sealed class UninstallModeRunner
         // the files that are actually there.
         try
         {
-            await Core.Transactions.InstallTransaction.RecoverAsync(_fileSystem, installPath, ct, _log);
+            await Core.Services.ServiceRecovery.RecoverAsync(_fileSystem, installPath, _config.Services, ServiceManager, _log, ct);
         }
         catch (UnsupportedJournalException ex)
         {

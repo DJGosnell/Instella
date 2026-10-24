@@ -110,8 +110,9 @@ internal sealed class UpdaterEngine
         {
             SetState(UpdaterState.Initializing);
 
-            // 1. Recover: finish or undo anything a previous run left half-done.
-            if (await InstallTransaction.RecoverAsync(_fs, _args.AppPath, token, retryDelays: _retryDelays))
+            // 1. Recover: finish or undo anything a previous run left half-done, and start again
+            // the services it had stopped.
+            if (await ServiceRecovery.RecoverAsync(_fs, _args.AppPath, DeclaredServices, ServiceManager, new EngineLog(this), token, _retryDelays))
                 Log("Rolled back an interrupted update before starting");
 
             // 2. Load state.
@@ -155,6 +156,8 @@ internal sealed class UpdaterEngine
             txn = await InstallTransaction.BeginAsync(
                 _fs, _args.AppPath, _args.Repair ? TxnKind.Repair : TxnKind.Update, installed.Version, target,
                 token, retryDelays: _retryDelays);
+            // So that --recover starts them again if this run never gets to.
+            await ServicesRunningFile.WriteAsync(_fs, txn, _stoppedServices, token);
             await StageAsync(txn, installed, release, plan, token);
 
             // 7. Commit: from here on the operation ignores cancellation. With an upgrade program the

@@ -47,12 +47,23 @@ public class ServiceDocsTests
     }
 
     [Test]
-    public void AddServicesApiDoc_DoesNotClaimUninstallRemovesTheService()
+    public void AddServicesApiDoc_SaysUninstallStopsAndDeletesTheService()
     {
         var builders = Read("src/Instella.Installer.Runtime/Builders/PlatformBuilders.cs");
-        Assert.That(builders, Does.Not.Contain("uninstall removes it"),
-            "uninstall does not stop or delete services yet (docs/windows-services.md, Limits)");
-        Assert.That(builders, Does.Contain("uninstall leaves the service registered"));
+        Assert.That(builders, Does.Not.Contain("uninstall leaves the service registered"));
+        Assert.That(builders, Does.Contain("uninstall stops and deletes it"));
+    }
+
+    [Test]
+    public void TheGuide_CoversUninstallUpdatesRecoveryAndExits26And33()
+    {
+        var guide = Read("docs/windows-services.md");
+        Assert.That(guide, Does.Contain("UpdateServiceFailed").And.Contain("UninstallServiceFailed"));
+        Assert.That(guide, Does.Contain("marked for deletion"));
+        Assert.That(guide, Does.Contain("--recover"));
+        Assert.That(guide, Does.Not.Contain("do not stop, reconfigure or delete services yet"));
+        Assert.That(Read("llm.md"), Does.Contain("UpdateServiceFailed").And.Contain("UninstallServiceFailed"));
+        Assert.That(Read("CHANGELOG.md"), Does.Contain("UpdateServiceFailed").And.Contain("UninstallServiceFailed"));
     }
 
     [Test]
