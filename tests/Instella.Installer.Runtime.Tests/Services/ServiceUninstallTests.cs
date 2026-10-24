@@ -103,6 +103,21 @@ public partial class ServiceInstallTests
     }
 
     [Test]
+    public async Task Uninstall_ServiceHeldOpen_FinishesWithAWarning_ThatARestartMayBeNeeded()
+    {
+        var h = Installer("1.0", SimpleService);
+        Assert.That(await Install(h), Is.EqualTo(0));
+        Scm.SetHeldOpen("App.Svc", held: true);
+
+        var exit = await Uninstall(h);
+
+        Assert.That(exit, Is.EqualTo(0), Log(h));
+        Assert.That(Scm.Find("App.Svc")!.MarkedForDeletion, Is.True);
+        Assert.That(Log(h), Does.Contain("marked for deletion").And.Contain("restart"));
+        Assert.That(Live("App.exe"), Is.Null, "the uninstall finished");
+    }
+
+    [Test]
     public async Task FirstInstall_OverAServiceMarkedForDeletion_Exits16_AndSaysToRestart()
     {
         // What an uninstall can leave behind while Services or Event Viewer holds the service open.

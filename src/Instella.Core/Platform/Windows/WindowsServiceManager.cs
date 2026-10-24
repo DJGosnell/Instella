@@ -126,6 +126,59 @@ internal sealed partial class WindowsServiceManager : IServiceManager
         return Task.FromResult(ServiceResult.Ok);
     }
 
+    public async Task<ServiceResult> EndStopPendingProcessAsync(string name, TimeSpan timeout, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ct.ThrowIfCancellationRequested();
+        using var opened = Open(name, SERVICE_QUERY_STATUS, out var error);
+        if (opened is null) return Failure("open", name, error);
+        if (!TryQueryStatus(opened.Service, out var status, out error)) return Failure("query the status of", name, error);
+        var state = (ServiceState)status.dwCurrentState;
+        if (state == ServiceState.Stopped) return ServiceResult.Ok;
+        if (state != ServiceState.StopPending)
+            return ServiceResult.Fail(ServiceFailure.Failed, $"Service '{name}' is {state}, not stopping: its process is not ended.");
+
+        var pid = status.dwProcessId;
+        if (pid == 0 || pid == (uint)Environment.ProcessId)
+            return ServiceResult.Fail(ServiceFailure.Failed, $"Service '{name}' has no process this program may end (process id {pid}).");
+
+        using (var process = NativeMethods.OpenProcess(PROCESS_TERMINATE, 0, pid))
+        {
+            if (process.IsInvalid) return Failure("open the process of", name, Marshal.GetLastPInvokeError());
+            // The open handle pins the id: if the service still reports it, it is the service's process.
+            if (!TryQueryStatus(opened.Service, out status, out error)) return Failure("query the status of", name, error);
+            if ((ServiceState)status.dwCurrentState == ServiceState.Stopped) return ServiceResult.Ok;
+            if (status.dwProcessId != pid)
+                return ServiceResult.Fail(ServiceFailure.Failed, $"Service '{name}' changed process while it was being ended.");
+            if (NativeMethods.TerminateProcess(process, 1) == 0)
+                return Failure("end the process of", name, Marshal.GetLastPInvokeError());
+        }
+        return await WaitAsync(opened.Service, name, ServiceState.Stopped, timeout, ct).ConfigureAwait(false);
+    }
+
+    /// <remarks>
+    /// A change with every field <c>SERVICE_NO_CHANGE</c> writes nothing, and the SCM answers it
+    /// with <c>ERROR_SERVICE_MARKED_FOR_DELETE</c> for a deleted service; opening one can fail with
+    /// the same error. Needs the right to change the service's configuration (elevation).
+    /// </remarks>
+    public unsafe Task<ServiceResult<bool>> IsMarkedForDeletionAsync(string name, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ct.ThrowIfCancellationRequested();
+        using var opened = Open(name, SERVICE_CHANGE_CONFIG, out var error);
+        if (opened is null)
+            return Task.FromResult(error == ServiceErrors.MarkedForDelete
+                ? ServiceResult<bool>.Ok(true)
+                : Failure<bool>("open", name, error));
+        if (NativeMethods.ChangeServiceConfigW(opened.Service, SERVICE_NO_CHANGE, SERVICE_NO_CHANGE, SERVICE_NO_CHANGE,
+                null, null, 0, null, null, null, null) != 0)
+            return Task.FromResult(ServiceResult<bool>.Ok(false));
+        error = Marshal.GetLastPInvokeError();
+        return Task.FromResult(error == ServiceErrors.MarkedForDelete
+            ? ServiceResult<bool>.Ok(true)
+            : Failure<bool>("query the deletion state of", name, error));
+    }
+
     // ----- create / change -----
 
     private static unsafe ServiceResult Create(ServiceConfiguration c, char[]? password)
@@ -576,6 +629,8 @@ internal sealed partial class WindowsServiceManager : IServiceManager
     private const uint SERVICE_CONTROL_STOP = 0x00000001;
     private const uint SERVICE_ACTIVE = 0x00000001;
     private const uint INFINITE = 0xFFFFFFFF;
+    private const uint SERVICE_NO_CHANGE = 0xFFFFFFFF;
+    private const uint PROCESS_TERMINATE = 0x0001;
     private const int SC_STATUS_PROCESS_INFO = 0;
     private const int ERROR_INSUFFICIENT_BUFFER = 122;
     private const int ERROR_MORE_DATA = 234;
@@ -716,5 +771,11 @@ internal sealed partial class WindowsServiceManager : IServiceManager
 
         [LibraryImport(Advapi32, SetLastError = true)]
         public static partial int CloseServiceHandle(nint hSCObject);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        public static partial SafeProcessHandle OpenProcess(uint dwDesiredAccess, int bInheritHandle, uint dwProcessId);
+
+        [LibraryImport("kernel32.dll", SetLastError = true)]
+        public static partial int TerminateProcess(SafeProcessHandle hProcess, uint uExitCode);
     }
 }

@@ -197,3 +197,5 @@ override Instella.Core.Manifest.ServiceDeclaration.GetHashCode() -> int
 override Instella.Core.Manifest.ServiceDeclaration.ToString() -> string!
 static Instella.Core.Manifest.ServiceDeclaration.operator !=(Instella.Core.Manifest.ServiceDeclaration? left, Instella.Core.Manifest.ServiceDeclaration? right) -> bool
 static Instella.Core.Manifest.ServiceDeclaration.operator ==(Instella.Core.Manifest.ServiceDeclaration? left, Instella.Core.Manifest.ServiceDeclaration? right) -> bool
+Instella.Core.Installation.InstellaExitCode.UpdateServiceFailed = 26 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstellaExitCode.UninstallServiceFailed = 33 -> Instella.Core.Installation.InstellaExitCode

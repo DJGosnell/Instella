@@ -48,6 +48,12 @@ internal sealed record InstallerServices(
     IServiceManager? ServiceManager = null,
     Core.Security.IInstallFolderAcl? FolderAcl = null)
 {
+    /// <summary>
+    /// How long uninstall waits for a deleted service to leave the service manager; null is 30 s.
+    /// The harness sets zero: a fake service lingers only while a test holds it open.
+    /// </summary>
+    public System.TimeSpan? ServiceDeletionWait { get; init; }
+
     /// <summary><see cref="StubDirectory"/>, or the folder of the running process.</summary>
     public string? StubDirectoryOrDefault() => (StubDirectory ?? Runners.InstallPaths.StubDirectory)();
 
