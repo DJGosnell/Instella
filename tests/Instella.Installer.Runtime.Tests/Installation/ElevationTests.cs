@@ -337,6 +337,26 @@ public partial class ElevationTests
         Assert.That(elevation.Relaunches, Is.Empty);
     }
 
+    [Test]
+    public async Task ServiceUpdate_NotElevated_Exits51_AtOnce_WithoutRelaunching()
+    {
+        // A service runs in session 0: no UAC prompt can be answered, so the updater started by
+        // StartServiceUpdateAsync never relaunches elevated, even for a machine install.
+        var fs = new InMemoryFileSystem();
+        var root = await WriteManifest(fs, perUser: false);
+        var elevation = new FakeElevation(elevated: false) { ChildExit = 0 };
+        var args = new UpdaterArgs
+        {
+            AppPath = root, AppExecutable = "App.exe", FromVersion = new Version(1, 0), ToVersion = new Version(1, 1), Silent = true,
+        }.ToArgumentList().Append("--service-update").ToArray();
+
+        var exit = await WithStubIn(root, () => Installer().RunAsync(args,
+            new InstallerServices(new FakePlatformServices(), fs, Elevation: elevation), CancellationToken.None));
+
+        Assert.That(exit, Is.EqualTo((int)InstellaExitCode.InsufficientPrivileges));
+        Assert.That(elevation.Relaunches, Is.Empty, "never asks for elevation");
+    }
+
     private static async Task<int> WithStubIn(string folder, Func<Task<int>> run)
     {
         var saved = InstallPaths.StubDirectory;
