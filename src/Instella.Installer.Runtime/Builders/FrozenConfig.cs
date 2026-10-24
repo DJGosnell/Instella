@@ -55,8 +55,18 @@ internal sealed record FrozenConfig(
     string? DownloadToken = null,
     IReadOnlyList<Migrations.InstallMigration>? Migrations = null,
     IReadOnlyList<string>? AppManagedRunValues = null,
-    IReadOnlyList<ServiceSpec>? DeclaredServices = null)
+    IReadOnlyList<ServiceSpec>? DeclaredServices = null,
+    string? ServicePasswordVariable = null)
 {
+    /// <summary>The environment variable a silent run reads a service account's password from.</summary>
+    public const string DefaultServicePasswordVariable = "INSTELLA_SERVICE_PASSWORD";
+
+    /// <summary><see cref="ServicePasswordVariable"/>, or <see cref="DefaultServicePasswordVariable"/>.</summary>
+    public string ServicePasswordVariableOrDefault => ServicePasswordVariable ?? DefaultServicePasswordVariable;
+
+    /// <summary>The declared services whose account is <see cref="ServiceAccount.FromInstaller"/>, in declaration order.</summary>
+    public IReadOnlyList<ServiceSpec> FromInstallerServices => Services.Where(s => s.Account.IsFromInstaller).ToArray();
+
     /// <summary>The registered migrations, sorted (timing, order, id); empty when none.</summary>
     public IReadOnlyList<Migrations.InstallMigration> MigrationsOrEmpty => Migrations ?? [];
 

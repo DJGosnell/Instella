@@ -18,6 +18,9 @@ namespace Instella.Installer.Runtime.Installation.BuiltIn;
 /// <remarks>Rollback stops the services this step started.</remarks>
 internal sealed class StartServicesStep(ServiceRun run) : IInstallStepExecution
 {
+    /// <summary><c>ERROR_SERVICE_LOGON_FAILED</c>: the service could not log on as its account.</summary>
+    private const int ErrorServiceLogonFailed = 1069;
+
     private readonly List<string> _started = [];
 
     public string Name => ServiceStepNames.StartServices;
@@ -52,7 +55,10 @@ internal sealed class StartServicesStep(ServiceRun run) : IInstallStepExecution
             }
             else
             {
-                var message = $"service '{spec.Name}' could not be started: {result.Outcome.Error}";
+                var message = result.NativeError == ErrorServiceLogonFailed
+                    ? $"the service '{spec.Name}' could not log on as '{ServiceRun.AccountNameFor(spec, context) ?? "LocalSystem"}' "
+                      + $"(error {ErrorServiceLogonFailed}): the account's user name or password is wrong, or it may not log on as a service"
+                    : $"service '{spec.Name}' could not be started: {result.Outcome.Error}";
                 if (!spec.StartFailureIsWarning)
                 {
                     // The executor rolls back only the steps that completed: stop what this one started.

@@ -128,6 +128,7 @@ internal sealed class InstallModeRunner
 
         Stream? payload = null;
         string? tempDownloadPath = null;
+        ServiceCredentials? credentials = null;
         try
         {
             var (mode, existing) = await InstallModeResolver.ResolveAsync(_config, _fileSystem, installPath, dispatch, _log, ct, Services?.ServiceManager);
@@ -155,6 +156,8 @@ internal sealed class InstallModeRunner
                 _config, mode, installPath, options, _platform, _fileSystem, _log,
                 existing: existing, cli: dispatch.CliOrEmpty, pages: pages);
             await PageFlow.ResolveSilentlyAsync(_config, mode, dispatch.CliOrEmpty, context, pages, ct);
+            credentials = ServiceCredentials.ResolveSilently(_config, mode, dispatch.CliOrEmpty.Raw, existing);
+            context.ServiceCredentials = credentials;
 
             payload = Services?.Payload?.Invoke() ?? OpenEmbeddedPayload();
             if (payload is null)
@@ -236,6 +239,7 @@ internal sealed class InstallModeRunner
         }
         finally
         {
+            credentials?.Dispose();
             payload?.Dispose();
             if (tempDownloadPath is not null && File.Exists(tempDownloadPath))
             {

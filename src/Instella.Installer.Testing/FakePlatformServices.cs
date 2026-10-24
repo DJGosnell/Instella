@@ -45,6 +45,12 @@ public sealed class FakePlatformServices : IPlatformServices
     /// <summary>The in-memory Windows service manager the harness gives the installer.</summary>
     public FakeServiceManager ServiceManager { get; } = new();
 
+    /// <summary>The in-memory "Log on as a service" rights the harness gives the installer.</summary>
+    public FakeLogonRights LogonRights { get; } = new();
+
+    /// <summary>The in-memory accounts the harness checks service-account credentials against.</summary>
+    public FakeCredentialChecker Credentials { get; } = new();
+
     private readonly List<string> _writableByNonAdmins = new();
 
     /// <summary>

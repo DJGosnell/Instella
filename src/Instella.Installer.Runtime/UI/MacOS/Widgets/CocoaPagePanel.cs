@@ -134,6 +134,7 @@ internal sealed class CocoaPagePanel : IDisposable
         {
             case CheckBox:
             case TextInput:
+            case PasswordInput:
             case Dropdown:
             case FolderPicker:
             case FilePicker:

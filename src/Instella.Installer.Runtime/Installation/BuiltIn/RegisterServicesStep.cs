@@ -17,11 +17,20 @@ namespace Instella.Installer.Runtime.Installation.BuiltIn;
 /// <remarks>
 /// Rollback deletes what it created (stopping it first) and writes back the configuration it
 /// snapshotted before each change, unless <c>stop-services</c>' rollback already did, then starts
-/// whatever <c>stop-services</c> stopped and nothing has restarted yet.
+/// whatever <c>stop-services</c> stopped and nothing has restarted yet, and revokes the "Log on
+/// as a service" rights it granted.
+/// <para>
+/// A custom account (gMSA or <see cref="Runtime.Builders.ServiceAccount.FromInstaller"/>) is granted
+/// <c>SeServiceLogonRight</c> when it lacks it, once per account, and the grant is recorded for the
+/// installed manifest. A <c>FromInstaller</c> service gets a fresh copy of the run's password on each
+/// create or change; with none (an upgrade that keeps the account) the service manager keeps the
+/// stored secret. The password is zeroed when the step ends, whether it succeeded or not.
+/// </para>
 /// </remarks>
 internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecution
 {
     private readonly List<string> _created = [];
+    private readonly List<string> _granted = [];
 
     public string Name => ServiceStepNames.RegisterServices;
     public InstallStage Stage => InstallStage.Register;
@@ -29,6 +38,21 @@ internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecuti
 
     public async Task<StepResult> ExecuteAsync(InstallContext context, IStepProgress progress, CancellationToken cancellationToken)
     {
+        try
+        {
+            return await RegisterAsync(context, progress, cancellationToken);
+        }
+        finally
+        {
+            context.ServiceCredentials?.ClearPassword();
+        }
+    }
+
+    private async Task<StepResult> RegisterAsync(InstallContext context, IStepProgress progress, CancellationToken cancellationToken)
+    {
+        // Rights recorded by the existing installation stay recorded: uninstall revokes them.
+        var granted = new List<string>(context.ExistingInstallation?.GrantedLogonRights ?? []);
+        context.GrantedLogonRights = granted;
         var recorded = new List<ManifestService>();
         context.ManifestServices = recorded;
         if (run.Declared.Count == 0)
@@ -47,6 +71,12 @@ internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecuti
                 return StepResult.Fail($"service '{spec.Name}': executable '{rel}' is not in the payload");
         }
 
+        if (await GrantLogonRightsAsync(context, granted, cancellationToken) is { } grantError)
+        {
+            await UndoAfterFailureAsync(context);
+            return StepResult.Fail(grantError);
+        }
+
         var scm = ServiceRun.Manager(context);
         var ordered = run.InStartOrder();
         for (var i = 0; i < ordered.Count; i++)
@@ -63,14 +93,14 @@ internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecuti
                 else
                 {
                     run.Snapshots[spec.Name] = existing.Value!;
-                    var changed = await scm.ChangeConfigurationAsync(configuration, null, cancellationToken);
+                    var changed = await scm.ChangeConfigurationAsync(configuration, PasswordFor(spec, context), cancellationToken);
                     error = changed.Outcome.Success ? null : $"service '{spec.Name}' could not be reconfigured: {changed.Outcome.Error}";
                     if (error is null) context.Log.Info($"services: reconfigured '{spec.Name}' ({configuration.BinaryPath})");
                 }
             }
             else if (existing.Failure == ServiceFailure.NotFound)
             {
-                var created = await scm.CreateAsync(configuration, null, cancellationToken);
+                var created = await scm.CreateAsync(configuration, PasswordFor(spec, context), cancellationToken);
                 error = created.Outcome.Success ? null : $"service '{spec.Name}' could not be created: {created.Outcome.Error}";
                 if (error is null)
                 {
@@ -90,7 +120,7 @@ internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecuti
                 return StepResult.Fail(error);
             }
 
-            recorded.Add(new ManifestService(spec.Name, ServiceRun.RelativeExecutable(spec, context), spec.AccountName,
+            recorded.Add(new ManifestService(spec.Name, ServiceRun.RelativeExecutable(spec, context), configuration.AccountName,
                 spec.ManifestStartType, previous?.CreatedByInstella ?? true));
             progress.Report((i + 1) / (double)ordered.Count);
         }
@@ -98,6 +128,42 @@ internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecuti
         // The manifest lists them in declaration order.
         recorded.Sort((a, b) => IndexOf(a.Name).CompareTo(IndexOf(b.Name)));
         return StepResult.Ok;
+    }
+
+    /// <summary>A fresh copy of the run's password for a <c>FromInstaller</c> service (the seam zeroes it), or null.</summary>
+    private static char[]? PasswordFor(Runtime.Builders.ServiceSpec spec, InstallContext context) =>
+        spec.Account.NeedsPassword ? context.ServiceCredentials?.CopyPassword() : null;
+
+    /// <summary>
+    /// Grants "Log on as a service" to each distinct custom account that lacks it, and records it in
+    /// <paramref name="granted"/>; returns why it failed, or null. Built-in and virtual accounts never
+    /// reach the LSA.
+    /// </summary>
+    private async Task<string?> GrantLogonRightsAsync(InstallContext context, List<string> granted, CancellationToken ct)
+    {
+        var accounts = run.Declared
+            .Where(s => s.Account.NeedsLogonRight)
+            .Select(s => ServiceRun.AccountNameFor(s, context))
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (accounts.Count == 0) return null;
+
+        var rights = context.LogonRights ?? throw new InvalidOperationException("no logon-rights service was given to the install");
+        foreach (var account in accounts)
+        {
+            var query = await rights.HasAsync(account, ct);
+            if (!query.Outcome.Success)
+                return $"could not read whether '{account}' may log on as a service: {query.Outcome.Error}";
+            if (query.Has) continue;
+            var grant = await rights.GrantAsync(account, ct);
+            if (!grant.Success)
+                return $"could not grant '{account}' the right to log on as a service (SeServiceLogonRight): {grant.Error}";
+            _granted.Add(account);
+            if (!granted.Contains(account, StringComparer.OrdinalIgnoreCase)) granted.Add(account);
+            context.Log.Info($"services: granted '{account}' the right to log on as a service");
+        }
+        return null;
     }
 
     private int IndexOf(string name)
@@ -143,6 +209,22 @@ internal sealed class RegisterServicesStep(ServiceRun run) : IInstallStepExecuti
 
         await run.RestoreSnapshotsAsync(context, problems, cancellationToken);
         await run.RestartStoppedAsync(context, problems, cancellationToken);
+
+        // Only the rights this run granted: one the account already had is left alone.
+        if (_granted.Count > 0 && context.LogonRights is { } rights)
+        {
+            for (var i = _granted.Count - 1; i >= 0; i--)
+            {
+                var account = _granted[i];
+                var revoked = await rights.RevokeAsync(account, cancellationToken);
+                if (revoked.Success)
+                    context.Log.Info($"services: revoked the right to log on as a service this install had granted '{account}'");
+                else
+                    problems.Add($"could not revoke the right to log on as a service from '{account}': {revoked.Error}");
+                context.GrantedLogonRights?.RemoveAll(a => string.Equals(a, account, StringComparison.OrdinalIgnoreCase));
+            }
+            _granted.Clear();
+        }
         ServiceRun.ThrowIfProblems(context, Name, problems);
     }
 }

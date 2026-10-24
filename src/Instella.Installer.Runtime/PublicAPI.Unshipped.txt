@@ -101,3 +101,21 @@ static Instella.Installer.Runtime.Builders.ServiceAccount.LocalService.get -> In
 static Instella.Installer.Runtime.Builders.ServiceAccount.LocalSystem.get -> Instella.Installer.Runtime.Builders.ServiceAccount!
 static Instella.Installer.Runtime.Builders.ServiceAccount.NetworkService.get -> Instella.Installer.Runtime.Builders.ServiceAccount!
 static Instella.Installer.Runtime.Builders.ServiceAccount.VirtualAccount.get -> Instella.Installer.Runtime.Builders.ServiceAccount!
+Instella.Installer.Runtime.Builders.PageBuilder.PasswordInput(string! id, string! label) -> Instella.Installer.Runtime.Builders.PageBuilder!
+Instella.Installer.Runtime.Builders.WindowsBuilder.WithServicePasswordVariable(string! name) -> Instella.Installer.Runtime.Builders.WindowsBuilder!
+Instella.Installer.Runtime.UI.Widgets.PageState.UsePassword(string! id, System.Action<System.ReadOnlySpan<char>>! use) -> void
+Instella.Installer.Runtime.UI.Widgets.PasswordInput
+Instella.Installer.Runtime.UI.Widgets.PasswordInput.Deconstruct(out string! Label) -> void
+Instella.Installer.Runtime.UI.Widgets.PasswordInput.Equals(Instella.Installer.Runtime.UI.Widgets.PasswordInput? other) -> bool
+Instella.Installer.Runtime.UI.Widgets.PasswordInput.Label.get -> string!
+Instella.Installer.Runtime.UI.Widgets.PasswordInput.Label.init -> void
+Instella.Installer.Runtime.UI.Widgets.PasswordInput.PasswordInput(string! Label) -> void
+override Instella.Installer.Runtime.UI.Widgets.PasswordInput.<Clone>$() -> Instella.Installer.Runtime.UI.Widgets.PasswordInput!
+override Instella.Installer.Runtime.UI.Widgets.PasswordInput.Equals(object? obj) -> bool
+override Instella.Installer.Runtime.UI.Widgets.PasswordInput.GetHashCode() -> int
+override Instella.Installer.Runtime.UI.Widgets.PasswordInput.ToString() -> string!
+override sealed Instella.Installer.Runtime.UI.Widgets.PasswordInput.Equals(Instella.Installer.Runtime.UI.Widgets.Widget? other) -> bool
+static Instella.Installer.Runtime.Builders.ServiceAccount.FromInstaller(string? defaultUser = null) -> Instella.Installer.Runtime.Builders.ServiceAccount!
+static Instella.Installer.Runtime.Builders.ServiceAccount.ManagedServiceAccount(string! name) -> Instella.Installer.Runtime.Builders.ServiceAccount!
+static Instella.Installer.Runtime.UI.Widgets.PasswordInput.operator !=(Instella.Installer.Runtime.UI.Widgets.PasswordInput? left, Instella.Installer.Runtime.UI.Widgets.PasswordInput? right) -> bool
+static Instella.Installer.Runtime.UI.Widgets.PasswordInput.operator ==(Instella.Installer.Runtime.UI.Widgets.PasswordInput? left, Instella.Installer.Runtime.UI.Widgets.PasswordInput? right) -> bool

@@ -384,6 +384,33 @@ before an uninstall.
   program runs, so a crash is rolled back by the next run's recovery. The app's data is the program's
   responsibility: it must leave data the old version can use when it fails.
 
+## Service account credentials
+
+A Windows service declared with `ServiceAccount.FromInstaller` runs as an account the person
+installing supplies, with its password ([windows-services.md](windows-services.md#accounts)). The
+password is handled so that it reaches the service manager and nothing else:
+
+- **Wizard.** The `service-account` page's password fields are `PasswordInput` widgets: a masked
+  native field (`ES_PASSWORD` on Windows). What is typed is held in a `char[]` outside `PageState`'s
+  values, so `Text`, `Get`, `Snapshot`, page hooks and `StateChanged` never see it; author code reads
+  it only through `PageState.UsePassword`. A `PasswordInput` has no default and `MapCliFlag` onto one
+  fails `Build()`, so it can never be filled from the command line.
+- **Silent.** The password comes from `--service-password-file <path>` (read once, left in place) or
+  the `INSTELLA_SERVICE_PASSWORD` environment variable (renamed with `WithServicePasswordVariable`).
+  There is no `--service-password` flag: a command line is readable by every process on the machine
+  and is kept in shell history and process-creation logs. Protect the password file with an access
+  list and delete it after the install.
+- **Never written down.** The password is never logged, written to stderr, put in the installed
+  manifest or passed to the elevated relaunch. Each call into the service manager gets its own copy,
+  zeroed on return; the run's buffer is zeroed when `register-services` ends (success or failure),
+  and every masked field's buffer when the wizard closes.
+- **The test logon** run when the user presses Next is one network logon (`LogonUserW`); its token is
+  closed at once.
+- **"Log on as a service".** `SeServiceLogonRight` is granted only to an account that lacks it, and
+  the grant is recorded in the installed manifest. Rollback revokes only the grants of the failed run,
+  and uninstall only the recorded ones: a right an administrator gave the account is never removed.
+  Built-in and virtual accounts never touch the local security policy.
+
 ## Path containment
 
 Every relative path that comes from outside the process goes through `SafePath` before it becomes

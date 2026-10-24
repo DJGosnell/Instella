@@ -74,6 +74,18 @@ public sealed class PageBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a masked password box. Its value is kept outside page state: read it with
+    /// <see cref="PageState.UsePassword"/> under <paramref name="id"/>. It cannot be mapped to a CLI flag.
+    /// </summary>
+    public PageBuilder PasswordInput(string id, string label)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        ArgumentException.ThrowIfNullOrEmpty(label);
+        _widgets.Add(new PasswordInput(label) { Id = id });
+        return this;
+    }
+
     /// <summary>Adds a check box; its value is stored in page state under <paramref name="id"/>.</summary>
     public PageBuilder CheckBox(string id, string label, bool defaultValue = false)
     {

@@ -108,7 +108,7 @@ internal static class CocoaLayoutEngine
         Paragraph p => ParagraphLineHeight * EstimateWrappedLines(p.Text, contentWidthPx),
         ScrollableText => ScrollableTextHeight,
         BrandImage img => img.MaxHeight,
-        TextInput => LabelRowHeight + LabelToControlGap + EditHeight,
+        TextInput or PasswordInput => LabelRowHeight + LabelToControlGap + EditHeight,
         CheckBox => CheckBoxHeight,
         RadioGroup rg => LabelRowHeight + LabelToControlGap
             + RadioOptionHeight * rg.Options.Count

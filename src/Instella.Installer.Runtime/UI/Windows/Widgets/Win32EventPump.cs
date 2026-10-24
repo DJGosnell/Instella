@@ -86,6 +86,10 @@ internal sealed class Win32EventPump
                 WriteEditText(instance, ti.Id);
                 return true;
 
+            case PasswordInput pw when notifCode == EN.CHANGE:
+                WriteEditSecret(instance, pw.Id);
+                return true;
+
             case FolderPicker fp when notifCode == EN.CHANGE:
                 WriteEditText(instance, fp.Id);
                 return true;
@@ -117,6 +121,28 @@ internal sealed class Win32EventPump
         if (string.IsNullOrEmpty(id)) return;
         var text = Win32.GetWindowText(instance.PrimaryHwnd);
         _state.Set(id, text);
+    }
+
+    /// <summary>
+    /// Reads a masked EDIT straight into a new <c>char[]</c> (never a string) and hands it to page
+    /// state as a secret, which zeroes the buffer it replaces. The read buffer is zeroed too.
+    /// </summary>
+    private void WriteEditSecret(Win32WidgetInstance instance, string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var length = Win32.GetWindowTextLengthW(instance.PrimaryHwnd);
+        var read = new char[length + 1];
+        try
+        {
+            var got = length == 0 ? 0 : Win32.GetWindowTextW(instance.PrimaryHwnd, read, read.Length);
+            var secret = new char[Math.Clamp(got, 0, length)];
+            read.AsSpan(0, secret.Length).CopyTo(secret);
+            _state.SetSecret(id, secret);
+        }
+        finally
+        {
+            Array.Clear(read);
+        }
     }
 
     private void WriteDropdownSelection(Win32WidgetInstance instance, Dropdown dd)

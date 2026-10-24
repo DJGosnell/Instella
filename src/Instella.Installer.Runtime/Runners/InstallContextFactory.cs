@@ -129,6 +129,9 @@ internal static class InstallContextFactory
             AppManagedRunValues = original.AppManagedRunValues,
             Migrations = original.Migrations,
             ServiceManager = original.ServiceManager,
+            LogonRights = original.LogonRights,
+            Credentials = original.Credentials,
+            ServiceCredentials = original.ServiceCredentials,
         };
     }
 

@@ -233,7 +233,9 @@ public sealed class InstellaTestHarness : IAsyncDisposable
                 Programs: _programs,
                 Log: Logger,
                 ServiceManager: PlatformServices.ServiceManager,
-                FolderAcl: PlatformServices.FolderAcl)
+                FolderAcl: PlatformServices.FolderAcl,
+                LogonRights: PlatformServices.LogonRights,
+                Credentials: PlatformServices.Credentials)
             {
                 ServiceDeletionWait = TimeSpan.Zero,
             }, cancellationToken);

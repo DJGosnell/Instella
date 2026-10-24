@@ -22,16 +22,22 @@ public enum ServiceStartMode
 }
 
 /// <summary>
-/// The account a Windows service runs as. Only the built-in accounts and the per-service virtual
-/// account are supported; none of them needs a password.
+/// The account a Windows service runs as: a built-in account, the per-service virtual account, a
+/// group-managed service account (<see cref="ManagedServiceAccount"/>) or a user account the person
+/// installing supplies (<see cref="FromInstaller"/>). Only the last needs a password.
 /// </summary>
 public sealed class ServiceAccount
 {
-    private enum Kind { LocalSystem, LocalService, NetworkService, Virtual }
+    private enum Kind { LocalSystem, LocalService, NetworkService, Virtual, Managed, FromInstaller }
 
     private readonly Kind _kind;
+    private readonly string? _name;
 
-    private ServiceAccount(Kind kind) => _kind = kind;
+    private ServiceAccount(Kind kind, string? name = null)
+    {
+        _kind = kind;
+        _name = name;
+    }
 
     /// <summary>LocalSystem, the default: full rights on the machine.</summary>
     public static ServiceAccount LocalSystem { get; } = new(Kind.LocalSystem);
@@ -48,20 +54,87 @@ public sealed class ServiceAccount
     /// </summary>
     public static ServiceAccount VirtualAccount { get; } = new(Kind.Virtual);
 
-    /// <summary>The account name written to the service manager; null is LocalSystem.</summary>
+    /// <summary>
+    /// A group-managed service account, <c>DOMAIN\name$</c>: Windows supplies its password, so none is
+    /// asked for. The account is granted "Log on as a service" (<c>SeServiceLogonRight</c>) when it
+    /// lacks it.
+    /// </summary>
+    /// <exception cref="ArgumentException">The name is not <c>DOMAIN\name$</c>.</exception>
+    public static ServiceAccount ManagedServiceAccount(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var slash = name.IndexOf('\\', StringComparison.Ordinal);
+        if (slash <= 0 || slash != name.LastIndexOf('\\') || !name.EndsWith('$') || name.Length - slash - 1 < 2)
+            throw new ArgumentException($"a group-managed service account is 'DOMAIN\\name$', not '{name}'", nameof(name));
+        return new ServiceAccount(Kind.Managed, name);
+    }
+
+    /// <summary>
+    /// A user account the person installing supplies: on the built-in <c>service-account</c> wizard
+    /// page, or silently with <c>--service-account</c> and <c>--service-password-file</c> (or the
+    /// <c>INSTELLA_SERVICE_PASSWORD</c> environment variable). Every service using it shares the one
+    /// account; the <paramref name="defaultUser"/> of the first such service pre-fills the page and is
+    /// the silent default. A name without <c>\</c> or <c>@</c> is a local account (<c>.\name</c>).
+    /// </summary>
+    public static ServiceAccount FromInstaller(string? defaultUser = null) =>
+        new(Kind.FromInstaller, string.IsNullOrWhiteSpace(defaultUser) ? null : NormalizeUser(defaultUser));
+
+    /// <summary>
+    /// The account name as the service manager takes it: a name without <c>\</c> and without
+    /// <c>@</c> gets <c>.\</c> (a local account); any other is used as given, trimmed.
+    /// </summary>
+    internal static string NormalizeUser(string user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        var trimmed = user.Trim();
+        return trimmed.Length == 0 || trimmed.Contains('\\') || trimmed.Contains('@') ? trimmed : @".\" + trimmed;
+    }
+
+    /// <summary>True for <see cref="FromInstaller"/>: the account is resolved at install time.</summary>
+    internal bool IsFromInstaller => _kind == Kind.FromInstaller;
+
+    /// <summary>True for a custom account (gMSA or installer-supplied), as opposed to a built-in or virtual one.</summary>
+    internal bool IsCustom => _kind is Kind.Managed or Kind.FromInstaller;
+
+    /// <summary>True when the service manager needs a password for the account (<see cref="FromInstaller"/>).</summary>
+    internal bool NeedsPassword => _kind == Kind.FromInstaller;
+
+    /// <summary>True when the account needs "Log on as a service" granted; built-in and virtual accounts have it.</summary>
+    internal bool NeedsLogonRight => IsCustom;
+
+    /// <summary>The <see cref="FromInstaller"/> default user (normalised), or null.</summary>
+    internal string? DefaultUser => _kind == Kind.FromInstaller ? _name : null;
+
+    /// <summary>
+    /// The account name written to the service manager; null is LocalSystem. For
+    /// <see cref="FromInstaller"/> it is the default user, until the install resolves the account.
+    /// </summary>
     internal string? AccountNameFor(string serviceName) => _kind switch
     {
         Kind.LocalSystem => null,
         Kind.LocalService => @"NT AUTHORITY\LocalService",
         Kind.NetworkService => @"NT AUTHORITY\NetworkService",
+        Kind.Managed or Kind.FromInstaller => _name,
         _ => @"NT SERVICE\" + serviceName,
     };
 
     /// <summary>The service SID type the account needs.</summary>
     internal ServiceSidType SidType => _kind == Kind.Virtual ? ServiceSidType.Unrestricted : ServiceSidType.None;
 
+    /// <summary>
+    /// True when <paramref name="accountName"/>, as an installed manifest records it, is a custom
+    /// account: not null, not <c>NT AUTHORITY\…</c> or <c>NT SERVICE\…</c>, not LocalSystem and not a
+    /// gMSA (<c>…$</c>).
+    /// </summary>
+    internal static bool IsRecordedCustomUser(string? accountName) =>
+        !string.IsNullOrWhiteSpace(accountName)
+        && !accountName.StartsWith(@"NT AUTHORITY\", StringComparison.OrdinalIgnoreCase)
+        && !accountName.StartsWith(@"NT SERVICE\", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(accountName, "LocalSystem", StringComparison.OrdinalIgnoreCase)
+        && !accountName.EndsWith('$');
+
     /// <inheritdoc/>
-    public override string ToString() => _kind.ToString();
+    public override string ToString() => _name is null ? _kind.ToString() : $"{_kind}({_name})";
 }
 
 /// <summary>

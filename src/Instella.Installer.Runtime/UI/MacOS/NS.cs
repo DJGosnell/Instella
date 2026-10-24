@@ -87,6 +87,16 @@ internal static class NS
         return field;
     }
 
+    // NSSecureTextField (masked); a plain NSTextField when the class is not there.
+    internal static nint CreateSecureTextField(NSRect frame)
+    {
+        if (Class("NSSecureTextField") == 0) return CreateTextField(string.Empty, frame);
+        var field = ObjC.msgSendRect(Alloc("NSSecureTextField"), Sel("initWithFrame:"), frame);
+        ObjC.msgSendVoid(field, Sel("setBezeled:"), 1);
+        ObjC.msgSendVoid(field, Sel("setEditable:"), 1);
+        return field;
+    }
+
     // NSButton (push button)
     internal static nint CreateButton(string title, NSRect frame)
     {

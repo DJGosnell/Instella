@@ -17,6 +17,12 @@ public sealed record BrandImage(ImageSource Source, int MaxHeight = 96) : Widget
 /// <summary>Single-line text input bound to <see cref="Widget.Id"/>.</summary>
 public sealed record TextInput(string Label, string Default = "") : Widget;
 
+/// <summary>
+/// Masked single-line text input. What is typed never enters <see cref="PageState"/>'s values:
+/// read it with <see cref="PageState.UsePassword"/>. It has no default and cannot be filled by a CLI flag.
+/// </summary>
+public sealed record PasswordInput(string Label) : Widget;
+
 /// <summary>Boolean check box bound to <see cref="Widget.Id"/>.</summary>
 public sealed record CheckBox(string Label, bool Default = false) : Widget;
 
