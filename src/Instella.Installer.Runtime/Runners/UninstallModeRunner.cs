@@ -219,6 +219,12 @@ internal sealed class UninstallModeRunner
         var deleted = new List<string>();
         foreach (var name in services.Names)
         {
+            // A service that was there before the install is not ours to delete: it stays stopped.
+            if (manifest.Services!.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) && !s.CreatedByInstella))
+            {
+                _log.Info($"services: left '{name}' registered (it existed before the install)");
+                continue;
+            }
             var result = await services.Manager.DeleteAsync(name, ct);
             // Gone already, or deleted already (it goes once it stops and nothing holds it open).
             if (result.Outcome.Success || result.Failure is ServiceFailure.NotFound or ServiceFailure.MarkedForDeletion)

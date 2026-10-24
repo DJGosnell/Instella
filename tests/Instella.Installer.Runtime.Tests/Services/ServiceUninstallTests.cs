@@ -138,4 +138,36 @@ public partial class ServiceInstallTests
             .And.Contain("restart").IgnoreCase);
         Assert.That(Live("App.exe"), Is.Null, "nothing was installed");
     }
+
+    [Test, Platform("Win")]
+    public async Task Uninstall_DoesNotDelete_AServiceTheInstallationDidNotCreate()
+    {
+        var fs = new Instella.Installer.Testing.InMemoryFileSystem();
+        var platform = new Instella.Installer.Testing.FakePlatformServices();
+        var installPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "instella-probe", Guid.NewGuid().ToString("N"), "App");
+        var builder = Instella.Installer.Runtime.Builders.InstellaInstaller.Create()
+            .WithApp("App", "com.example.app", Version.Parse("1.0"))
+            .WithExecutableName("App.exe")
+            .WithElevation(Instella.Core.Manifest.ElevationMode.SystemWide)
+            .OnWindows(w => w.AddService("App.Svc", s => s.WithArguments("--service")));
+        await using var harness = Instella.Installer.Testing.InstellaTestHarness.Create()
+            .WithInstaller(builder.Build())
+            .WithFileSystem(fs)
+            .WithPlatformServices(platform)
+            .WithElevationService(new Instella.Installer.Testing.FakeElevationService(isElevated: true))
+            .WithPayload(new System.Collections.Generic.Dictionary<string, string> { ["App.exe"] = "app 1.0" })
+            .Build();
+        Assert.That(await harness.RunFullWithArgsAsync(["--install", "--silent", "--path", installPath]), Is.EqualTo(0));
+
+        var writer = new Instella.Core.Installation.InstallManifestWriter(fs);
+        var manifest = (await writer.ReadAsync(installPath, System.Threading.CancellationToken.None))!;
+        manifest = manifest with { Services = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Select(manifest.Services!, s => s with { CreatedByInstella = false })) };
+        await writer.WriteAsync(installPath, manifest, System.Threading.CancellationToken.None);
+
+        var exit = await harness.RunFullWithArgsAsync(["--uninstall", "--silent", "--path", installPath]);
+
+        Assert.That(exit, Is.EqualTo(0));
+        Assert.That(platform.ServiceManager.Find("App.Svc"), Is.Not.Null,
+            "a service the installation found already registered (CreatedByInstella false) is not deleted by uninstall");
+    }
 }

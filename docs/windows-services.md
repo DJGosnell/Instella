@@ -149,6 +149,9 @@ migrations, `OnUninstall` hooks, integrations and files. When a service cannot b
 the uninstall exits 33, names the service, starts again the ones it had stopped and removes nothing
 else; the installation can be uninstalled later.
 
+A service that already existed when the installation was made (the manifest records it as not
+created by Instella) is stopped but never deleted: it stays registered, stopped.
+
 ## Marked for deletion
 
 Windows removes a deleted service only once nothing holds it open. While the Services console, Event
