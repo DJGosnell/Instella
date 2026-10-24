@@ -500,6 +500,9 @@ internal sealed class InteractiveInstallRunner
     /// <summary>Starts the app's upgrade program (and migration programs); null starts real processes.</summary>
     internal Migrations.IProgramRunner? Programs { get; init; }
 
+    /// <summary>Injected services: the service manager and the folder check of a service install; null uses the host's.</summary>
+    internal InstallerServices? Services { get; init; }
+
     /// <summary>
     /// Resolve the install path used to seed the Options folder picker:
     /// an explicit <c>--path</c> wins; otherwise a configured
@@ -619,11 +622,10 @@ internal sealed class InteractiveInstallRunner
                 payload = await ServerPayloadDownloader.DownloadAsync(_config, tempDownloadPath, _log, http, ct);
             }
             context.PayloadArchive = payload;
+            // Throws InstallRefusedException (exit 10) before anything changes, as the silent run does.
+            await ServicePreflight.PrepareAsync(_config, context, Services, ct);
 
-            var builtIns = new List<IInstallStepExecution>(OfflineInstallRunner.BuildDefaultSteps());
-            if (_config.RegistryWrites.Count > 0)
-                builtIns.Add(new WriteRegistrySpecsStep(_config.RegistryWrites));
-
+            var builtIns = BuiltInSteps.For(_config, context.ExistingInstallation);
             var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
             _stepDisplayNames = StepDisplayNames.Map(steps);
             var progressSink = new HostProgressSink(host, progressState, _stepDisplayNames);

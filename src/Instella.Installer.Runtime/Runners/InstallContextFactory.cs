@@ -128,6 +128,7 @@ internal static class InstallContextFactory
             ManifestLogging = original.ManifestLogging,
             AppManagedRunValues = original.AppManagedRunValues,
             Migrations = original.Migrations,
+            ServiceManager = original.ServiceManager,
         };
     }
 

@@ -65,6 +65,7 @@ internal sealed class WriteManifestStep : IInstallStepExecution
             TrackedItems = MergeTrackedItems(context),
             CompletedMigrations = MergeCompletedMigrations(context),
             AdoptedItems = MergeAdoptedItems(context),
+            Services = context.ManifestServices is { Count: > 0 } services ? services.ToList() : null,
             DeclaredCliFlags = context.ManifestCliFlags,
             Logging = context.ManifestLogging,
         };

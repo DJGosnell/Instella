@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Registry writes declared with `OnWindows(w => w.AddRegistryKey(...))` now run before the
+  installed manifest is written and the files are committed when an installer has no custom
+  steps. They used to run after the commit and after the app's upgrade program.
+
 ## [0.1.0] - 2026-09-27
 
 The first public release. Windows (x64, arm64, x86) is supported; Linux and macOS are

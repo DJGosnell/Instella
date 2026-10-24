@@ -74,6 +74,7 @@ internal sealed class InstallModeRunner
                 ProcessFinder = Services?.ProcessFinder,
                 AppLauncher = Services?.AppLauncher,
                 Programs = Services?.Programs,
+                Services = Services,
             };
             return await interactiveRunner.RunAsync(dispatch, ct);
         }
@@ -165,17 +166,11 @@ internal sealed class InstallModeRunner
                 payload = await ServerPayloadDownloader.DownloadAsync(_config, tempDownloadPath, _log, http, ct);
             }
             context.PayloadArchive = payload;
+            // A service install is refused before anything changes: a missing executable, a folder
+            // non-administrators can write, a same-named service this installation does not own.
+            await ServicePreflight.PrepareAsync(_config, context, Services, ct);
 
-            var builtIns = new List<IInstallStepExecution>(OfflineInstallRunner.BuildDefaultSteps());
-            if (_config.RegistryWrites.Count > 0)
-            {
-                // Slot the registry-writes step after the structural Register
-                // steps (shortcut/ARP stub/etc.) so the keys exist only after
-                // files are in place. Ordered before WriteManifest (Finalize),
-                // so a registry write failure still rolls back cleanly.
-                builtIns.Add(new WriteRegistrySpecsStep(_config.RegistryWrites));
-            }
-
+            var builtIns = BuiltInSteps.For(_config, existing);
             var steps = StepOrdering.BuildOrderedSteps(builtIns, _config.UserSteps, _config.MigrationsOrEmpty);
             // Silent: migrations close programs only with --force-close, as the upgrade gate does.
             context.Migrations = new Migrations.MigrationRuntime

@@ -42,4 +42,57 @@ internal static class WindowsCommandLine
         }
         return sb.Append('\\', backslashes * 2).Append('"').ToString();
     }
+
+    /// <summary>
+    /// Splits <paramref name="commandLine"/> into arguments as <c>CommandLineToArgvW</c> does for
+    /// everything after the program name: the inverse of <see cref="Join"/>.
+    /// </summary>
+    public static IReadOnlyList<string> Split(string commandLine)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        var args = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+        var hasArg = false;
+        for (var i = 0; i < commandLine.Length; i++)
+        {
+            var c = commandLine[i];
+            if (c == '\\')
+            {
+                var start = i;
+                while (i < commandLine.Length && commandLine[i] == '\\') i++;
+                var count = i - start;
+                if (i < commandLine.Length && commandLine[i] == '"')
+                {
+                    current.Append('\\', count / 2);
+                    if (count % 2 == 1) current.Append('"');
+                    else inQuotes = !inQuotes;
+                }
+                else
+                {
+                    current.Append('\\', count);
+                    i--;
+                }
+                hasArg = true;
+                continue;
+            }
+            if (c == '"')
+            {
+                inQuotes = !inQuotes;
+                hasArg = true;
+                continue;
+            }
+            if (!inQuotes && c is ' ' or '\t' or '\n' or '\v')
+            {
+                if (hasArg) args.Add(current.ToString());
+                current.Clear();
+                hasArg = false;
+                continue;
+            }
+            current.Append(c);
+            hasArg = true;
+        }
+        if (hasArg) args.Add(current.ToString());
+        return args;
+    }
 }

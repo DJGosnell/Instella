@@ -36,6 +36,7 @@ internal static class PreviewStepLists
     private static IReadOnlyList<IInstallStepExecution> BuildInstallSteps(FrozenConfig config)
     {
         var list = new List<IInstallStepExecution>(OfflineInstallRunner.BuildDefaultSteps());
+        BuiltInSteps.AddServiceSteps(list, config, existing: null);
         foreach (var user in config.UserSteps)
             list.Add(user);
         return Migrations.MigrationPipeline.Insert(list, config.MigrationsOrEmpty);

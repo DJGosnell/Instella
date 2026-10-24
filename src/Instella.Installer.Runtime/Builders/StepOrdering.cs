@@ -131,6 +131,23 @@ internal static class StepOrdering
             }
         }
 
+        // The services start right after the upgrade program, before every user Finalize step:
+        // a failed start must be able to roll everything back, and custom steps should see the
+        // services running. A step that is not a point of no return can still opt in to running
+        // earlier (while they are stopped) with Before("start-services").
+        if (index.TryGetValue(BuiltIn.ServiceStepNames.StartServices, out var start))
+        {
+            for (var i = 0; i < stageNodes.Count; i++)
+            {
+                if (stageNodes[i] is not StepSpec spec) continue;
+                var explicitBefore = spec.OrderingHints.Any(h => h.Kind == StepOrderingHintKind.BeforeStep
+                    && h.StepName is "write-manifest" or BuiltIn.CommitTransactionStep.StepName or BuiltIn.AppUpgradeStep.StepName
+                        or BuiltIn.ServiceStepNames.StartServices);
+                if (spec.IsPointOfNoReturn || !explicitBefore)
+                    edges[start].Add(i);
+            }
+        }
+
         // Layer explicit user hints on top. Because user specs do not
         // participate in the weak sequential edges, there is no reverse edge
         // to remove here — conflicting user hints (a.After(b) + b.After(a))

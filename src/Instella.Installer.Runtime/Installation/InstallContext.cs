@@ -130,6 +130,15 @@ public sealed class InstallContext
     /// <summary>Best-effort clean-ups (migration undo copies) the executor runs once the work before them is final: after success, or after a failure past a point of no return.</summary>
     internal List<Func<System.Threading.Tasks.Task>> CompletionActions { get; } = new();
 
+    /// <summary>
+    /// Creates, starts, stops and deletes the declared Windows services. Set by the install
+    /// runners when the installer declares services or the installation records some; null otherwise.
+    /// </summary>
+    internal IServiceManager? ServiceManager { get; set; }
+
+    /// <summary>The services <c>register-services</c> registered, for the installed manifest; null when it did not run.</summary>
+    internal List<ManifestService>? ManifestServices { get; set; }
+
     /// <summary>Ledger for tracked mutations. Covers files, directories, registry values/keys, and PATH entries.</summary>
     internal TrackingLedger Ledger { get; } = new();
 

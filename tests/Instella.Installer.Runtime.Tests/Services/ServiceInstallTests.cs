@@ -401,7 +401,7 @@ public class ServiceInstallTests
         Assert.That(await Install(v2), Is.EqualTo((int)InstellaExitCode.InstallServiceFailed));
 
         Assert.That(Live("App.exe"), Is.EqualTo("app 1.0"), "the files are rolled back");
-        Assert.That((await Manifest())!.Version, Is.EqualTo(new Version(1, 0)));
+        Assert.That((await Manifest())!.Version, Is.EqualTo(new Version(1, 0, 0)), "WithApp normalises 1.0 to 1.0.0");
         var svc = Scm.Find("App.Svc")!;
         Assert.That(svc.State, Is.EqualTo(FakeServiceState.Running), "the previous version runs again");
         Assert.That(svc.BinaryPath, Is.EqualTo(Binary("App.exe", "--service")), "the previous configuration is restored");
