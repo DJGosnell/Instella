@@ -154,3 +154,29 @@ static Instella.Core.Wire.UnpublishedReleaseSummary.operator !=(Instella.Core.Wi
 static Instella.Core.Wire.UnpublishedReleaseSummary.operator ==(Instella.Core.Wire.UnpublishedReleaseSummary? left, Instella.Core.Wire.UnpublishedReleaseSummary? right) -> bool
 Instella.Core.Installation.InstellaExitCode.InstallAppUpgradeFailed = 15 -> Instella.Core.Installation.InstellaExitCode
 Instella.Core.Installation.InstellaExitCode.UpdateAppUpgradeFailed = 25 -> Instella.Core.Installation.InstellaExitCode
+Instella.Core.Installation.InstalledManifest.Services.get -> System.Collections.Generic.IReadOnlyList<Instella.Core.Installation.ManifestService!>?
+Instella.Core.Installation.InstalledManifest.Services.init -> void
+Instella.Core.Installation.ManifestService
+Instella.Core.Installation.ManifestService.<Clone>$() -> Instella.Core.Installation.ManifestService!
+Instella.Core.Installation.ManifestService.AccountName.get -> string?
+Instella.Core.Installation.ManifestService.AccountName.init -> void
+Instella.Core.Installation.ManifestService.CreatedByInstella.get -> bool
+Instella.Core.Installation.ManifestService.CreatedByInstella.init -> void
+Instella.Core.Installation.ManifestService.Deconstruct(out string! Name, out string! ExecutablePath, out string? AccountName, out string! StartType, out bool CreatedByInstella) -> void
+Instella.Core.Installation.ManifestService.Equals(Instella.Core.Installation.ManifestService? other) -> bool
+Instella.Core.Installation.ManifestService.ExecutablePath.get -> string!
+Instella.Core.Installation.ManifestService.ExecutablePath.init -> void
+Instella.Core.Installation.ManifestService.ManifestService(string! Name, string! ExecutablePath, string? AccountName, string! StartType, bool CreatedByInstella) -> void
+Instella.Core.Installation.ManifestService.Name.get -> string!
+Instella.Core.Installation.ManifestService.Name.init -> void
+Instella.Core.Installation.ManifestService.StartType.get -> string!
+Instella.Core.Installation.ManifestService.StartType.init -> void
+const Instella.Core.Installation.ManifestService.Automatic = "automatic" -> string!
+const Instella.Core.Installation.ManifestService.AutomaticDelayed = "automatic-delayed" -> string!
+const Instella.Core.Installation.ManifestService.Disabled = "disabled" -> string!
+const Instella.Core.Installation.ManifestService.Manual = "manual" -> string!
+override Instella.Core.Installation.ManifestService.Equals(object? obj) -> bool
+override Instella.Core.Installation.ManifestService.GetHashCode() -> int
+override Instella.Core.Installation.ManifestService.ToString() -> string!
+static Instella.Core.Installation.ManifestService.operator !=(Instella.Core.Installation.ManifestService? left, Instella.Core.Installation.ManifestService? right) -> bool
+static Instella.Core.Installation.ManifestService.operator ==(Instella.Core.Installation.ManifestService? left, Instella.Core.Installation.ManifestService? right) -> bool

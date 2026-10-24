@@ -42,6 +42,9 @@ public sealed class FakePlatformServices : IPlatformServices
     /// <inheritdoc />
     public TargetPlatform Platform { get; }
 
+    /// <summary>The in-memory Windows service manager the harness gives the installer.</summary>
+    public FakeServiceManager ServiceManager { get; } = new();
+
     /// <summary>Shortcuts created, in order.</summary>
     public List<ShortcutInfo> Shortcuts { get; } = new();
     /// <summary>Shortcuts removed, in order.</summary>

@@ -90,7 +90,9 @@ internal class ProcessProgramRunnerTests
     public void AFileThatIsNotAProgram_CannotStart()
     {
         var file = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".exe");
-        File.WriteAllText(file, "not a program");
+        // Empty, not text: Windows runs a text file named .exe as a 16-bit image and shows a modal
+        // "Unsupported 16-Bit Application" box; an empty file fails with ERROR_BAD_EXE_FORMAT, no UI.
+        File.WriteAllBytes(file, []);
         try
         {
             Assert.ThrowsAsync<ProgramStartException>(() => ProcessProgramRunner.Instance.RunCapturedAsync(

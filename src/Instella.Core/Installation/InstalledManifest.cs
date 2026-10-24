@@ -131,6 +131,12 @@ public sealed record InstalledManifest
     public IReadOnlyList<ManifestAdoptedItem>? AdoptedItems { get; init; }
 
     /// <summary>
+    /// Windows services the installation registered or found already registered, with
+    /// <see cref="ManifestService.CreatedByInstella"/> telling them apart; null when it has none.
+    /// </summary>
+    public IReadOnlyList<ManifestService>? Services { get; init; }
+
+    /// <summary>
     /// Properties this version does not know, kept so a read–modify–write (the updater's
     /// manifest refresh) never drops a field a newer installer wrote: a stub is never replaced,
     /// so it meets manifests from later 1.x installers (docs/compatibility.md).
@@ -169,6 +175,29 @@ public sealed record ManifestAdoptedItem(string Kind, string Name, bool PerUser,
 
     /// <summary>The source of a value declared with <c>WithAppManagedAutoStart</c>.</summary>
     public const string AppManaged = "app-managed";
+}
+
+/// <summary>A Windows service an installation registered, persisted inside <c>.instella-manifest.json</c>.</summary>
+/// <param name="Name">The service (key) name.</param>
+/// <param name="ExecutablePath">The service executable, relative to the install directory.</param>
+/// <param name="AccountName">The account it runs as; null for LocalSystem.</param>
+/// <param name="StartType"><see cref="Automatic"/>, <see cref="AutomaticDelayed"/>, <see cref="Manual"/> or
+/// <see cref="Disabled"/>; readers skip values they do not know.</param>
+/// <param name="CreatedByInstella">True when the install created the service (uninstall deletes it);
+/// false when it already existed.</param>
+public sealed record ManifestService(string Name, string ExecutablePath, string? AccountName, string StartType, bool CreatedByInstella)
+{
+    /// <summary>Starts at boot.</summary>
+    public const string Automatic = "automatic";
+
+    /// <summary>Starts shortly after boot.</summary>
+    public const string AutomaticDelayed = "automatic-delayed";
+
+    /// <summary>Starts on demand.</summary>
+    public const string Manual = "manual";
+
+    /// <summary>Never starts.</summary>
+    public const string Disabled = "disabled";
 }
 
 /// <summary>A mutation a custom step tracked, replayed in reverse by uninstall.</summary>
@@ -277,6 +306,7 @@ internal sealed class InstallManifestWriter
 [JsonSerializable(typeof(ManifestRegistryEntry))]
 [JsonSerializable(typeof(ManifestTrackedItem))]
 [JsonSerializable(typeof(ManifestAdoptedItem))]
+[JsonSerializable(typeof(ManifestService))]
 [JsonSerializable(typeof(ManifestCliFlag))]
 [JsonSerializable(typeof(ManifestLoggingConfig))]
 [JsonSerializable(typeof(PublisherKey))]

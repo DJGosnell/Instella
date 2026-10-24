@@ -678,6 +678,8 @@ methods above. `InstallContext` has an internal constructor; tests get one from
   trackedItems(ManifestTrackedItem{kind,path,recursive,hive,valueName}),
   completedMigrations?(string[], sorted ids of run-once migrations that succeeded),
   adoptedItems?(ManifestAdoptedItem{kind:"run-value",name,perUser,source: migration id | "app-managed"}),
+  services?(ManifestService{name,executablePath (relative to the install dir),accountName?,startType:
+  "automatic"|"automatic-delayed"|"manual"|"disabled",createdByInstella}),
   declaredCliFlags(ManifestCliFlag{name,typeName,mapsTo}),
   logging(ManifestLoggingConfig{defaultLevel,fileSinkPath,retainCount})`. `trustedKeys` is copied
   from the build manifest's `PublisherKeys` on a first install or a newer-version installer; a
@@ -1075,6 +1077,19 @@ process enum/terminate, and registry write/delete (no-op off Windows). Operation
 Enums: `TargetPlatform{Windows=1,Linux=2,MacOS=3}`, `Architecture{X64,X86,ARM64,ARM32}`,
 `RegistryHive`, `InstellaRegistryValueKind`. Windows uses direct vtable dispatch via
 `delegate* unmanaged[Stdcall]` (not `[ComImport]`, which silently fails under NativeAOT).
+
+Windows services sit behind a separate internal seam, `IServiceManager` (`Core/Platform/`; not on
+`IPlatformServices`): create / change-config (each taking a `char[]? password` that is all `'\0'`
+when the call returns), query config / status, start / stop (poll to the state with a hard timeout;
+stop stops running dependents first) and delete. Results are `ServiceResult` / `ServiceResult<T>`
+(`PlatformResult Outcome`, `ServiceFailure` NotFound/AccessDenied/MarkedForDeletion/AlreadyExists/
+Timeout/NotSupported/Failed, `NativeError`). `ServiceManagerFactory.Create()` gives
+`WindowsServiceManager` (advapi32 `[LibraryImport]`, least SCM rights per call, so queries need no
+elevation) on Windows and `UnsupportedServiceManager` (fails every call naming the platform) elsewhere.
+The image path is always `"exe"` quoted plus `WindowsCommandLine.Join(args)` (`ServiceBinaryPath`).
+`InstallerServices.ServiceManager` injects it; the harness passes `FakePlatformServices.ServiceManager`
+(`FakeServiceManager`: in-memory state machine, `SetStart/StopBehavior(name, Succeed|Fail|Hang)`,
+`DenyAccess`, `Calls`, `Services`/`Find`). No runner uses it yet.
 
 ## Preview mode (opt-in)
 

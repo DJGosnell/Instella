@@ -112,3 +112,54 @@ static Instella.Installer.Testing.ProgramOutcome.Exit(int exitCode, params strin
 static Instella.Installer.Testing.ProgramOutcome.TimeOut() -> Instella.Installer.Testing.ProgramOutcome!
 static Instella.Installer.Testing.ProgramRun.operator !=(Instella.Installer.Testing.ProgramRun? left, Instella.Installer.Testing.ProgramRun? right) -> bool
 static Instella.Installer.Testing.ProgramRun.operator ==(Instella.Installer.Testing.ProgramRun? left, Instella.Installer.Testing.ProgramRun? right) -> bool
+Instella.Installer.Testing.FakePlatformServices.ServiceManager.get -> Instella.Installer.Testing.FakeServiceManager!
+Instella.Installer.Testing.FakeService
+Instella.Installer.Testing.FakeService.<Clone>$() -> Instella.Installer.Testing.FakeService!
+Instella.Installer.Testing.FakeService.AccountName.get -> string?
+Instella.Installer.Testing.FakeService.AccountName.init -> void
+Instella.Installer.Testing.FakeService.BinaryPath.get -> string!
+Instella.Installer.Testing.FakeService.BinaryPath.init -> void
+Instella.Installer.Testing.FakeService.Deconstruct(out string! Name, out string! DisplayName, out string? Description, out string! BinaryPath, out string! StartType, out string? AccountName, out bool PasswordSupplied, out System.Collections.Generic.IReadOnlyList<string!>! Dependencies, out Instella.Installer.Testing.FakeServiceState State, out int ProcessId, out bool MarkedForDeletion) -> void
+Instella.Installer.Testing.FakeService.Dependencies.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.FakeService.Dependencies.init -> void
+Instella.Installer.Testing.FakeService.Description.get -> string?
+Instella.Installer.Testing.FakeService.Description.init -> void
+Instella.Installer.Testing.FakeService.DisplayName.get -> string!
+Instella.Installer.Testing.FakeService.DisplayName.init -> void
+Instella.Installer.Testing.FakeService.Equals(Instella.Installer.Testing.FakeService? other) -> bool
+Instella.Installer.Testing.FakeService.FakeService(string! Name, string! DisplayName, string? Description, string! BinaryPath, string! StartType, string? AccountName, bool PasswordSupplied, System.Collections.Generic.IReadOnlyList<string!>! Dependencies, Instella.Installer.Testing.FakeServiceState State, int ProcessId, bool MarkedForDeletion) -> void
+Instella.Installer.Testing.FakeService.MarkedForDeletion.get -> bool
+Instella.Installer.Testing.FakeService.MarkedForDeletion.init -> void
+Instella.Installer.Testing.FakeService.Name.get -> string!
+Instella.Installer.Testing.FakeService.Name.init -> void
+Instella.Installer.Testing.FakeService.PasswordSupplied.get -> bool
+Instella.Installer.Testing.FakeService.PasswordSupplied.init -> void
+Instella.Installer.Testing.FakeService.ProcessId.get -> int
+Instella.Installer.Testing.FakeService.ProcessId.init -> void
+Instella.Installer.Testing.FakeService.StartType.get -> string!
+Instella.Installer.Testing.FakeService.StartType.init -> void
+Instella.Installer.Testing.FakeService.State.get -> Instella.Installer.Testing.FakeServiceState
+Instella.Installer.Testing.FakeService.State.init -> void
+Instella.Installer.Testing.FakeServiceBehavior
+Instella.Installer.Testing.FakeServiceBehavior.Fail = 1 -> Instella.Installer.Testing.FakeServiceBehavior
+Instella.Installer.Testing.FakeServiceBehavior.Hang = 2 -> Instella.Installer.Testing.FakeServiceBehavior
+Instella.Installer.Testing.FakeServiceBehavior.Succeed = 0 -> Instella.Installer.Testing.FakeServiceBehavior
+Instella.Installer.Testing.FakeServiceManager
+Instella.Installer.Testing.FakeServiceManager.Calls.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Instella.Installer.Testing.FakeServiceManager.DenyAccess.get -> bool
+Instella.Installer.Testing.FakeServiceManager.DenyAccess.set -> void
+Instella.Installer.Testing.FakeServiceManager.FakeServiceManager() -> void
+Instella.Installer.Testing.FakeServiceManager.Find(string! name) -> Instella.Installer.Testing.FakeService?
+Instella.Installer.Testing.FakeServiceManager.Services.get -> System.Collections.Generic.IReadOnlyList<Instella.Installer.Testing.FakeService!>!
+Instella.Installer.Testing.FakeServiceManager.SetStartBehavior(string! name, Instella.Installer.Testing.FakeServiceBehavior behavior) -> void
+Instella.Installer.Testing.FakeServiceManager.SetStopBehavior(string! name, Instella.Installer.Testing.FakeServiceBehavior behavior) -> void
+Instella.Installer.Testing.FakeServiceState
+Instella.Installer.Testing.FakeServiceState.Running = 2 -> Instella.Installer.Testing.FakeServiceState
+Instella.Installer.Testing.FakeServiceState.StartPending = 1 -> Instella.Installer.Testing.FakeServiceState
+Instella.Installer.Testing.FakeServiceState.StopPending = 3 -> Instella.Installer.Testing.FakeServiceState
+Instella.Installer.Testing.FakeServiceState.Stopped = 0 -> Instella.Installer.Testing.FakeServiceState
+override Instella.Installer.Testing.FakeService.Equals(object? obj) -> bool
+override Instella.Installer.Testing.FakeService.GetHashCode() -> int
+override Instella.Installer.Testing.FakeService.ToString() -> string!
+static Instella.Installer.Testing.FakeService.operator !=(Instella.Installer.Testing.FakeService? left, Instella.Installer.Testing.FakeService? right) -> bool
+static Instella.Installer.Testing.FakeService.operator ==(Instella.Installer.Testing.FakeService? left, Instella.Installer.Testing.FakeService? right) -> bool
